@@ -8,7 +8,4 @@
         <Version>1.4.1.0</Version>
     </PropertyGroup>
 
-    <ItemGroup>
-      <ProjectReference Include="..\UIExpansionKit\UIExpansionKit.csproj" />
-    </ItemGroup>
 </Project>
