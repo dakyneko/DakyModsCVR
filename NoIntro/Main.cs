@@ -1,15 +1,10 @@
 ﻿using HarmonyLib;
 using MelonLoader;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using UnityEngine;
+using SkipIntro = ABI_RC.Core.Savior.SkipIntro;
+using RefFlags = System.Reflection.BindingFlags;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
 [assembly:MelonInfo(typeof(NoIntro.NoIntroMod), "NoIntro", "1.0.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
-
 
 namespace NoIntro
 {
@@ -17,7 +12,16 @@ namespace NoIntro
     {
         public override void OnApplicationStart()
         {
-            MelonLogger.Msg($"Hello mod!");
+            // Thank you DragonPlayer for your help ;)
+            HarmonyInstance.Patch(
+                typeof(SkipIntro).GetMethod(nameof(SkipIntro.Start),  RefFlags.Instance | RefFlags.NonPublic),
+                new HarmonyMethod(AccessTools.Method(typeof(NoIntroMod), nameof(OnStart))));
+        }
+
+        private static bool OnStart(SkipIntro __instance)
+        {
+            __instance.StartCoroutine(__instance.Skip());
+            return false;
         }
     }
 }
