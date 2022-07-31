@@ -14,7 +14,6 @@ using System.Text;
 using HarmonyLib;
 using LagFreeScreenshots;
 using MelonLoader;
-using UIExpansionKit.API;
 using UnhollowerRuntimeLib.XrefScans;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -72,28 +71,10 @@ namespace LagFreeScreenshots
             ourCustomResolutionX = category.CreateEntry(SettingCustomResolutionX, 1920, "Custom screenshot resolution (X)");
             ourCustomResolutionY = category.CreateEntry(SettingCustomResolutionY, 1080, "Custom screenshot resolution (Y)");
             
-            if (!MelonHandler.Mods.Any(it => it.Info.Name == "UI Expansion Kit" && it.Assembly.GetName().Version >= new Version(0, 2, 6)))
-            {
-                MelonLogger.Error("UI Expansion Kit is not found. Lag Free Screenshots will not work.");
-                return;
-            }
-
             HarmonyInstance.Patch(
                 typeof(CameraTakePhotoEnumerator).GetMethod("MoveNext"),
                 new HarmonyMethod(AccessTools.Method(typeof(LagFreeScreenshotsMod), nameof(MoveNextPatchAsyncReadback))));
 
-            AddEnumSettings();
-        }
-
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void AddEnumSettings()
-        {
-            ExpansionKitApi.RegisterSettingAsStringEnum(SettingsCategory, SettingScreenshotFormat,
-                new []{("png", "PNG"), ("jpeg", "JPEG"), ("auto", "Auto")});
-            var updaterX = ExpansionKitApi.RegisterSettingsVisibilityCallback(SettingsCategory, SettingCustomResolutionX, () => ourResolution.Value == PresetScreenshotSizes.Custom);
-            var updaterY = ExpansionKitApi.RegisterSettingsVisibilityCallback(SettingsCategory, SettingCustomResolutionY, () => ourResolution.Value == PresetScreenshotSizes.Custom);
-            ourResolution.OnValueChangedUntyped += updaterX;
-            ourResolution.OnValueChangedUntyped += updaterY;
         }
 
         private static ScreenshotRotation GetPictureAutorotation(Camera camera)
