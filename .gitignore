@@ -1,0 +1,10 @@
+.vs
+.idea/
+bin/
+obj/
+/packages
+ManagedLibs/*.dll
+ManagedLibs/*.db
+*.user
+/Output
+IKTweaks/FinalIK
