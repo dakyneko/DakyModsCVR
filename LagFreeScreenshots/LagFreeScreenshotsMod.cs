@@ -23,6 +23,7 @@ using MetaPort = ABI_RC.Core.Savior.MetaPort;
 using PortableCamera = ABI_RC.Systems.Camera.PortableCamera;
 using RefFlags = System.Reflection.BindingFlags;
 using SchedulerSystem = ABI_RC.Core.IO.SchedulerSystem;
+using Events = ABI_RC.Systems.Camera.Events;
 
 // using CameraUtil = ObjectPublicCaSiVeUnique;
 
@@ -97,6 +98,32 @@ namespace LagFreeScreenshots
             return ScreenshotRotation.NoRotation;
         }
 
+        private static MulticastDelegate preImageTaken = null;
+        private static MulticastDelegate postImageTaken = null;
+
+        private static void CVRPreImageTaken(PortableCamera __instance)
+        {
+            // CVR pre-capture preparations: shutter future stop
+            SchedulerSystem.RemoveJob(new SchedulerSystem.Job(__instance.DisableShutterPlayer));
+
+            // and raise event
+            preImageTaken ??= (MulticastDelegate)typeof(PortableCamera).GetField(nameof(PortableCamera.PreImageTaken)).GetValue(null);
+            preImageTaken?.GetInvocationList().Do(f => f.Method.Invoke(f.Target, new object[] { __instance, new Events.PreImageTakenEventArgs() }));
+        }
+
+        private static void CVRPostImageTaken(PortableCamera __instance)
+        {
+            // CVR post-capture shutter effect and raise event
+            __instance._videoPlayer.enabled = true;
+            __instance._videoPlayer.time = 0.0;
+            __instance._videoPlayer.Play();
+            SchedulerSystem.AddJob(new SchedulerSystem.Job(__instance.DisableShutterPlayer), 1f, 0.0f, 1);
+
+            // and raise event
+            postImageTaken ??= (MulticastDelegate)typeof(PortableCamera).GetField(nameof(PortableCamera.PostImageTaken)).GetValue(null);
+            postImageTaken?.GetInvocationList().Do(f => f.Method.Invoke(f.Target, new object[] { __instance, new Events.PostImageTakenEventArgs() }));
+        }
+
         private static bool OnCapture(PortableCamera __instance) {
             MelonLogger.Msg($"OnCapture: __instance={__instance} {__instance._camera} {__instance.processingTexture}");
 
@@ -114,19 +141,14 @@ namespace LagFreeScreenshots
             if (resFromOption.HasValue)
                 (resX, resY) = resFromOption.Value;
 
-            // CVR preparation stuff
-            // TODO: look at PortableCamera.Capture(), remove old shutter job, etc
+            CVRPreImageTaken(__instance);
 
             TakeScreenshot(camera, resX, resY, hasAlpha).ContinueWith(t =>
             {
-            if (t.IsFaulted)
-                MelonLogger.Warning($"Free-floating task failed with exception: {t.Exception}");
+                if (t.IsFaulted)
+                    MelonLogger.Warning($"Free-floating task failed with exception: {t.Exception}");
 
-                __instance._videoPlayer.enabled = true;
-                __instance._videoPlayer.time = 0.0;
-                __instance._videoPlayer.Play();
-                SchedulerSystem.AddJob(new SchedulerSystem.Job(__instance.DisableShutterPlayer), 1f, 0.0f, 1);
-
+                CVRPostImageTaken(__instance);
             });
             return false;
         }
