@@ -24,6 +24,7 @@ using PortableCamera = ABI_RC.Systems.Camera.PortableCamera;
 using RefFlags = System.Reflection.BindingFlags;
 using SchedulerSystem = ABI_RC.Core.IO.SchedulerSystem;
 using Events = ABI_RC.Systems.Camera.Events;
+using AudioEffects = ABI_RC.Core.AudioEffects;
 
 // using CameraUtil = ObjectPublicCaSiVeUnique;
 
@@ -107,7 +108,7 @@ namespace LagFreeScreenshots
             SchedulerSystem.RemoveJob(new SchedulerSystem.Job(__instance.DisableShutterPlayer));
 
             // and raise event
-            preImageTaken ??= (MulticastDelegate)typeof(PortableCamera).GetField(nameof(PortableCamera.PreImageTaken)).GetValue(null);
+            preImageTaken ??= (MulticastDelegate)typeof(PortableCamera).GetField(nameof(PortableCamera.PreImageTaken), RefFlags.Static | RefFlags.NonPublic).GetValue(null);
             preImageTaken?.GetInvocationList().Do(f => f.Method.Invoke(f.Target, new object[] { __instance, new Events.PreImageTakenEventArgs() }));
         }
 
@@ -118,9 +119,10 @@ namespace LagFreeScreenshots
             __instance._videoPlayer.time = 0.0;
             __instance._videoPlayer.Play();
             SchedulerSystem.AddJob(new SchedulerSystem.Job(__instance.DisableShutterPlayer), 1f, 0.0f, 1);
+            AudioEffects.InterfaceAudio.Play(AudioEffects.AudioClipField.CameraShutter);
 
             // and raise event
-            postImageTaken ??= (MulticastDelegate)typeof(PortableCamera).GetField(nameof(PortableCamera.PostImageTaken)).GetValue(null);
+            postImageTaken ??= (MulticastDelegate)typeof(PortableCamera).GetField(nameof(PortableCamera.PostImageTaken), RefFlags.Static | RefFlags.NonPublic ).GetValue(null);
             postImageTaken?.GetInvocationList().Do(f => f.Method.Invoke(f.Target, new object[] { __instance, new Events.PostImageTakenEventArgs() }));
         }
 
