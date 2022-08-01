@@ -1,7 +1,5 @@
 #nullable enable
 
-using System;
-
 namespace LagFreeScreenshots.API
 {
     public static class LfsApi

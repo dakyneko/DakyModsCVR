@@ -38,7 +38,7 @@ namespace LagFreeScreenshots.API
                 positionString = $"{FormatNumber(pos.x)},{FormatNumber(pos.y)},{FormatNumber(pos.z)}";
             }
 
-            return "lfs|2|author:"
+            return "lfs|cvr|1|author:"
                 + authorString
                 + "|world:" + worldString
                 + "|pos:" + positionString
@@ -57,8 +57,8 @@ namespace LagFreeScreenshots.API
         {
             var localPosition = camera.transform.position;
 
-            // TODO: check this only contain player in current instance
             // TODO: this won't include current user, is that OK?
+            // TODO: this can be improved a lot (can miss people)
             var result = MetaPort.Instance.PlayerManager.NetworkPlayers.FindAll(p =>
             {
                 var avatarRoot = p.PlayerObject.transform;

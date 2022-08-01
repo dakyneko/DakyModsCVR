@@ -3,8 +3,6 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
-using System.Linq;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Threading;
@@ -16,7 +14,6 @@ using MelonLoader;
 using UnityEngine;
 using UnityEngine.Rendering;
 using Object = UnityEngine.Object;
-using System.Collections.Generic;
 using LagFreeScreenshots.API;
 
 using MetaPort = ABI_RC.Core.Savior.MetaPort;
