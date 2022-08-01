@@ -192,13 +192,10 @@ namespace LagFreeScreenshots
 
             return (int) maxMsaa;
         }
-        
-        public static async Task TakeScreenshot(Camera camera, int w, int h, bool hasAlpha)
+
+        public static RenderTexture PrepareCameraAndRender(Camera camera, int w, int h)
         {
-            await TaskUtilities.YieldToFrameEnd();
-
-            MelonLogger.Msg($"TakeScreenshot {camera} {w}x{h} {hasAlpha}");
-
+            // keep the camera setup so we can later restore them (we need to change them a bit temporarily)
             var oldCameraTarget = camera.targetTexture;
             var oldCameraFov = camera.fieldOfView;
             var oldAllowMsaa = camera.allowMSAA;
@@ -207,10 +204,9 @@ namespace LagFreeScreenshots
             // make screenshot upside up by rotating camera just for the rendering
             var t = camera.transform;
             Quaternion? camOrigRot = null;
-            ScreenshotRotation shotRotation = ScreenshotRotation.AutoRotationDisabled;
             if (ourAutorotation.Value)
             {
-                shotRotation = GetPictureAutorotation(camera);
+                var shotRotation = GetPictureAutorotation(camera);
                 var inverseAngle = shotRotation switch
                 {
                     // we need to also compensate for upside-down texture rendering (later below)
@@ -235,7 +231,6 @@ namespace LagFreeScreenshots
                 }
             }
 
-            // var renderTexture = RenderTexture.GetTemporary(w, h, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default, 8);
             var renderTexture = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default);
             var maxMsaa = MaxMsaaCount(w, h);
             renderTexture.antiAliasing = maxMsaa;
@@ -248,6 +243,7 @@ namespace LagFreeScreenshots
             
             camera.Render();
 
+            // restore the camera as it was: previous settings
             if (camOrigRot != null)
                 t.rotation = camOrigRot.Value; // restore
 
@@ -255,15 +251,14 @@ namespace LagFreeScreenshots
             camera.fieldOfView = oldCameraFov;
             camera.allowMSAA = oldAllowMsaa;
             QualitySettings.antiAliasing = oldGraphicsMsaa;
-            
-            renderTexture.ResolveAntiAliasedSurface();
-            LfsApi.InvokeScreenshotTexture(renderTexture);
 
-            MelonLogger.Msg($"TakeScreenshot image read");
+            return renderTexture;
+        }
 
+        async public static Task<(IntPtr, int)> CopyTextureBackToMainMemory(RenderTexture renderTexture, int w, int h, bool hasAlpha) {
             (IntPtr, int) data = default;
-            var readbackSupported = SystemInfo.supportsAsyncGPUReadback;
-            if (readbackSupported)
+
+            if (SystemInfo.supportsAsyncGPUReadback)
             {
                 MelonLogger.Msg($"TakeScreenshot image read GPU");
                 
@@ -286,7 +281,7 @@ namespace LagFreeScreenshots
                 if (data.Item1 == IntPtr.Zero)
                 {
                     MelonDebug.Msg("Data was null after request was done, waiting more");
-                    await TaskUtilities.YieldToMainThread(); // TODO
+                    await TaskUtilities.YieldToMainThread();
                 }
             }
             else
@@ -308,6 +303,24 @@ namespace LagFreeScreenshots
                     Object.Destroy(newTexture);
                 }
             }
+
+            return data;
+        }
+
+        public static async Task TakeScreenshot(Camera camera, int w, int h, bool hasAlpha)
+        {
+            await TaskUtilities.YieldToFrameEnd();
+
+            MelonLogger.Msg($"TakeScreenshot {camera} {w}x{h} {hasAlpha}");
+
+            var renderTexture = PrepareCameraAndRender(camera, w, h);
+            
+            renderTexture.ResolveAntiAliasedSurface();
+            LfsApi.InvokeScreenshotTexture(renderTexture);
+
+            MelonLogger.Msg($"TakeScreenshot image read");
+
+            var data = await CopyTextureBackToMainMemory(renderTexture, w, h, hasAlpha);
 
             MelonLogger.Msg($"TakeScreenshot read done");
             
