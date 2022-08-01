@@ -143,7 +143,8 @@ namespace LagFreeScreenshots
 
             CVRPreImageTaken(__instance);
 
-            TakeScreenshot(camera, resX, resY, hasAlpha).ContinueWith(t =>
+            var settings = new ImageSettings { Width = resX, Height = resY, HasAlpha = hasAlpha };
+            TakeScreenshot(camera, settings).ContinueWith(t =>
             {
                 if (t.IsFaulted)
                     MelonLogger.Warning($"Free-floating task failed with exception: {t.Exception}");
@@ -193,8 +194,11 @@ namespace LagFreeScreenshots
             return (int) maxMsaa;
         }
 
-        public static RenderTexture PrepareCameraAndRender(Camera camera, int w, int h)
+        public static RenderTexture PrepareCameraAndRender(Camera camera, ImageSettings settings)
         {
+            var w = settings.Width;
+            var h = settings.Height;
+
             // keep the camera setup so we can later restore them (we need to change them a bit temporarily)
             var oldCameraTarget = camera.targetTexture;
             var oldCameraFov = camera.fieldOfView;
@@ -255,7 +259,7 @@ namespace LagFreeScreenshots
             return renderTexture;
         }
 
-        async public static Task<(IntPtr, int)> CopyTextureBackToMainMemory(RenderTexture renderTexture, int w, int h, bool hasAlpha) {
+        async public static Task<(IntPtr, int)> CopyTextureBackToMainMemory(RenderTexture renderTexture, ImageSettings settings) {
             (IntPtr, int) data = default;
 
             if (SystemInfo.supportsAsyncGPUReadback)
@@ -263,10 +267,11 @@ namespace LagFreeScreenshots
                 MelonLogger.Msg($"TakeScreenshot image read GPU");
                 
                 var stopwatch = Stopwatch.StartNew();
-                var request = AsyncGPUReadback.Request(renderTexture, 0, hasAlpha ? TextureFormat.ARGB32 : TextureFormat.RGB24, new Action<AsyncGPUReadbackRequest>(r =>
+                var request = AsyncGPUReadback.Request(renderTexture, 0,
+                    settings.HasAlpha ? TextureFormat.ARGB32 : TextureFormat.RGB24, new Action<AsyncGPUReadbackRequest>(r =>
                 {
                     if (r.hasError)
-                        MelonLogger.Warning("Readback request finished with error (w)");
+                        MelonLogger.Warning("Readback request finished with error (start)");
                     
                     data = ToBytes(r.GetDataRaw(0), r.GetLayerDataSize());
                     MelonDebug.Msg($"Bytes readback took total {stopwatch.ElapsedMilliseconds}");
@@ -276,7 +281,7 @@ namespace LagFreeScreenshots
                     await TaskUtilities.YieldToMainThread();
 
                 if (request.hasError)
-                    MelonLogger.Warning("Readback request finished with error");
+                    MelonLogger.Warning("Readback request finished with error (in loop)");
                 
                 if (data.Item1 == IntPtr.Zero)
                 {
@@ -289,7 +294,11 @@ namespace LagFreeScreenshots
                 unsafe
                 {
                     MelonLogger.Msg("Does not support readback, using fallback texture read method");
-                
+
+                    var hasAlpha = settings.HasAlpha;
+                    var w = settings.Width;
+                    var h = settings.Height;
+
                     RenderTexture.active = renderTexture;
                     var newTexture = new Texture2D(w, h, hasAlpha ? TextureFormat.ARGB32 : TextureFormat.RGB24, false);
                     newTexture.ReadPixels(new Rect(0, 0, w, h), 0, 0);
@@ -307,39 +316,40 @@ namespace LagFreeScreenshots
             return data;
         }
 
-        public static async Task TakeScreenshot(Camera camera, int w, int h, bool hasAlpha)
+        public static async Task TakeScreenshot(Camera camera, ImageSettings settings)
         {
             await TaskUtilities.YieldToFrameEnd();
 
-            MelonLogger.Msg($"TakeScreenshot {camera} {w}x{h} {hasAlpha}");
+            MelonLogger.Msg($"TakeScreenshot {camera} {settings.Width}x{settings.Height} {settings.HasAlpha}");
 
-            var renderTexture = PrepareCameraAndRender(camera, w, h);
+            var renderTexture = PrepareCameraAndRender(camera, settings);
             
             renderTexture.ResolveAntiAliasedSurface();
             LfsApi.InvokeScreenshotTexture(renderTexture);
 
             MelonLogger.Msg($"TakeScreenshot image read");
 
-            var data = await CopyTextureBackToMainMemory(renderTexture, w, h, hasAlpha);
+            var data = await CopyTextureBackToMainMemory(renderTexture, settings);
 
             MelonLogger.Msg($"TakeScreenshot read done");
             
             renderTexture.Release();
             Object.Destroy(renderTexture);
 
-            var targetFile = GetPath();
-            var targetDir = Path.GetDirectoryName(targetFile);
-            if (!Directory.Exists(targetDir))
-                Directory.CreateDirectory(targetDir);
+            var getPath = LfsApi.MakeScreenshotFilePath ?? GetPath;
+            var targetFile = getPath(settings);
 
-            MetadataV2 metadata = null;
+            // recursively create all directory if required
+            var targetDir = Path.GetDirectoryName(targetFile);
+            Directory.CreateDirectory(targetDir); // won't fail if exists already
+
             var rotationQuarters = ScreenshotRotation.AutoRotationDisabled;
-            
             if (ourAutorotation.Value) 
                 rotationQuarters = GetPictureAutorotation(camera);
 
             MelonLogger.Msg($"TakeScreenshot metadata");
 
+            MetadataV2 metadata = null;
             MetaPort metaport;
             GameObject localPlayerObject;
             if (ourMetadata.Value 
@@ -365,7 +375,7 @@ namespace LagFreeScreenshots
                 );
             }
 
-            await EncodeAndSavePicture(targetFile, data, w, h, hasAlpha, rotationQuarters, metadata)
+            await EncodeAndSavePicture(targetFile, data, settings, rotationQuarters, metadata)
                 .ConfigureAwait(false);
         }
         
@@ -392,8 +402,8 @@ namespace LagFreeScreenshots
             return null;
         }
 
-        private static async Task EncodeAndSavePicture(string filePath, (IntPtr, int Length) pixelsPair, int w, int h,
-            bool hasAlpha, ScreenshotRotation rotationQuarters, MetadataV2 metadata)
+        private static async Task EncodeAndSavePicture(string filePath, (IntPtr, int Length) pixelsPair,
+            ImageSettings settings, ScreenshotRotation rotationQuarters, MetadataV2 metadata)
         {
             if (pixelsPair.Item1 == IntPtr.Zero) return;
             
@@ -404,6 +414,10 @@ namespace LagFreeScreenshots
             
             if (Thread.CurrentThread == ourMainThread)
                 MelonLogger.Error("Image encode is executed on main thread - it's a bug!");
+
+            var hasAlpha = settings.HasAlpha;
+            var w = settings.Width;
+            var h = settings.Height;
 
             var pixelFormat = hasAlpha ? PixelFormat.Format32bppArgb : PixelFormat.Format24bppRgb;
             using var bitmap = new Bitmap(w, h, pixelFormat);
@@ -472,11 +486,12 @@ namespace LagFreeScreenshots
                 {
                     Param = {[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, ourJpegPercent.Value)}
                 };
-                filePath = Path.ChangeExtension(filePath, ".jpeg");
+                filePath = Path.ChangeExtension(filePath, ".jpg");
                 bitmap.Save(filePath, encoder, parameters);
             }
             else
             {
+                filePath = Path.ChangeExtension(filePath, ".png");
                 bitmap.Save(filePath, ImageFormat.Png);
                 if (description != null)
                 {
@@ -504,14 +519,23 @@ namespace LagFreeScreenshots
             await Task.Delay(1).ConfigureAwait(false);
         }
 
-        // TODO: allow other mods to customize the path
-        static string GetPath()
+        public static string GetPath(ImageSettings settings)
         {
-            var picDir = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
             var dateStr = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss.fff");
-            var folderStr = DateTime.Now.ToString("yyyy-MM");
-            return picDir + @"\ChilloutVR\"+ folderStr +@"\ChilloutVR_" + $"{dateStr}.jpg";
+            return string.Join(@"\", new string[] {
+                Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
+                "ChilloutVR",
+                DateTime.Now.ToString("yyyy"),
+                DateTime.Now.ToString("MM"),
+                $"ChilloutVR-{dateStr}.jpg" });
         }
+    }
+
+    public struct ImageSettings
+    {
+        public int Width;
+        public int Height;
+        public bool HasAlpha;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 0)]

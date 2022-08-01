@@ -1,9 +1,18 @@
 #nullable enable
 
+using System;
+
 namespace LagFreeScreenshots.API
 {
     public static class LfsApi
     {
+        /// <summary>
+        /// Called to generate the image filepath where the screenshot will be written
+        /// Note: Use .png as the file extension as it will be replaced by LFS
+        /// </summary>
+        public static MakeScreenshotFilePathType? MakeScreenshotFilePath;
+        public delegate string MakeScreenshotFilePathType(ImageSettings settings);
+
         /// <summary>
         /// Called after a screenshot is taken and written to disk
         /// </summary>
