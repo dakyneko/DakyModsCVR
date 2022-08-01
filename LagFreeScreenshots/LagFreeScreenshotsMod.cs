@@ -3,9 +3,6 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Threading;
@@ -14,22 +11,23 @@ using System.Text;
 using HarmonyLib;
 using LagFreeScreenshots;
 using MelonLoader;
-using UnhollowerRuntimeLib.XrefScans;
 using UnityEngine;
 using UnityEngine.Rendering;
-using VRC.UserCamera;
-using VRC.Core;
-using VRC;
 using Object = UnityEngine.Object;
-using CameraTakePhotoEnumerator = VRC.UserCamera.CameraUtil._TakeScreenShot_d__5;
-using System.Collections.Generic;
 using LagFreeScreenshots.API;
-using Unity.Collections.LowLevel.Unsafe;
+
+using PlayerSetup = ABI_RC.Core.Player.PlayerSetup;
+using MetaPort = ABI_RC.Core.Savior.MetaPort;
+using PortableCamera = ABI_RC.Systems.Camera.PortableCamera;
+using RefFlags = System.Reflection.BindingFlags;
+using SchedulerSystem = ABI_RC.Core.IO.SchedulerSystem;
+using Events = ABI_RC.Systems.Camera.Events;
+using AudioEffects = ABI_RC.Core.AudioEffects;
 
 // using CameraUtil = ObjectPublicCaSiVeUnique;
 
-[assembly:MelonInfo(typeof(LagFreeScreenshotsMod), "Lag Free Screenshots", "1.4.1", "knah, Protected", "https://github.com/knah/VRCMods")]
-[assembly:MelonGame("VRChat", "VRChat")]
+[assembly:MelonInfo(typeof(LagFreeScreenshotsMod), "Lag Free Screenshots", "2.0.0", "knah + Daky, Protected", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
 
 namespace LagFreeScreenshots
 {
@@ -57,9 +55,12 @@ namespace LagFreeScreenshots
         private static MelonPreferences_Entry<int> ourRecommendedMaxFb;
 
         private static Thread ourMainThread;
+        private static MelonLogger.Instance logger;
 
         public override void OnApplicationStart()
         {
+            logger = LoggerInstance;
+
             var category = MelonPreferences.CreateCategory(SettingsCategory, "Lag Free Screenshots");
             ourEnabled = category.CreateEntry(SettingEnableMod, true, "Enabled");
             ourResolution = category.CreateEntry( SettingScreenshotResolution, PresetScreenshotSizes.Default, "Screenshot resolution override");
@@ -72,67 +73,64 @@ namespace LagFreeScreenshots
             ourCustomResolutionY = category.CreateEntry(SettingCustomResolutionY, 1080, "Custom screenshot resolution (Y)");
             
             HarmonyInstance.Patch(
-                typeof(CameraTakePhotoEnumerator).GetMethod("MoveNext"),
-                new HarmonyMethod(AccessTools.Method(typeof(LagFreeScreenshotsMod), nameof(MoveNextPatchAsyncReadback))));
+                typeof(PortableCamera).GetMethod(nameof(PortableCamera.Capture),  RefFlags.Instance | RefFlags.NonPublic),
+                new HarmonyMethod(AccessTools.Method(typeof(LagFreeScreenshotsMod), nameof(OnCapture))));
+        }
 
+        // FIXME: Those 2 were imported from UIExpansionKit and should be refactored somewhere else?
+        public override void OnUpdate()
+        {
+            TaskUtilities.ourMainThreadQueue.Flush();
+        }
+
+        public override void OnGUI()
+        {
+            TaskUtilities.ourFrameEndQueue.Flush();
         }
 
         private static ScreenshotRotation GetPictureAutorotation(Camera camera)
         {
-            var pitch = Vector3.Angle(camera.transform.forward, new Vector3(0, 1, 0));
-            if (pitch < 45 || pitch > 135) return ScreenshotRotation.NoRotation; //Pointing up/down, rotation doesn't matter
-
-            var rot = camera.transform.localEulerAngles.z;
+            var rot = camera.transform.eulerAngles.z;
             if (rot >= 45 && rot < 135) return ScreenshotRotation.CounterClockwise90;
             if (rot >= 135 && rot < 225) return ScreenshotRotation.Clockwise180;
             if (rot >= 225 && rot < 315) return ScreenshotRotation.Clockwise90;
             return ScreenshotRotation.NoRotation;
         }
 
-        private static List<(Player, Vector3)> GetPlayerList(Camera camera)
+        private static MulticastDelegate preImageTaken = null;
+        private static MulticastDelegate postImageTaken = null;
+
+        private static void CVRPreImageTaken(PortableCamera __instance)
         {
-            var playerManager = PlayerManager.field_Private_Static_PlayerManager_0;
-            if (playerManager == null) return new();
+            // CVR pre-capture preparations: shutter future stop
+            SchedulerSystem.RemoveJob(new SchedulerSystem.Job(__instance.DisableShutterPlayer));
 
-            var localPlayer = VRCPlayer.field_Internal_Static_VRCPlayer_0;
-            if (localPlayer == null) return new();
-
-            var result = new List<(Player, Vector3)>();
-
-            var localPosition = localPlayer.gameObject.transform.position;
-
-            foreach (var p in playerManager.field_Private_List_1_Player_0)
-            {
-                var avatarRoot = p.prop_VRCPlayer_0.prop_VRCAvatarManager_0.transform.Find("Avatar");
-                var playerPositionTransform = avatarRoot?.GetComponent<Animator>()?.GetBoneTransform(HumanBodyBones.Head) ?? p.transform;
-                var playerPosition = playerPositionTransform.position;
-                Vector3 viewPos = camera.WorldToViewportPoint(playerPosition);
-
-                if (viewPos.z < 2 && Vector3.Distance(localPosition, playerPosition) < 2)
-                {
-                    //User standing right next to photographer, might be visible (approx.)
-                    result.Add((p, viewPos));
-                }
-                else if (viewPos.x > -0.03 && viewPos.x < 1.03 && viewPos.y > -0.03 && viewPos.y < 1.03 && viewPos.z > 2 && viewPos.z < 30)
-                {
-                    //User in viewport, might be obstructed but still...
-                    result.Add((p, viewPos));
-                }
-            }
-
-            return result;
+            // and raise event
+            preImageTaken ??= (MulticastDelegate)typeof(PortableCamera).GetField(nameof(PortableCamera.PreImageTaken), RefFlags.Static | RefFlags.NonPublic).GetValue(null);
+            preImageTaken?.GetInvocationList().Do(f => f.Method.Invoke(f.Target, new object[] { __instance, new Events.PreImageTakenEventArgs() }));
         }
 
-        public static bool MoveNextPatchAsyncReadback(ref bool __result, CameraTakePhotoEnumerator __instance)
+        private static void CVRPostImageTaken(PortableCamera __instance)
         {
-            var resX = __instance.field_Public_Int32_0;
-            var resY = __instance.field_Public_Int32_1;
-            var saveToFile = __instance.field_Public_Boolean_0;
-            var hasAlpha = __instance.field_Public_Boolean_1;
+            // CVR post-capture shutter effect and raise event
+            __instance._videoPlayer.enabled = true;
+            __instance._videoPlayer.time = 0.0;
+            __instance._videoPlayer.Play();
+            SchedulerSystem.AddJob(new SchedulerSystem.Job(__instance.DisableShutterPlayer), 1f, 0.0f, 1);
+            AudioEffects.InterfaceAudio.Play(AudioEffects.AudioClipField.CameraShutter);
+
+            // and raise event
+            postImageTaken ??= (MulticastDelegate)typeof(PortableCamera).GetField(nameof(PortableCamera.PostImageTaken), RefFlags.Static | RefFlags.NonPublic ).GetValue(null);
+            postImageTaken?.GetInvocationList().Do(f => f.Method.Invoke(f.Target, new object[] { __instance, new Events.PostImageTakenEventArgs() }));
+        }
+
+        private static bool OnCapture(PortableCamera __instance) {
+            var camera = __instance._camera;
+            var resX = __instance.width;
+            var resY = __instance.height;
+            var hasAlpha = camera.backgroundColor.a < 1; // TODO: check later
             
-            MelonDebug.Msg($"LFS bools: 0={__instance.field_Public_Boolean_0} 1={__instance.field_Public_Boolean_1}");
-            
-            if (!ourEnabled.Value || !saveToFile)
+            if (!ourEnabled.Value)
                 return true;
             
             ourMainThread = Thread.CurrentThread;
@@ -141,12 +139,15 @@ namespace LagFreeScreenshots
             if (resFromOption.HasValue)
                 (resX, resY) = resFromOption.Value;
 
-            __result = false;
-            TakeScreenshot(__instance.field_Public_Camera_0, resX,
-                resY, hasAlpha).ContinueWith(t =>
+            CVRPreImageTaken(__instance);
+
+            var settings = new ImageSettings { Width = resX, Height = resY, HasAlpha = hasAlpha };
+            TakeScreenshot(camera, settings).ContinueWith(t =>
             {
                 if (t.IsFaulted)
-                    MelonLogger.Warning($"Free-floating task failed with exception: {t.Exception}");
+                    logger.Warning($"Free-floating task failed with exception: {t.Exception}");
+
+                CVRPostImageTaken(__instance);
             });
             return false;
         }
@@ -157,14 +158,14 @@ namespace LagFreeScreenshots
             {
                 PresetScreenshotSizes.Default => null,
                 PresetScreenshotSizes.Custom => (ourCustomResolutionX.Value, ourCustomResolutionY.Value),
-                PresetScreenshotSizes.Thumbnail => (100, 100),
-                PresetScreenshotSizes.Square => (1024, 1024),
                 PresetScreenshotSizes._720p => (1280, 720),
                 PresetScreenshotSizes._1080p => (1920, 1080),
                 PresetScreenshotSizes._4K => (3840, 2160),
                 PresetScreenshotSizes._8K => (7680, 4320),
                 PresetScreenshotSizes._12K => (11520, 6480),
                 PresetScreenshotSizes._16K => (15360, 8640),
+                PresetScreenshotSizes.Thumbnail => (100, 100),
+                PresetScreenshotSizes.Square => (1024, 1024),
                 _ => throw new ArgumentOutOfRangeException(nameof(d), d, null)
             };
         }
@@ -184,17 +185,19 @@ namespace LagFreeScreenshots
 
             if (maxMsaa != ourLastUsedMsaaLevel)
             {
-                MelonLogger.Msg($"Using MSAA x{maxMsaa} for screenshots (FB size {(colorSizePerLevel * maxMsaa + colorSizePerLevel / 2) / 1024 / 1024}MB)");
+                logger.Msg($"Using MSAA x{maxMsaa} for screenshots (FB size {(colorSizePerLevel * maxMsaa + colorSizePerLevel / 2) / 1024 / 1024}MB)");
                 ourLastUsedMsaaLevel = (int) maxMsaa;
             }
 
             return (int) maxMsaa;
         }
-        
-        public static async Task TakeScreenshot(Camera camera, int w, int h, bool hasAlpha)
-        {
-            await TaskUtilities.YieldToFrameEnd();
 
+        public static (RenderTexture, ScreenshotRotation) PrepareCameraAndRender(Camera camera, ref ImageSettings settings)
+        {
+            var w = settings.Width;
+            var h = settings.Height;
+
+            // keep the camera setup so we can later restore them (we need to change them a bit temporarily)
             var oldCameraTarget = camera.targetTexture;
             var oldCameraFov = camera.fieldOfView;
             var oldAllowMsaa = camera.allowMSAA;
@@ -203,7 +206,7 @@ namespace LagFreeScreenshots
             // make screenshot upside up by rotating camera just for the rendering
             var t = camera.transform;
             Quaternion? camOrigRot = null;
-            ScreenshotRotation shotRotation = ScreenshotRotation.AutoRotationDisabled;
+            var shotRotation = ScreenshotRotation.AutoRotationDisabled;
             if (ourAutorotation.Value)
             {
                 shotRotation = GetPictureAutorotation(camera);
@@ -225,13 +228,15 @@ namespace LagFreeScreenshots
                 if (shotRotation == ScreenshotRotation.Clockwise90 || shotRotation == ScreenshotRotation.CounterClockwise90)
                 {
                     // we have to swap FOV to preserve the original viewport
-                    camera.fieldOfView = Camera.VerticalToHorizontalFieldOfView(camera.fieldOfView, h * 1f / w);
+                    camera.fieldOfView = Camera.VerticalToHorizontalFieldOfView(camera.fieldOfView, w * 1f / h);
                     // and rotate the resolution
                     (w, h) = (h, w);
                 }
+
+                settings.Width = w; // update because they may have changed just above
+                settings.Height = h;
             }
 
-            // var renderTexture = RenderTexture.GetTemporary(w, h, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default, 8);
             var renderTexture = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default);
             var maxMsaa = MaxMsaaCount(w, h);
             renderTexture.antiAliasing = maxMsaa;
@@ -239,9 +244,10 @@ namespace LagFreeScreenshots
             camera.targetTexture = renderTexture;
             camera.allowMSAA = maxMsaa > 1;
             QualitySettings.antiAliasing = maxMsaa;
-            
+
             camera.Render();
 
+            // restore the camera as it was: previous settings
             if (camOrigRot != null)
                 t.rotation = camOrigRot.Value; // restore
 
@@ -249,21 +255,21 @@ namespace LagFreeScreenshots
             camera.fieldOfView = oldCameraFov;
             camera.allowMSAA = oldAllowMsaa;
             QualitySettings.antiAliasing = oldGraphicsMsaa;
-            
-            renderTexture.ResolveAntiAliasedSurface();
-            LfsApi.InvokeScreenshotTexture(renderTexture);
 
+            return (renderTexture, shotRotation);
+        }
+
+        async public static Task<(IntPtr, int)> CopyTextureBackToMainMemory(RenderTexture renderTexture, ImageSettings settings) {
             (IntPtr, int) data = default;
-            var readbackSupported = SystemInfo.supportsAsyncGPUReadback;
-            if (readbackSupported)
+
+            if (SystemInfo.supportsAsyncGPUReadback)
             {
-                MelonDebug.Msg("Supports readback");
-                
                 var stopwatch = Stopwatch.StartNew();
-                var request = AsyncGPUReadback.Request(renderTexture, 0, hasAlpha ? TextureFormat.ARGB32 : TextureFormat.RGB24, new Action<AsyncGPUReadbackRequest>(r =>
+                var request = AsyncGPUReadback.Request(renderTexture, 0,
+                    settings.HasAlpha ? TextureFormat.ARGB32 : TextureFormat.RGB24, new Action<AsyncGPUReadbackRequest>(r =>
                 {
                     if (r.hasError)
-                        MelonLogger.Warning("Readback request finished with error (w)");
+                        logger.Warning("Readback request finished with error (start)");
                     
                     data = ToBytes(r.GetDataRaw(0), r.GetLayerDataSize());
                     MelonDebug.Msg($"Bytes readback took total {stopwatch.ElapsedMilliseconds}");
@@ -273,7 +279,7 @@ namespace LagFreeScreenshots
                     await TaskUtilities.YieldToMainThread();
 
                 if (request.hasError)
-                    MelonLogger.Warning("Readback request finished with error");
+                    logger.Warning("Readback request finished with error (in loop)");
                 
                 if (data.Item1 == IntPtr.Zero)
                 {
@@ -285,8 +291,12 @@ namespace LagFreeScreenshots
             {
                 unsafe
                 {
-                    MelonLogger.Msg("Does not support readback, using fallback texture read method");
-                
+                    logger.Msg("Does not support readback, using fallback texture read method");
+
+                    var hasAlpha = settings.HasAlpha;
+                    var w = settings.Width;
+                    var h = settings.Height;
+
                     RenderTexture.active = renderTexture;
                     var newTexture = new Texture2D(w, h, hasAlpha ? TextureFormat.ARGB32 : TextureFormat.RGB24, false);
                     newTexture.ReadPixels(new Rect(0, 0, w, h), 0, 0);
@@ -295,30 +305,63 @@ namespace LagFreeScreenshots
 
                     var bytes = newTexture.GetRawTextureData<byte>();
                     data = (Marshal.AllocHGlobal(bytes.Length), bytes.Length);
-                    UnsafeUtility.MemCpy((void*) data.Item1, bytes.m_Buffer, bytes.Length);
+                    Buffer.MemoryCopy((void*) data.Item1, bytes.m_Buffer, bytes.Length, bytes.Length);
 
                     Object.Destroy(newTexture);
                 }
             }
+
+            return data;
+        }
+
+        public static async Task TakeScreenshot(Camera camera, ImageSettings settings)
+        {
+            await TaskUtilities.YieldToFrameEnd();
+
+            // pass settings by reference because we modify width+height for auto rotation
+            var (renderTexture, rotationQuarters) = PrepareCameraAndRender(camera, ref settings);
             
+            renderTexture.ResolveAntiAliasedSurface();
+            LfsApi.InvokeScreenshotTexture(renderTexture);
+
+            var data = await CopyTextureBackToMainMemory(renderTexture, settings);
+
             renderTexture.Release();
             Object.Destroy(renderTexture);
 
-            var targetFile = GetPath(w, h);
+            var getPath = LfsApi.MakeScreenshotFilePath ?? GetPath;
+            var targetFile = getPath(settings);
+
+            // recursively create all directory if required
             var targetDir = Path.GetDirectoryName(targetFile);
-            if (!Directory.Exists(targetDir))
-                Directory.CreateDirectory(targetDir);
+            Directory.CreateDirectory(targetDir); // won't fail if exists already
 
             MetadataV2 metadata = null;
-            var rotationQuarters = ScreenshotRotation.AutoRotationDisabled;
-            
-            if (ourAutorotation.Value) 
-                rotationQuarters = GetPictureAutorotation(camera);
+            MetaPort metaport;
+            GameObject localPlayerObject;
+            if (ourMetadata.Value 
+                && (metaport = MetaPort.Instance) != null 
+                && (localPlayerObject = PlayerSetup.Instance.gameObject) != null)
+            {
+                metadata = new MetadataV2(
+                    rotationQuarters,
+                    new API.CurrentPlayerInfo
+                    {
+                        Uuid = metaport.ownerId,
+                        Username = metaport.username,
+                        Transform = localPlayerObject.transform,
+                    },
+                    new API.CurrentInstanceInfo
+                    {
+                        InstanceId = metaport.CurrentInstanceId,
+                        InstanceName = metaport.CurrentInstanceName,
+                        WorldId = metaport.CurrentWorldId != "" ? metaport.CurrentWorldId : metaport.homeWorldGuid,
+                    },
+                    API.MetadataV2.GetPlayerList(camera)
+                );
+            }
 
-            if (ourMetadata.Value)
-                metadata = new MetadataV2(rotationQuarters, APIUser.CurrentUser, RoomManager.field_Internal_Static_ApiWorldInstance_0, VRCPlayer.field_Internal_Static_VRCPlayer_0 == null ? new Vector3(0, 0, 0) : VRCPlayer.field_Internal_Static_VRCPlayer_0.transform.position, GetPlayerList(camera));
-
-            await EncodeAndSavePicture(targetFile, data, w, h, hasAlpha, rotationQuarters, metadata)
+            await EncodeAndSavePicture(targetFile, data, settings, rotationQuarters, metadata)
                 .ConfigureAwait(false);
         }
         
@@ -345,16 +388,20 @@ namespace LagFreeScreenshots
             return null;
         }
 
-        private static async Task EncodeAndSavePicture(string filePath, (IntPtr, int Length) pixelsPair, int w, int h,
-            bool hasAlpha, ScreenshotRotation rotationQuarters, MetadataV2 metadata)
+        private static async Task EncodeAndSavePicture(string filePath, (IntPtr, int Length) pixelsPair,
+            ImageSettings settings, ScreenshotRotation rotationQuarters, MetadataV2 metadata)
         {
             if (pixelsPair.Item1 == IntPtr.Zero) return;
             
             // yield to background thread
             await Task.Delay(1).ConfigureAwait(false);
-            
+
             if (Thread.CurrentThread == ourMainThread)
-                MelonLogger.Error("Image encode is executed on main thread - it's a bug!");
+                logger.Error("Image encode is executed on main thread - it's a bug!");
+
+            var hasAlpha = settings.HasAlpha;
+            var w = settings.Width;
+            var h = settings.Height;
 
             var pixelFormat = hasAlpha ? PixelFormat.Format32bppArgb : PixelFormat.Format24bppRgb;
             using var bitmap = new Bitmap(w, h, pixelFormat);
@@ -419,11 +466,12 @@ namespace LagFreeScreenshots
                 {
                     Param = {[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, ourJpegPercent.Value)}
                 };
-                filePath = Path.ChangeExtension(filePath, ".jpeg");
+                filePath = Path.ChangeExtension(filePath, ".jpg");
                 bitmap.Save(filePath, encoder, parameters);
             }
             else
             {
+                filePath = Path.ChangeExtension(filePath, ".png");
                 bitmap.Save(filePath, ImageFormat.Png);
                 if (description != null)
                 {
@@ -440,32 +488,34 @@ namespace LagFreeScreenshots
 
             await TaskUtilities.YieldToMainThread();
 
-            MelonLogger.Msg($"Image saved to {filePath}");
+            logger.Msg($"Image saved to {filePath}");
 
             // compatibility with log-reading tools
             UnityEngine.Debug.Log($"Took screenshot to: {filePath}");
 
-            EventHandler.InvokeScreenshotSaved(filePath, w, h, metadata);
             LfsApi.InvokeScreenshotSaved(filePath, w, h, metadata);
 
             // yield to background thread for disposes
             await Task.Delay(1).ConfigureAwait(false);
         }
 
-        private static Func<int, int, string> ourOurGetPathMethod;
-        
-        static string GetPath(int w, int h)
+        public static string GetPath(ImageSettings settings)
         {
-            // Future self: looks like this method is not in the Official Happy Path anymore, replaced with Public_String_Int32_Int32 and ObjectPublicAbstractSealedTeStTeByStVoTeStStStUnique.String_Byte[]_String
-            ourOurGetPathMethod ??= (Func<int, int, string>) Delegate.CreateDelegate(typeof(Func<int, int, string>),
-                typeof(CameraUtil)
-                    .GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly).Single(it =>
-                        it.Name.StartsWith("Method_Private_Static_String_Int32_Int32_") && XrefScanner.XrefScan(it)
-                            .Any(jt => jt.Type == XrefType.Global &&
-                                       "{0}{1}{2}" == jt.ReadAsObject()?.ToString())));
-
-            return ourOurGetPathMethod(w, h);
+            var dateStr = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss.fff");
+            return string.Join(@"\", new string[] {
+                Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
+                "ChilloutVR",
+                DateTime.Now.ToString("yyyy"),
+                DateTime.Now.ToString("MM"),
+                $"ChilloutVR-{dateStr}.jpg" });
         }
+    }
+
+    public struct ImageSettings
+    {
+        public int Width;
+        public int Height;
+        public bool HasAlpha;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 0)]
