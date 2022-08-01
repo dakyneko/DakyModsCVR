@@ -127,8 +127,6 @@ namespace LagFreeScreenshots
         }
 
         private static bool OnCapture(PortableCamera __instance) {
-            MelonLogger.Msg($"OnCapture: __instance={__instance} {__instance._camera} {__instance.processingTexture}");
-
             var camera = __instance._camera;
             var resX = __instance.width;
             var resY = __instance.height;
@@ -245,8 +243,6 @@ namespace LagFreeScreenshots
             camera.allowMSAA = maxMsaa > 1;
             QualitySettings.antiAliasing = maxMsaa;
 
-            MelonLogger.Msg($"TakeScreenshot prep camera, now render");
-            
             camera.Render();
 
             // restore the camera as it was: previous settings
@@ -266,8 +262,6 @@ namespace LagFreeScreenshots
 
             if (SystemInfo.supportsAsyncGPUReadback)
             {
-                MelonLogger.Msg($"TakeScreenshot image read GPU");
-                
                 var stopwatch = Stopwatch.StartNew();
                 var request = AsyncGPUReadback.Request(renderTexture, 0,
                     settings.HasAlpha ? TextureFormat.ARGB32 : TextureFormat.RGB24, new Action<AsyncGPUReadbackRequest>(r =>
@@ -322,19 +316,13 @@ namespace LagFreeScreenshots
         {
             await TaskUtilities.YieldToFrameEnd();
 
-            MelonLogger.Msg($"TakeScreenshot {camera} {settings.Width}x{settings.Height} {settings.HasAlpha}");
-
             var renderTexture = PrepareCameraAndRender(camera, settings);
             
             renderTexture.ResolveAntiAliasedSurface();
             LfsApi.InvokeScreenshotTexture(renderTexture);
 
-            MelonLogger.Msg($"TakeScreenshot image read");
-
             var data = await CopyTextureBackToMainMemory(renderTexture, settings);
 
-            MelonLogger.Msg($"TakeScreenshot read done");
-            
             renderTexture.Release();
             Object.Destroy(renderTexture);
 
@@ -349,8 +337,6 @@ namespace LagFreeScreenshots
             if (ourAutorotation.Value) 
                 rotationQuarters = GetPictureAutorotation(camera);
 
-            MelonLogger.Msg($"TakeScreenshot metadata");
-
             MetadataV2 metadata = null;
             MetaPort metaport;
             GameObject localPlayerObject;
@@ -359,7 +345,6 @@ namespace LagFreeScreenshots
                 // TODO: better way to get local player Gameobject?
                 && (localPlayerObject = GameObject.Find("_PLAYERLOCAL")) != null)
             {
-                MelonLogger.Msg($"TakeScreenshot metadata let's go");
                 metadata = new MetadataV2(
                     rotationQuarters,
                     new API.CurrentPlayerInfo
@@ -412,8 +397,6 @@ namespace LagFreeScreenshots
             // yield to background thread
             await Task.Delay(1).ConfigureAwait(false);
 
-            MelonLogger.Msg($"EncodeAndSavePicture step1");
-            
             if (Thread.CurrentThread == ourMainThread)
                 MelonLogger.Error("Image encode is executed on main thread - it's a bug!");
 
@@ -454,12 +437,8 @@ namespace LagFreeScreenshots
             bitmap.UnlockBits(bitmapData);
             Marshal.FreeHGlobal(pixelsPair.Item1);
 
-            MelonLogger.Msg($"EncodeAndSavePicture step2");
-
             var format = ourFormat.Value == "auto" ? (hasAlpha ? "png" : "jpeg") : ourFormat.Value;
             var description = metadata?.ToString();
-
-            MelonLogger.Msg($"EncodeAndSavePicture format {format} ({ourFormat.Value}) description {description}");
 
             // https://docs.microsoft.com/en-us/windows/win32/gdiplus/-gdiplus-constant-property-item-descriptions
             if (description != null)
