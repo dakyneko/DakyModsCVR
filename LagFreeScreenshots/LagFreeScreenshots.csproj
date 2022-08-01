@@ -4,6 +4,7 @@
         <TargetFramework>net472</TargetFramework>
         <VrcReferences>true</VrcReferences>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<nullable>enable</nullable>
         <LangVersion>latest</LangVersion>
         <Version>1.4.1.0</Version>
     </PropertyGroup>
