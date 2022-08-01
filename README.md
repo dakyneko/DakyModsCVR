@@ -7,12 +7,20 @@ Requirements:
 
 Then download the .dll mods you want [from here in the release section](https://github.com/dakyneko/DakyModsCVR/releases) which you must place into your `Mods` folder of your game directory (check Steam installation directory).
 
-## Warning
-Mods are provided as is and there is no guarantee of working.
+**Warning**: Mods are provided as is and there is no guarantee of working.
 
 ## NoIntro
 
 Always skip Chillout intro when game starts, roughly take 10 seconds.
+
+## Lag Free Screenshots
+This mod significantly improves screenshot taking performance for handheld camera in VR and F12 key in desktop mode. Benefits are especially noticeable with higher resolution screenshots (4K/8K).
+Additional features:
+ * You can set your screenshots to be saved as JPEG files instead of PNG to save on file size.  
+ * Automatically rotate screenshots so that proper side faces up (like on your real phone!)
+ * Add metadata about world and players to screenshot files (disabled by default; both JPEG and PNG are supported, though PNG metadata is not displayed by Windows - you'll have to use a use different photo viewer software)
+
+Note: This is a [knah mod Lag Free Screenshot](https://github.com/knah/VRCMods) ported from VRC and improved in the version here. Credit to knah for the great work!
 
 
 ## Building
