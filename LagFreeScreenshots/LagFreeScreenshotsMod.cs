@@ -16,6 +16,7 @@ using UnityEngine.Rendering;
 using Object = UnityEngine.Object;
 using LagFreeScreenshots.API;
 
+using PlayerSetup = ABI_RC.Core.Player.PlayerSetup;
 using MetaPort = ABI_RC.Core.Savior.MetaPort;
 using PortableCamera = ABI_RC.Systems.Camera.PortableCamera;
 using RefFlags = System.Reflection.BindingFlags;
@@ -54,9 +55,12 @@ namespace LagFreeScreenshots
         private static MelonPreferences_Entry<int> ourRecommendedMaxFb;
 
         private static Thread ourMainThread;
+        private static MelonLogger.Instance logger;
 
         public override void OnApplicationStart()
         {
+            logger = LoggerInstance;
+
             var category = MelonPreferences.CreateCategory(SettingsCategory, "Lag Free Screenshots");
             ourEnabled = category.CreateEntry(SettingEnableMod, true, "Enabled");
             ourResolution = category.CreateEntry( SettingScreenshotResolution, PresetScreenshotSizes.Default, "Screenshot resolution override");
@@ -86,8 +90,7 @@ namespace LagFreeScreenshots
 
         private static ScreenshotRotation GetPictureAutorotation(Camera camera)
         {
-
-            var rot = camera.transform.eulerAngles.z;
+            var rot = CVRCamController.Instance.cvrCamera.transform.localEulerAngles.z;
             if (rot >= 45 && rot < 135) return ScreenshotRotation.CounterClockwise90;
             if (rot >= 135 && rot < 225) return ScreenshotRotation.Clockwise180;
             if (rot >= 225 && rot < 315) return ScreenshotRotation.Clockwise90;
@@ -142,7 +145,7 @@ namespace LagFreeScreenshots
             TakeScreenshot(camera, settings).ContinueWith(t =>
             {
                 if (t.IsFaulted)
-                    MelonLogger.Warning($"Free-floating task failed with exception: {t.Exception}");
+                    logger.Warning($"Free-floating task failed with exception: {t.Exception}");
 
                 CVRPostImageTaken(__instance);
             });
@@ -182,7 +185,7 @@ namespace LagFreeScreenshots
 
             if (maxMsaa != ourLastUsedMsaaLevel)
             {
-                MelonLogger.Msg($"Using MSAA x{maxMsaa} for screenshots (FB size {(colorSizePerLevel * maxMsaa + colorSizePerLevel / 2) / 1024 / 1024}MB)");
+                logger.Msg($"Using MSAA x{maxMsaa} for screenshots (FB size {(colorSizePerLevel * maxMsaa + colorSizePerLevel / 2) / 1024 / 1024}MB)");
                 ourLastUsedMsaaLevel = (int) maxMsaa;
             }
 
@@ -203,6 +206,7 @@ namespace LagFreeScreenshots
             // make screenshot upside up by rotating camera just for the rendering
             var t = camera.transform;
             Quaternion? camOrigRot = null;
+            logger.Msg($"ourAutorotation.Value={ourAutorotation.Value}");
             var shotRotation = ScreenshotRotation.AutoRotationDisabled;
             if (ourAutorotation.Value)
             {
@@ -215,6 +219,7 @@ namespace LagFreeScreenshots
                     ScreenshotRotation.NoRotation         => 180,
                     _ => 0,
                 };
+                logger.Msg($"inverse rot {inverseAngle}");
                 if (inverseAngle != 0)
                 {
                     camOrigRot = t.rotation;
@@ -266,7 +271,7 @@ namespace LagFreeScreenshots
                     settings.HasAlpha ? TextureFormat.ARGB32 : TextureFormat.RGB24, new Action<AsyncGPUReadbackRequest>(r =>
                 {
                     if (r.hasError)
-                        MelonLogger.Warning("Readback request finished with error (start)");
+                        logger.Warning("Readback request finished with error (start)");
                     
                     data = ToBytes(r.GetDataRaw(0), r.GetLayerDataSize());
                     MelonDebug.Msg($"Bytes readback took total {stopwatch.ElapsedMilliseconds}");
@@ -276,7 +281,7 @@ namespace LagFreeScreenshots
                     await TaskUtilities.YieldToMainThread();
 
                 if (request.hasError)
-                    MelonLogger.Warning("Readback request finished with error (in loop)");
+                    logger.Warning("Readback request finished with error (in loop)");
                 
                 if (data.Item1 == IntPtr.Zero)
                 {
@@ -288,7 +293,7 @@ namespace LagFreeScreenshots
             {
                 unsafe
                 {
-                    MelonLogger.Msg("Does not support readback, using fallback texture read method");
+                    logger.Msg("Does not support readback, using fallback texture read method");
 
                     var hasAlpha = settings.HasAlpha;
                     var w = settings.Width;
@@ -338,8 +343,7 @@ namespace LagFreeScreenshots
             GameObject localPlayerObject;
             if (ourMetadata.Value 
                 && (metaport = MetaPort.Instance) != null 
-                // TODO: better way to get local player Gameobject?
-                && (localPlayerObject = GameObject.Find("_PLAYERLOCAL")) != null)
+                && (localPlayerObject = PlayerSetup.Instance.gameObject) != null)
             {
                 metadata = new MetadataV2(
                     rotationQuarters,
@@ -352,6 +356,7 @@ namespace LagFreeScreenshots
                     new API.CurrentInstanceInfo
                     {
                         InstanceId = metaport.CurrentInstanceId,
+                        InstanceName = metaport.CurrentInstanceName,
                         WorldId = metaport.CurrentWorldId != "" ? metaport.CurrentWorldId : metaport.homeWorldGuid,
                     },
                     API.MetadataV2.GetPlayerList(camera)
@@ -394,7 +399,7 @@ namespace LagFreeScreenshots
             await Task.Delay(1).ConfigureAwait(false);
 
             if (Thread.CurrentThread == ourMainThread)
-                MelonLogger.Error("Image encode is executed on main thread - it's a bug!");
+                logger.Error("Image encode is executed on main thread - it's a bug!");
 
             var hasAlpha = settings.HasAlpha;
             var w = settings.Width;
@@ -485,7 +490,7 @@ namespace LagFreeScreenshots
 
             await TaskUtilities.YieldToMainThread();
 
-            MelonLogger.Msg($"Image saved to {filePath}");
+            logger.Msg($"Image saved to {filePath}");
 
             // compatibility with log-reading tools
             UnityEngine.Debug.Log($"Took screenshot to: {filePath}");

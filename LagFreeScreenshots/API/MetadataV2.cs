@@ -28,7 +28,7 @@ namespace LagFreeScreenshots.API
         {
             var worldString = "null,Not in any world";
             if (CurrentInstance.HasValue)
-                worldString = CurrentInstance.Value.WorldId + "," + CurrentInstance.Value.InstanceId;
+                worldString = $"{CurrentInstance.Value.WorldId},{CurrentInstance.Value.InstanceId},{CurrentInstance.Value.InstanceName}";
 
             var authorString = "?,?";
             var positionString = "?,?,?";
@@ -93,6 +93,7 @@ namespace LagFreeScreenshots.API
     public struct CurrentInstanceInfo
     {
         public string InstanceId;
+        public string InstanceName;
         public string WorldId;
     }
 }
