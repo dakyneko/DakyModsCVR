@@ -206,7 +206,6 @@ namespace LagFreeScreenshots
             // make screenshot upside up by rotating camera just for the rendering
             var t = camera.transform;
             Quaternion? camOrigRot = null;
-            logger.Msg($"ourAutorotation.Value={ourAutorotation.Value}");
             var shotRotation = ScreenshotRotation.AutoRotationDisabled;
             if (ourAutorotation.Value)
             {
@@ -219,7 +218,6 @@ namespace LagFreeScreenshots
                     ScreenshotRotation.NoRotation         => 180,
                     _ => 0,
                 };
-                logger.Msg($"inverse rot {inverseAngle}");
                 if (inverseAngle != 0)
                 {
                     camOrigRot = t.rotation;
