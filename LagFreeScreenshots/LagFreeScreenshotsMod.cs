@@ -90,7 +90,7 @@ namespace LagFreeScreenshots
 
         private static ScreenshotRotation GetPictureAutorotation(Camera camera)
         {
-            var rot = CVRCamController.Instance.cvrCamera.transform.localEulerAngles.z;
+            var rot = camera.transform.eulerAngles.z;
             if (rot >= 45 && rot < 135) return ScreenshotRotation.CounterClockwise90;
             if (rot >= 135 && rot < 225) return ScreenshotRotation.Clockwise180;
             if (rot >= 225 && rot < 315) return ScreenshotRotation.Clockwise90;
