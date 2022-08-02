@@ -86,10 +86,8 @@ namespace LagFreeScreenshots
 
         private static ScreenshotRotation GetPictureAutorotation(Camera camera)
         {
-            var pitch = Vector3.Angle(camera.transform.forward, new Vector3(0, 1, 0));
-            if (pitch < 45 || pitch > 135) return ScreenshotRotation.NoRotation; //Pointing up/down, rotation doesn't matter
 
-            var rot = camera.transform.localEulerAngles.z;
+            var rot = camera.transform.eulerAngles.z;
             if (rot >= 45 && rot < 135) return ScreenshotRotation.CounterClockwise90;
             if (rot >= 135 && rot < 225) return ScreenshotRotation.Clockwise180;
             if (rot >= 225 && rot < 315) return ScreenshotRotation.Clockwise90;
@@ -191,7 +189,7 @@ namespace LagFreeScreenshots
             return (int) maxMsaa;
         }
 
-        public static RenderTexture PrepareCameraAndRender(Camera camera, ImageSettings settings)
+        public static (RenderTexture, ScreenshotRotation) PrepareCameraAndRender(Camera camera, ref ImageSettings settings)
         {
             var w = settings.Width;
             var h = settings.Height;
@@ -205,9 +203,10 @@ namespace LagFreeScreenshots
             // make screenshot upside up by rotating camera just for the rendering
             var t = camera.transform;
             Quaternion? camOrigRot = null;
+            var shotRotation = ScreenshotRotation.AutoRotationDisabled;
             if (ourAutorotation.Value)
             {
-                var shotRotation = GetPictureAutorotation(camera);
+                shotRotation = GetPictureAutorotation(camera);
                 var inverseAngle = shotRotation switch
                 {
                     // we need to also compensate for upside-down texture rendering (later below)
@@ -226,10 +225,13 @@ namespace LagFreeScreenshots
                 if (shotRotation == ScreenshotRotation.Clockwise90 || shotRotation == ScreenshotRotation.CounterClockwise90)
                 {
                     // we have to swap FOV to preserve the original viewport
-                    camera.fieldOfView = Camera.VerticalToHorizontalFieldOfView(camera.fieldOfView, h * 1f / w);
+                    camera.fieldOfView = Camera.VerticalToHorizontalFieldOfView(camera.fieldOfView, w * 1f / h);
                     // and rotate the resolution
                     (w, h) = (h, w);
                 }
+
+                settings.Width = w; // update because they may have changed just above
+                settings.Height = h;
             }
 
             var renderTexture = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default);
@@ -251,7 +253,7 @@ namespace LagFreeScreenshots
             camera.allowMSAA = oldAllowMsaa;
             QualitySettings.antiAliasing = oldGraphicsMsaa;
 
-            return renderTexture;
+            return (renderTexture, shotRotation);
         }
 
         async public static Task<(IntPtr, int)> CopyTextureBackToMainMemory(RenderTexture renderTexture, ImageSettings settings) {
@@ -313,7 +315,8 @@ namespace LagFreeScreenshots
         {
             await TaskUtilities.YieldToFrameEnd();
 
-            var renderTexture = PrepareCameraAndRender(camera, settings);
+            // pass settings by reference because we modify width+height for auto rotation
+            var (renderTexture, rotationQuarters) = PrepareCameraAndRender(camera, ref settings);
             
             renderTexture.ResolveAntiAliasedSurface();
             LfsApi.InvokeScreenshotTexture(renderTexture);
@@ -329,10 +332,6 @@ namespace LagFreeScreenshots
             // recursively create all directory if required
             var targetDir = Path.GetDirectoryName(targetFile);
             Directory.CreateDirectory(targetDir); // won't fail if exists already
-
-            var rotationQuarters = ScreenshotRotation.AutoRotationDisabled;
-            if (ourAutorotation.Value) 
-                rotationQuarters = GetPictureAutorotation(camera);
 
             MetadataV2 metadata = null;
             MetaPort metaport;
