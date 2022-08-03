@@ -142,12 +142,16 @@ namespace LagFreeScreenshots
             CVRPreImageTaken(__instance);
 
             var settings = new ImageSettings { Width = resX, Height = resY, HasAlpha = hasAlpha };
-            TakeScreenshot(camera, settings).ContinueWith(t =>
+            TakeScreenshot(camera, settings).ContinueWith(async t =>
             {
                 if (t.IsFaulted)
                     logger.Warning($"Free-floating task failed with exception: {t.Exception}");
 
+                await TaskUtilities.YieldToMainThread();
                 CVRPostImageTaken(__instance);
+
+                // yield to background thread for disposes
+                await Task.Delay(1).ConfigureAwait(false);
             });
             return false;
         }
@@ -494,9 +498,6 @@ namespace LagFreeScreenshots
             UnityEngine.Debug.Log($"Took screenshot to: {filePath}");
 
             LfsApi.InvokeScreenshotSaved(filePath, w, h, metadata);
-
-            // yield to background thread for disposes
-            await Task.Delay(1).ConfigureAwait(false);
         }
 
         public static string GetPath(ImageSettings settings)
