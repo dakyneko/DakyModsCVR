@@ -128,7 +128,7 @@ namespace LagFreeScreenshots
             var camera = __instance._camera;
             var resX = __instance.width;
             var resY = __instance.height;
-            var hasAlpha = camera.backgroundColor.a < 1; // TODO: check later
+            var hasAlpha = camera.backgroundColor.a < 1 && camera.clearFlags == CameraClearFlags.SolidColor;
             
             if (!ourEnabled.Value)
                 return true;
