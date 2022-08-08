@@ -22,6 +22,16 @@ Additional features:
 
 Note: This is a [knah mod Lag Free Screenshot](https://github.com/knah/VRCMods) ported from VRC and improved in the version here. Credit to knah for the great work!
 
+![screenshot](dakymods1.jpg?raw=true "Camera Instants and Remote")
+
+## Camera★Remote
+
+Allows to control the camera like a drone, it will fly under your control remotely. To enable this, there is a button "Remote" under the Camera QuickMenu page, a cube will spawn, can grab it and move it to move the camera.
+
+## Camera★Instants
+
+Spawn little vignettes of photo you take in-game. Mimicking the old good instant camera which gave you the photo in a few seconds. Also mimicking Neos VR.
+
 
 ## Building
 To build yourself, copy all required .dll libraries listed in `Directory.Build.props` into ManagedLibs/ folder. Basically all from `<cvr dir>/ChilloutVR_Data/Managed` and also Melonloader.dll and 0Harmony.dll in directory above it. Then use Visual Studio 2019 or your IDE of choice to build.
@@ -35,20 +45,6 @@ With the following exceptions, all mods here are provided under the terms of [GN
 # WIP
 
 Mods below were written for VRC and should be adapted to Chillout soon.
-
-![screenshot](dakymods1.jpg?raw=true "Title")
-
-## Camera★Remote
-
-TODO: to port to CVR soon
-
-Allows to control the camera like a drone, it will fly under your control remotely. To enable this, there is a button "Remote" under the Camera QuickMenu page, a cube will spawn, can grab it and move it to move the camera.
-
-## Camera★Instants
-
-TODO: to port to CVR soon
-
-Spawn little vignettes of photo you take in-game. Mimicking the old good instant camera which gave you the photo in a few seconds. Also mimicking Neos VR.
 
 ## PickupLib
 

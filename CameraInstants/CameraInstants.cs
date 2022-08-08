@@ -5,7 +5,6 @@ using ABI.CCK.Components;
 
 using LfsApi = LagFreeScreenshots.API.LfsApi;
 using PortableCamera = ABI_RC.Systems.Camera.PortableCamera;
-using CVRInteractableManager = ABI_RC.Core.Savior.CVRInteractableManager;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
 [assembly:MelonInfo(typeof(CameraInstants.CameraInstantsMod), "CameraInstants", "1.0.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]

@@ -96,7 +96,6 @@ namespace CameraRemote
                 // TODO: CVR Camera 2.0 has z-skewed scale, should we spawn our things elsewhere or unskew camera?
                 t.localScale = new Vector3(20, 20, 20f / 3); // unskew inherited scale
                 t.localPosition = 100 * Vector3.right;
-                //t.localRotation = new Quaternion(0f, 0.7f, -0.7f, 0f);
             }
 
             var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
