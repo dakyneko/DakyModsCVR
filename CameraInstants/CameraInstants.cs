@@ -25,6 +25,12 @@ namespace CameraInstants
             myInstantsEnabled = category.CreateEntry("InstantsEnabled", true, "When using the camera, spawn the image in the world (local only)");
             // TODO: should listen to events on myInstantsEnabled change and add/rem listener instead
             LfsApi.OnScreenshotTexture += OnScreenshotTexture;
+
+            // TODO: can add options to camera settings panel
+            // - spawn position: top, bottom, left, right
+            // - spawn size, transparency, resolution
+            // - allowed action like delete
+            // TODO: implement delete on disk (move into trash bin)
         }
 
         private void OnScreenshotTexture(UnityEngine.RenderTexture rtex)
