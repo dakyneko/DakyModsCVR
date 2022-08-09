@@ -14,17 +14,13 @@ Then download the .dll mods you want [from here in the release section](https://
 Always skip Chillout intro when game starts, roughly take 10 seconds.
 
 ## Lag Free Screenshots
-This mod significantly improves screenshot taking performance for handheld camera in VR and F12 key in desktop mode. Benefits are especially noticeable with higher resolution screenshots (4K/8K).
-Additional features:
- * You can set your screenshots to be saved as JPEG files instead of PNG to save on file size.  
- * Automatically rotate screenshots so that proper side faces up (like on your real phone!)
- * Add metadata about world and players to screenshot files (disabled by default; both JPEG and PNG are supported, though PNG metadata is not displayed by Windows - you'll have to use a use different photo viewer software)
+No lag when you take screenshots; Pick the resolution up to 16K and the format: JPG, PNG or WebP (and the compression quality); Portrait pictures are automatically rotated like your smartphone does. Optionally you can embed metadata EXIF/ITxT like world info and player list.
 
 Note: This is a [knah mod Lag Free Screenshot](https://github.com/knah/VRCMods) ported from VRC and improved in the version here. Credit to knah for the great work!
 
 ### WebP supports
 
-Optionnally you can install some .dll dependency to have directly screenshots saved as .webp. Copy the 3 lib\*.dll files found at the root of this project into your game directory (next to ChilloutVR.exe).
+Optionnally you can install some .dll dependency to have directly screenshots saved as .webp. Copy the 3 libwebp\*.dll files found at the root of this project into your game directory (next to ChilloutVR.exe).
 
 For developpers: libwebp and libwebmux are built from the original sources. The libwebpwrapper is my patched version of the C# libwebp wrapper, source here <https://github.com/dakyneko/WebP-wrapper>.
 
