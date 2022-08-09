@@ -23,9 +23,6 @@ namespace LagFreeScreenshots
             return Encoding.UTF8.GetBytes(s);
         }
 
-        [DllImport("kernel32", SetLastError = true)]
-        static extern IntPtr LoadWebpLibrary(string lpFileName);
-
         public static bool IsWebpSupported()
         {
             try
