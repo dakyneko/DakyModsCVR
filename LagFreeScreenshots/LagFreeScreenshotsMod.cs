@@ -13,9 +13,9 @@ using LagFreeScreenshots;
 using MelonLoader;
 using UnityEngine;
 using UnityEngine.Rendering;
-using Object = UnityEngine.Object;
 using LagFreeScreenshots.API;
 
+using Object = UnityEngine.Object;
 using PlayerSetup = ABI_RC.Core.Player.PlayerSetup;
 using MetaPort = ABI_RC.Core.Savior.MetaPort;
 using PortableCamera = ABI_RC.Systems.Camera.PortableCamera;
@@ -24,10 +24,9 @@ using SchedulerSystem = ABI_RC.Core.IO.SchedulerSystem;
 using Events = ABI_RC.Systems.Camera.Events;
 using AudioEffects = ABI_RC.Core.AudioEffects;
 
-// using CameraUtil = ObjectPublicCaSiVeUnique;
-
-[assembly:MelonInfo(typeof(LagFreeScreenshotsMod), "Lag Free Screenshots", "2.0.0", "knah + Daky, Protected", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(LagFreeScreenshotsMod), "Lag Free Screenshots", "2.1.0", "knah + Daky, Protected", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
+[assembly:MelonOptionalDependencies("libwebpwrapper")]
 
 namespace LagFreeScreenshots
 {
@@ -38,6 +37,7 @@ namespace LagFreeScreenshots
         private const string SettingScreenshotResolution = "ScreenshotResolution";
         private const string SettingScreenshotFormat = "ScreenshotFormat";
         private const string SettingJpegPercent = "JpegPercent";
+        private const string SettingWebpPercent = "WebpPercent";
         private const string SettingAutorotation = "Auto-rotation";
         private const string SettingMetadata = "Metadata";
         private const string SettingRecommendedMaximumFb = "RecommendedMaximumFb";
@@ -48,11 +48,14 @@ namespace LagFreeScreenshots
         private static MelonPreferences_Entry<PresetScreenshotSizes> ourResolution;
         private static MelonPreferences_Entry<string> ourFormat;
         private static MelonPreferences_Entry<int> ourJpegPercent;
+        private static MelonPreferences_Entry<int> ourWebpPercent;
         private static MelonPreferences_Entry<int> ourCustomResolutionX;
         private static MelonPreferences_Entry<int> ourCustomResolutionY;
         private static MelonPreferences_Entry<bool> ourAutorotation;
         private static MelonPreferences_Entry<bool> ourMetadata;
         private static MelonPreferences_Entry<int> ourRecommendedMaxFb;
+
+        private static bool ourSupportsWebP = false;
 
         private static Thread ourMainThread;
         private static MelonLogger.Instance logger;
@@ -66,6 +69,7 @@ namespace LagFreeScreenshots
             ourResolution = category.CreateEntry( SettingScreenshotResolution, PresetScreenshotSizes.Default, "Screenshot resolution override");
             ourFormat = category.CreateEntry( SettingScreenshotFormat, "png", "Screenshot format");
             ourJpegPercent = category.CreateEntry(SettingJpegPercent, 95, "JPEG quality (0-100)");
+            ourWebpPercent = category.CreateEntry(SettingWebpPercent, 85, "WebP quality (0-100)");
             ourAutorotation = category.CreateEntry(SettingAutorotation, true, "Rotate picture to match camera");
             ourMetadata = category.CreateEntry(SettingMetadata, false, "Save metadata in picture");
             ourRecommendedMaxFb = category.CreateEntry(SettingRecommendedMaximumFb, 1024, "Try to keep framebuffer below (MB) by reducing MSAA");
@@ -75,6 +79,13 @@ namespace LagFreeScreenshots
             HarmonyInstance.Patch(
                 typeof(PortableCamera).GetMethod(nameof(PortableCamera.Capture),  RefFlags.Instance | RefFlags.NonPublic),
                 new HarmonyMethod(AccessTools.Method(typeof(LagFreeScreenshotsMod), nameof(OnCapture))));
+
+            ourSupportsWebP = WebpUtils.IsWebpSupported();
+            if (ourFormat.Value == "webp" && !ourSupportsWebP) // only when if explicitely requested
+            {
+                logger.Warning($"WebP is not properly installed in game directory. Please provide libwebp.dll libwebpmux.dll and libwebpwrapper.dll to make this work.");
+                ourFormat.Value = "auto";
+            }
         }
 
         // FIXME: Those 2 were imported from UIExpansionKit and should be refactored somewhere else?
@@ -440,7 +451,15 @@ namespace LagFreeScreenshots
             bitmap.UnlockBits(bitmapData);
             Marshal.FreeHGlobal(pixelsPair.Item1);
 
-            var format = ourFormat.Value == "auto" ? (hasAlpha ? "png" : "jpeg") : ourFormat.Value;
+            logger.Msg($"ourFormat.Value {ourFormat.Value} {ourSupportsWebP} {hasAlpha}");
+            var format = ourFormat.Value switch
+            {
+                "auto" when ourSupportsWebP => "webp",
+                "auto" when hasAlpha        => "png",
+                "auto"                      => "jpg",
+                _                           => ourFormat.Value,
+            };
+            logger.Msg($"format = {format}");
             var description = metadata?.ToString();
 
             // https://docs.microsoft.com/en-us/windows/win32/gdiplus/-gdiplus-constant-property-item-descriptions
@@ -472,6 +491,12 @@ namespace LagFreeScreenshots
                 };
                 filePath = Path.ChangeExtension(filePath, ".jpg");
                 bitmap.Save(filePath, encoder, parameters);
+            }
+            else if (format == "webp")
+            {
+                filePath = Path.ChangeExtension(filePath, ".webp");
+                // we had to separate this function to make webp dll dependencies optional
+                WebpUtils.SaveToFile(filePath, bitmap, description, ourWebpPercent.Value);
             }
             else
             {

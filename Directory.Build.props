@@ -683,6 +683,10 @@
       <HintPath>$(MsBuildThisFileDirectory)\ManagedLibs\Valve.Newtonsoft.Json.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="WebPWrapper">
+      <HintPath>$(MsBuildThisFileDirectory)\ManagedLibs\libwebpwrapper.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
 
 
