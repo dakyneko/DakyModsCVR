@@ -22,6 +22,12 @@ Additional features:
 
 Note: This is a [knah mod Lag Free Screenshot](https://github.com/knah/VRCMods) ported from VRC and improved in the version here. Credit to knah for the great work!
 
+### WebP supports
+
+Optionnally you can install some .dll dependency to have directly screenshots saved as .webp. Copy the 3 lib\*.dll files found at the root of this project into your game directory (next to ChilloutVR.exe).
+
+For developpers: libwebp and libwebmux are built from the original sources. The libwebpwrapper is my patched version of the C# libwebp wrapper, source here <https://github.com/dakyneko/WebP-wrapper>.
+
 ![screenshot](dakymods1.jpg?raw=true "Camera Instants and Remote")
 
 ## Camera★Remote

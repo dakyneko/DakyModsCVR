@@ -451,7 +451,6 @@ namespace LagFreeScreenshots
             bitmap.UnlockBits(bitmapData);
             Marshal.FreeHGlobal(pixelsPair.Item1);
 
-            logger.Msg($"ourFormat.Value {ourFormat.Value} {ourSupportsWebP} {hasAlpha}");
             var format = ourFormat.Value switch
             {
                 "auto" when ourSupportsWebP => "webp",
@@ -459,7 +458,6 @@ namespace LagFreeScreenshots
                 "auto"                      => "jpg",
                 _                           => ourFormat.Value,
             };
-            logger.Msg($"format = {format}");
             var description = metadata?.ToString();
 
             // https://docs.microsoft.com/en-us/windows/win32/gdiplus/-gdiplus-constant-property-item-descriptions
