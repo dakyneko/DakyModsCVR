@@ -75,8 +75,8 @@ namespace CameraInstants
 
             plane.name = "CameraInstants";
             backside.name = "back";
-            //plane.layer = LayerMask.NameToLayer("InternalUI"); // TODO: which layer?
-            plane.GetComponent<Collider>().isTrigger = true;
+            plane.layer = LayerMask.NameToLayer("UI");
+            backside.GetComponent<Collider>().enabled = false;
 
             var body = plane.AddComponent<Rigidbody>();
             body.useGravity = false;

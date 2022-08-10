@@ -104,8 +104,7 @@ namespace CameraRemote
                 t.SetParent(parent.transform, false);
             }
             cube.name = "CameraRemote";
-            //cube.layer = LayerMask.NameToLayer("InternalUI"); // TODO: check layer
-            cube.GetComponent<Collider>().isTrigger = true;
+            cube.layer = LayerMask.NameToLayer("UI");
             cube.GetComponent<Renderer>().material = new Material(Shader.Find("Unlit/Texture"));
 
             var body = cube.AddComponent<Rigidbody>();
