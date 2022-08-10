@@ -52,7 +52,7 @@ namespace CameraInstants
             var tex = new Texture2D(w, h, TextureFormat.ARGB32, false); // we're restricted to RGBA because GPU = RenderTexture are stuck with RGBA
             tex.filterMode = FilterMode.Bilinear;
             Graphics.CopyTexture(rtex2, tex);
-            rtex2.Release();
+            RenderTexture.ReleaseTemporary(rtex2);
             RenderTexture.active = null;
 
             var plane = GameObject.CreatePrimitive(PrimitiveType.Plane);
