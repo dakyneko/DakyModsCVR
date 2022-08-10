@@ -25,6 +25,8 @@ namespace CameraInstants
             // TODO: should listen to events on myInstantsEnabled change and add/rem listener instead
             LfsApi.OnScreenshotTexture += OnScreenshotTexture;
 
+            // TODO: support piles of pictures (multiple stacked on each other)
+            // either we can spread them or put them between them, latest should be always on top?
             // TODO: can add options to camera settings panel
             // - spawn position: top, bottom, left, right
             // - spawn size, transparency, resolution
@@ -37,14 +39,21 @@ namespace CameraInstants
             var portableCamera = PortableCamera.Instance;
             if (!myInstantsEnabled.Value || portableCamera == null) return;
 
-            var tex = new Texture2D(rtex.width, rtex.height, TextureFormat.ARGB32, false);
-            Graphics.CopyTexture(rtex, tex);
-            var aspectRatio = (float)tex.height / (float)tex.width;
+            var aspectRatio = (float)rtex.height / (float)rtex.width;
 
-            // TODO: gotta downscale to avoid huge memory usage!
-            //var resizedWidth = Math.Min(tex.width, 1920);
-            //tex.Resize(resizedWidth, (int)Mathf.Floor(aspectRatio * resizedWidth));
-            //tex.Apply();
+            // let's downscale the instants texture to save memory
+            int w = 640; // TODO: make this a setting
+            int h = (int)Mathf.Floor( w * aspectRatio );
+            var rtex2 = RenderTexture.GetTemporary(w, h, rtex.depth, rtex.format);
+            RenderTexture.active = rtex2;
+            GL.sRGBWrite = true; // needed to keep colors+brightness
+            Graphics.Blit(rtex, rtex2);
+
+            var tex = new Texture2D(w, h, TextureFormat.ARGB32, false); // we're restricted to RGBA because GPU = RenderTexture are stuck with RGBA
+            tex.filterMode = FilterMode.Bilinear;
+            Graphics.CopyTexture(rtex2, tex);
+            rtex2.Release();
+            RenderTexture.active = null;
 
             var plane = GameObject.CreatePrimitive(PrimitiveType.Plane);
             var t = plane.transform;
