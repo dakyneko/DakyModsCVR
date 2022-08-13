@@ -152,7 +152,6 @@ namespace CameraRemote
         public void Disable()
         {
             _remote?.SetActive(false);
-            _portable.DisableModByType(typeof(VisualMods.CameraAttachment)); // should restore as it was before (not assume)
         }
 
         public void Update()
