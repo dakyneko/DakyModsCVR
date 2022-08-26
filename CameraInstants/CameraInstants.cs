@@ -55,18 +55,18 @@ namespace CameraInstants
             RenderTexture.ReleaseTemporary(rtex2);
             RenderTexture.active = null;
 
-            var plane = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            var plane = GameObject.CreatePrimitive(PrimitiveType.Quad);
             var t = plane.transform;
             t.SetParent(portableCamera.transform.parent, false); // to CVR Camera 2.0
             t.localPosition = 100 * Vector3.left;
-            t.localRotation = Quaternion.Euler(270, 0, 0);
-            t.localScale = new Vector3(8f, 0.01f, 8f * aspectRatio);
+            t.localRotation = Quaternion.Euler(0, 0, 180);
+            t.localScale = new Vector3(72f, 72f * aspectRatio, 1f);
 
             // make it double sided because easy to lose it in the world
-            var backside = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            var backside = GameObject.CreatePrimitive(PrimitiveType.Quad);
             var t2 = backside.transform;
             t2.SetParent(t, false);
-            t2.localRotation = Quaternion.Euler(0, 0, 180); // backside
+            t2.localRotation = Quaternion.Euler(0, 180, 0); // backside
 
             var m = new Material(Shader.Find("Unlit/Texture"));
             m.mainTexture = tex;
