@@ -1,0 +1,122 @@
+{
+    "menus": {
+        "main": [
+            {
+                "name": "Settings",
+                "icon": "icon_settings.png",
+                "action": {
+                    "type": "menu",
+                    "menu": "settings"
+                }
+            },
+            {
+                "name": "Avatar",
+                "icon": "icon_avatar_settings.png",
+                "action": {
+                    "type": "menu",
+                    "menu": "avatar"
+                }
+            },
+            {
+                "name": "Respawn",
+                "icon": "icon_respawn.png",
+                "action": {
+                    "type": "system call",
+                    "event": "AppRespawn"
+                }
+            },
+            {
+                "name": "Camera",
+                "icon": "icon_camera.png",
+                "action": {
+                    "type": "system call",
+                    "event": "AppToggleCamera"
+                }
+            },
+            {
+                "name": "Mic",
+                "icon": "icon_mic.png",
+                "action": {
+                    "type": "system call",
+                    "event": "AppToggleMute"
+                }
+            }
+        ],
+        "settings": [
+            {
+                "name": "Fly",
+                "icon": "icon_jetpack.png",
+                "action": {
+                    "type": "system call",
+                    "event": "AppToggleFLightMode"
+                }
+            },
+            {
+                "name": "Recalibrate",
+                "icon": "icon_recalibrate.png",
+                "action": {
+                    "type": "system call",
+                    "event": "AppRecalibrate"
+                }
+            },
+            {
+                "name": "Seated",
+                "icon": "icon_seated.png",
+                "action": {
+                    "type": "system call",
+                    "event": "AppToggleSeatedPlay"
+                }
+            }
+        ],
+        "avatar": [
+            {
+                "name": "Spray",
+                "action": {
+                    "type": "avatar parameter",
+                    "parameter": "Spray",
+                    "control": "toggle",
+                    "value": 1
+                }
+            },
+            {
+                "name": "Halloween",
+                "action": {
+                    "type": "avatar parameter",
+                    "parameter": "Halloween",
+                    "control": "toggle",
+                    "value": 1
+                }
+            },
+            {
+                "name": "Pen",
+                "icon": "icon_pen.png",
+                "action": {
+                    "type": "avatar parameter",
+                    "parameter": "Pen",
+                    "control": "toggle",
+                    "value": 1
+                }
+            },
+            {
+                "name": "Emoji Fox",
+                "icon": "icon_emoji_fox.png",
+                "action": {
+                    "type": "avatar parameter",
+                    "parameter": "Emoji",
+                    "control": "trigger",
+                    "value": 1
+                }
+            },
+            {
+                "name": "Ears",
+                "icon": "icon_avatar_ears.png",
+                "action": {
+                    "type": "avatar parameter",
+                    "parameter": "GestureRightWeight",
+                    "control": "radial",
+                    "value": 1
+                }
+            }
+        ]
+    }
+}

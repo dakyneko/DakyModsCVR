@@ -1,0 +1,202 @@
+body {
+    margin: 0px;
+    padding: 0px;
+    font-family: verdana,sans-serif;
+}
+
+.themed-radial {
+    background: radial-gradient(#443700, #443700 25%, #ded530 25.1%, #f68e00 28%, #3a1500);
+    border-radius: 50%;
+    overflow: hidden;
+}
+
+.themed-border {
+    border: 3px solid #ded530;
+}
+
+/* cyan: radial-gradient(#22434a, #22434a 25%, #57abbf 25.1%, #24798d 28%, #06181c); */
+
+#actionmenu {
+    display: block;
+    position: absolute;
+    height: 497px; /* due to borders */
+    width: 497px;
+}
+
+#widget-radial {
+    display: none;
+    position: absolute;
+    height: 497px;
+    width: 497px;
+
+    background: radial-gradient(#d17f00 28%, #3a1500);
+    border-radius: 50%;
+    overflow: hidden;
+
+    /* test */
+    /*transform: translate(-50%, 0px);*/
+}
+
+#widget-radial .arc {
+    display: block;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(#eea22cf2 28%, #765407);
+    border-radius: 50%;
+}
+
+#widget-radial .value {
+    display: block;
+    position: absolute;
+    top: 0%;
+    left: 50%;
+    color: white;
+    font-size: 30px;
+    font-weight: bold;
+    transform: translate(-50%, -50%);
+    background-color: rgb(46 35 0 / 50%);
+    border-radius: 20px;
+    padding: 5px;
+}
+
+#widget-radial .center {
+    display: block;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+#actionmenu .segment {
+    display: none;
+    position: absolute;
+    top: 250px;
+    left:  68px;
+    border-bottom: 250px solid #ded530;
+    border-left: 182px solid transparent;
+    border-right: 182px solid transparent;
+    height: 0px;
+    width: 0px;
+    transform-origin: top center;
+    opacity: 0.75;
+}
+/* TODO: formula?
+left: 221px;
+border-left: 30px solid transparent;
+
+left: 100px;
+border-left: 150px solid transparent;
+
+left: -324px;
+border-left: 566px solid transparent;
+*/
+
+.inside {
+    display: block;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 36%;
+    height: 36%;
+    background-color: #5c3c00;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.animated-menu {
+    animation-name: open_actionmenu;
+    animation-iteration-count: 1;
+    animation-duration: 0.2s;
+}
+
+@keyframes open_actionmenu {
+    from {
+        transform: translate(-110px, -110px);
+        width: 44%;
+        height: 44%;
+    }
+
+    to {
+        transform: translate(-90px, -90px);
+        width: 36%;
+        height: 36%;
+    }
+}
+
+.joystick {
+    display: block;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    height: 20%;
+    width: 20%;
+    transform: translate(-50%, -50%);
+
+    border-radius: 50%;
+    background: radial-gradient(#4a3f22,
+        #4a3f22 17%, #f0ba27 20%, #534711 23%,
+        #513f0c 42%, #dac024 45%, #4f480a 47%,
+        #4a4422 57%, #ffc525 60%, #573b15 63%);
+    opacity: 0.90;
+}
+
+#actionmenu .separators, #actionmenu .items { /* cohtml needs this to show anything */
+    display: block;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+}
+
+#actionmenu .separator {
+    display: block;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    height: 50%;
+    width: 0px;
+    border: 2px solid #e1b20d;
+    border-radius: 100%;
+    transform-origin: center top;
+}
+
+#actionmenu .items .item {
+    display: block;
+    position: absolute;
+    width: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+.animated-item {
+    animation-name: open_item;
+    animation-iteration-count: 1;
+    animation-duration: 0.1s;
+}
+
+@keyframes open_item {
+    from {
+        transform: translate(-50%, -65%);
+    }
+
+    to {
+        transform: translate(-50%, -50%);
+    }
+}
+
+.label {
+    font-size: 20px;
+    font-weight: bold;
+    color: white;
+    text-shadow: 1px 1px 2px black;
+}
+
+.icon {
+    width: 75px;
+    max-height: 75px;
+}
+
+.debug {
+    border: 1px solid black;
+}
