@@ -75,29 +75,20 @@
 #actionmenu .sector {
     display: none;
     position: absolute;
-    top: 250px;
-    left:  68px;
-    border-bottom: 250px solid #ded530;
-    border-left: 182px solid transparent;
-    border-right: 182px solid transparent;
-    height: 0px;
-    width: 0px;
-    transform-origin: top center;
+    height: 100%;
+    width: 100%;
+    background-color: #ded530;
+    border-radius: 50%;
     opacity: 0.75;
 }
-/* TODO: formula?
-left: 221px;
-border-left: 30px solid transparent;
 
-left: 100px;
-border-left: 150px solid transparent;
-
-left: -324px;
-border-left: 566px solid transparent;
-*/
+#actionmenu .enabled_sectors {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+}
 
 #actionmenu .sector.enabled {
-    border-bottom: 250px solid #ded530;
     opacity: 0.5;
 }
 

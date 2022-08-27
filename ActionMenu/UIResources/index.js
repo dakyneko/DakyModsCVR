@@ -9,7 +9,7 @@ const $actionmenu = document.getElementById("actionmenu");
 const $background = $actionmenu.getElementsByClassName("background")[0];
 const $joystick = $actionmenu.getElementsByClassName("joystick")[0];
 const $sector = $actionmenu.getElementsByClassName("sector")[0];
-const $active_sectors = $actionmenu.getElementsByClassName("active_sectors")[0];
+const $enabled_sectors = $actionmenu.getElementsByClassName("enabled_sectors")[0];
 const $separators = $actionmenu.getElementsByClassName("separators")[0];
 const $inside = $actionmenu.getElementsByClassName("inside")[0];
 const $items = $actionmenu.getElementsByClassName("items")[0];
@@ -37,8 +37,13 @@ function handle_direction(x, y) { // values between -1 and +1
 }
 
 function sector_rotation(sector) {
-	const rounded = sector * pi2 / sectors;
+	const rounded = pi + (sector - 0.5) * pi2 / sectors;
 	return rounded * 180 / pi;
+}
+
+function refresh_selection_sector(selected_sector) {
+	const rounded_angle = sector_rotation(selected_sector);
+	$sector.style.transform = `rotate(${rounded_angle}deg)`;
 }
 
 function handle_direction_main(x, y) {
@@ -49,8 +54,7 @@ function handle_direction_main(x, y) {
 		$sector.style.display = 'block';
 		const angle = 2 * (pi - Math.atan(x / ( y + dist )));
 		selected_sector = Math.round( angle * sectors / pi2 ) % sectors;
-		const rounded_angle = sector_rotation(selected_sector);
-		$sector.style.transform = `rotate(${rounded_angle}deg)`;
+		refresh_selection_sector(selected_sector);
 	}
 	else { // deadzone = no selection
 		$sector.style.display = 'none';
@@ -110,8 +114,7 @@ function handle_click_main() {
 		case 'avatar parameter':
 			switch (action.control) {
 				case 'radial':
-					// TODO: get start value from cvr
-					// TODO: adjust output value range, -1 to +1 is only one possibility (=floats?)
+					// TODO: restore value from cvr?
 					const start_value = action.default_value ?? 0;
 					const min_value = action.min_value ?? 0;
 					const max_value = action.max_value ?? 1;
@@ -220,11 +223,11 @@ function show_item_enabled(sector, item) {
 		$n.style.display = "block";
 		$n.style.transform = `rotate(${angle}deg)`;
 		$n.classList.add('enabled');
-		$active_sectors.appendChild($n);
+		$enabled_sectors.appendChild($n);
 		action.$enabled = $n;
 	}
 	else if (action.$enabled) {
-		$active_sectors.removeChild(action.$enabled);
+		$enabled_sectors.removeChild(action.$enabled);
 		action.$enabled = null;
 	}
 }
@@ -258,7 +261,7 @@ function clear_all_enabled_sectors() {
 		const action = item.action;
 		if (action?.$enabled != null) {
 			if (action.$enabled.parentNode != null)
-				$active_sectors.removeChild(action.$enabled);
+				$enabled_sectors.removeChild(action.$enabled);
 			delete action.$enabled;
 		}
 	})
@@ -269,13 +272,16 @@ function load_menu(name) {
 	if (menu == null) throw `Menu ${name} not found`;
 
 	$items.innerHTML = '';
-	$active_sectors.innerHTML = '';
+	$enabled_sectors.innerHTML = '';
 	$separators.innerHTML = '';
 	clear_all_enabled_sectors();
 
 	menu_name = name;
 	sectors = menu.length;
+	selection_sector_set(sectors);
+	refresh_selection_sector(selected_sector);
 
+	// build items
 	menu.forEach((item, i) => {
 		// draw separating line
 		const sector_angle = (i + 0.5) * 360. / sectors;
@@ -286,7 +292,7 @@ function load_menu(name) {
 
 		// draw item
 		const label_angle = 0.5*pi + i * pi2 / sectors;
-		const x = mid * (1 + 0.71 * Math.sin(label_angle)); // TODO: to fix
+		const x = mid * (1 + 0.71 * Math.sin(label_angle));
 		const y = mid * (1 + 0.71 * Math.cos(label_angle));
 
 		const $item = build_$item(item, i);
@@ -305,8 +311,6 @@ function load_menu(name) {
 
 	// animation weeeeeeee
 	trigger_animation($inside, "animated-menu");
-
-	// TODO: update css styles to fit new number of sectors ('region' etc)
 }
 
 function trigger_animation($el, animation) {
@@ -374,6 +378,12 @@ function widget_radial_set(angle) {
 	$wr_arc.style.clipPath = `polygon(${clip_path})`;
 }
 
+function selection_sector_set(sectors) {
+	const angle = pi2 / sectors;
+	const clip_path = compute_radial_mask(angle);
+	$sector.style.clipPath = `polygon(${clip_path})`;
+}
+
 function compute_radial_mask(angle) { // angle in radians
 	const quadrant = Math.floor(2 * angle / pi) % 4; // TODO: at 100% the full circle disappear like it's 0%
 	const x = 50 * (1 + Math.sin(angle)); // coordinates are computed in %
@@ -411,7 +421,7 @@ engine.on('ActionMenuData', (_content) => {
 	const joyvec = gameData.joystick;
 	handle_direction(joyvec.x, -joyvec.y); // we invert y
 
-	const leftTrigger = gameData.trigger > 0.9; // TODO: tweak trigger value?
+	const leftTrigger = gameData.trigger > 0.9;
 	if (leftTrigger && !last_leftTrigger) handle_click();
 	last_leftTrigger = leftTrigger;
 });
