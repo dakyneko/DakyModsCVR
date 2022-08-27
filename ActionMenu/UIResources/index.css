@@ -1,4 +1,4 @@
-body {
+* {
     margin: 0px;
     padding: 0px;
     font-family: verdana,sans-serif;
@@ -51,11 +51,14 @@ body {
     position: absolute;
     top: 0%;
     left: 50%;
+    width: 100%;
+    height: 40px;
+    text-align: center;
     color: white;
     font-size: 30px;
     font-weight: bold;
     transform: translate(-50%, -50%);
-    background-color: rgb(46 35 0 / 50%);
+    background-color: rgba(45, 45, 45, 0.5);
     border-radius: 20px;
     padding: 5px;
 }
@@ -93,6 +96,11 @@ left: -324px;
 border-left: 566px solid transparent;
 */
 
+#actionmenu .segment.enabled {
+    border-bottom: 250px solid #ded530;
+    opacity: 0.5;
+}
+
 .inside {
     display: block;
     position: absolute;
@@ -125,7 +133,7 @@ border-left: 566px solid transparent;
     }
 }
 
-.joystick {
+#actionmenu .joystick, #widget-radial .indicator {
     display: block;
     position: absolute;
     left: 50%;
@@ -133,7 +141,13 @@ border-left: 566px solid transparent;
     height: 20%;
     width: 20%;
     transform: translate(-50%, -50%);
+}
 
+#widget-radial .joystick {
+    display: block;
+    position: absolute;
+    width: 100%;
+    height: 100%;
     border-radius: 50%;
     background: radial-gradient(#4a3f22,
         #4a3f22 17%, #f0ba27 20%, #534711 23%,
@@ -189,7 +203,7 @@ border-left: 566px solid transparent;
     font-size: 20px;
     font-weight: bold;
     color: white;
-    text-shadow: 1px 1px 2px black;
+    text-shadow: 3px 3px 6px black;
 }
 
 .icon {

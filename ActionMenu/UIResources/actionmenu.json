@@ -30,7 +30,8 @@
                 "icon": "icon_camera.png",
                 "action": {
                     "type": "system call",
-                    "event": "AppToggleCamera"
+                    "event": "AppToggleCamera",
+                    "toggle":  true
                 }
             },
             {
@@ -38,7 +39,8 @@
                 "icon": "icon_mic.png",
                 "action": {
                     "type": "system call",
-                    "event": "AppToggleMute"
+                    "event": "AppToggleMute",
+                    "toggle":  true
                 }
             }
         ],
@@ -48,7 +50,8 @@
                 "icon": "icon_jetpack.png",
                 "action": {
                     "type": "system call",
-                    "event": "AppToggleFLightMode"
+                    "event": "AppToggleFLightMode",
+                    "toggle":  true
                 }
             },
             {
@@ -64,7 +67,8 @@
                 "icon": "icon_seated.png",
                 "action": {
                     "type": "system call",
-                    "event": "AppToggleSeatedPlay"
+                    "event": "AppToggleSeatedPlay",
+                    "toggle":  true
                 }
             }
         ],
@@ -103,8 +107,9 @@
                 "action": {
                     "type": "avatar parameter",
                     "parameter": "Emoji",
-                    "control": "trigger",
-                    "value": 1
+                    "control": "impulse",
+                    "value": 1,
+                    "duration": 0.5
                 }
             },
             {
@@ -114,7 +119,9 @@
                     "type": "avatar parameter",
                     "parameter": "GestureRightWeight",
                     "control": "radial",
-                    "value": 1
+                    "value": 1,
+                    "min_value": -1,
+                    "max_value":  1
                 }
             }
         ]

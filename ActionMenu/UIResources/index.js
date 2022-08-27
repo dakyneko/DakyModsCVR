@@ -9,6 +9,7 @@ const $actionmenu = document.getElementById("actionmenu");
 const $background = $actionmenu.getElementsByClassName("background")[0];
 const $joystick = $actionmenu.getElementsByClassName("joystick")[0];
 const $segment = $actionmenu.getElementsByClassName("segment")[0];
+const $active_segments = $actionmenu.getElementsByClassName("active_segments")[0];
 const $separators = $actionmenu.getElementsByClassName("separators")[0];
 const $inside = $actionmenu.getElementsByClassName("inside")[0];
 const $items = $actionmenu.getElementsByClassName("items")[0];
@@ -35,6 +36,11 @@ function handle_direction(x, y) { // values between -1 and +1
 	return handle_direction_main(x, y);
 }
 
+function sector_to_segment_rotation(sector) {
+	const rounded = sector * pi2 / sectors;
+	return rounded * 180 / pi;
+}
+
 function handle_direction_main(x, y) {
 	const dist = Math.sqrt(x*x + y*y);
 	const old_selected_sector = selected_sector;
@@ -43,8 +49,8 @@ function handle_direction_main(x, y) {
 		$segment.style.display = 'block';
 		const angle = 2 * (pi - Math.atan(x / ( y + dist )));
 		selected_sector = Math.round( angle * sectors / pi2 ) % sectors;
-		const rounded = selected_sector * pi2 / sectors;
-		$segment.style.transform = `rotate(${rounded * 180 / pi}deg)`;
+		const sector_rotation = sector_to_segment_rotation(selected_sector);
+		$segment.style.transform = `rotate(${sector_rotation}deg)`;
 	}
 	else { // deadzone = no selection
 		$segment.style.display = 'none';
@@ -79,47 +85,84 @@ function handle_click_main() {
 	const item = selected_sector != null ? menu[selected_sector] : virtual_back_item;
 	console.log(['click selected_sector', selected_sector, item.name, item]);
 
+	const $item = selected_sector != null ? $items.childNodes[selected_sector] : $inside;
+
 	const action = item.action;
+	var action_toggle = false;
 	switch (action.type) {
 		case 'menu':
-			breadcrumb.push(menu_name);
-			load_menu(action.menu); break;
+			const current_menu = menu_name;
+			load_menu(action.menu);
+			breadcrumb.push(current_menu);
+			break;
 
 		case 'back':
-			var last_menu_name = breadcrumb.pop();
+			const last_menu_name = breadcrumb.pop();
 			if (last_menu_name != undefined) // if fail: main menu probably
 				load_menu(last_menu_name);
 			break;
 
 		case 'system call':
 			appcall(action.event);
+			action_toggle = action?.toggle;
 			break;
 
 		case 'avatar parameter':
-			switch (action?.control) {
+			switch (action.control) {
 				case 'radial':
 					// TODO: get start value from cvr
 					// TODO: adjust output value range, -1 to +1 is only one possibility (=floats?)
-					const start_value = 0
-					start_widget_radial(item, start_value, (v) => appcall("AppChangeAnimatorParam", action.parameter, v));
+					const start_value = action.default_value ?? 0;
+					const min_value = action.min_value ?? 0;
+					const max_value = action.max_value ?? 1;
+					const delta = max_value - min_value;
+					start_widget_radial(item, start_value, (v) => {
+						const denormalized = v * delta + min_value;
+						appcall("AppChangeAnimatorParam", action.parameter, denormalized);
+					});
 					trigger_animation($wr_inside, "animated-menu");
 					break;
 
-				case 'trigger':
-				default:
-					appcall("AppChangeAnimatorParam", action.parameter, action.value);
+				case 'impulse':
+					if (item.enabled) return; // prevent spam
+					const sector = selected_sector;
+					toggle_item_enabled(sector, item);
+					appcall("AppChangeAnimatorParam", action.parameter, action.value ?? 1);
+					setTimeout(() => {
+						if (!item.enabled) return;
+						toggle_item_enabled(sector, item);
+						appcall("AppChangeAnimatorParam", action.parameter, action.default_value ?? 0);
+						appcall("PlayCoreUiSound", "Click");
+					}, (action.duration ?? 1) * 1000);
 					break;
+
+				case 'toggle':
+					action_toggle = true;
+					const new_value = item.enabled ? 0 : (action.value ?? 1);
+					appcall("AppChangeAnimatorParam", action.parameter, new_value);
+					break;
+
+				default:
+					throw `unsupported control type: ${action.control}`;
 			}
 			break;
 
 		default:
-			throw Exception(`Unknown action: ${action.type} item ${item.name}`);
+			throw `Unknown action: ${action.type} item ${item.name}`;
 	}
 
-	if (selected_sector != null)
-		trigger_animation($items.childNodes[selected_sector], "animated-item");
-	else
-		trigger_animation($inside, "animated-menu");
+	if (action.exclusive_option) {
+		clear_all_active_segments();
+		menu.forEach(i => {
+			if (i != item)
+				i.enabled = false;
+		});
+	}
+	if (action_toggle)
+		toggle_item_enabled(selected_sector, item);
+
+	if ($item?.parentNode != null)
+		trigger_animation($item, "animated-item");
 
 	appcall("PlayCoreUiSound", "Click");
 }
@@ -145,7 +188,7 @@ document.addEventListener('mousemove', (event) => {
 });
 
 document.addEventListener('mouseup', (event) => {
-	if (in_vr) return;
+	if (in_vr || event.button != 0) return;
 	handle_click();
 });
 
@@ -161,7 +204,32 @@ function appcall(type, arg1, arg2, arg3, arg4) {
 	engine.call("CVRAppCallSystemCall", type, arg1, arg2, arg3, arg4);
 }
 
-function build_$item(item, x, y) {
+function toggle_item_enabled(sector, item) {
+	item.enabled = !(item.enabled ?? false);
+	show_item_enabled(sector, item);
+}
+
+function show_item_enabled(sector, item) {
+	if (sector == null || item == null) throw `sector ${sector} or item ${item} is null`;
+
+	const action = item.action;
+	item.enabled = item.enabled ?? false;
+	if (item.enabled) {
+		const $n = $segment.cloneNode();
+		const sector_rotation = sector_to_segment_rotation(sector);
+		$n.style.display = "block";
+		$n.style.transform = `rotate(${sector_rotation}deg)`;
+		$n.classList.add('enabled');
+		$active_segments.appendChild($n);
+		action.$enabled = $n;
+	}
+	else if (action.$enabled) {
+		$active_segments.removeChild(action.$enabled);
+		action.$enabled = null;
+	}
+}
+
+function build_$item(item, i) {
 	const $item = document.createElement('div');
 	$item.className = "item";
 
@@ -179,15 +247,31 @@ function build_$item(item, x, y) {
 		$item.appendChild($label);
 	}
 
+	if (i != null && item.enabled)
+		show_item_enabled(i, item);
+
 	return $item;
+}
+
+function clear_all_active_segments() {
+	menu.forEach(item => {
+		const action = item.action;
+		if (action?.$enabled != null) {
+			if (action.$enabled.parentNode != null)
+				$active_segments.removeChild(action.$enabled);
+			delete action.$enabled;
+		}
+	})
 }
 
 function load_menu(name) {
 	menu = menus[name];
-	if (menu == null) throw Exception(`Menu ${name} not found`);
+	if (menu == null) throw `Menu ${name} not found`;
 
 	$items.innerHTML = '';
+	$active_segments.innerHTML = '';
 	$separators.innerHTML = '';
+	clear_all_active_segments();
 
 	menu_name = name;
 	sectors = menu.length;
@@ -205,9 +289,9 @@ function load_menu(name) {
 		const x = mid * (1 + 0.71 * Math.sin(label_angle)); // TODO: to fix
 		const y = mid * (1 + 0.71 * Math.cos(label_angle));
 
-		const $item = build_$item(item);
-		$item.style.top  = `${x}px`;
-		$item.style.left = `${y}px`;
+		const $item = build_$item(item, i);
+		$item.style.top  = x +'px';
+		$item.style.left = y +'px';
 		trigger_animation($item, "animated-item");
 		$items.appendChild($item);
 	});
@@ -215,7 +299,7 @@ function load_menu(name) {
 	// middle back button
 	{
 		const $item = build_$item(virtual_back_item);
-		$item.style.left = $item.style.top = `${mid}px`;
+		$item.style.left = $item.style.top = mid +'px';
 		$items.appendChild($item);
 	}
 
@@ -236,7 +320,7 @@ function trigger_animation($el, animation) {
 
 const $widget_radial = document.getElementById("widget-radial");
 const $wr_arc = $widget_radial.getElementsByClassName("arc")[0];
-const $wr_joystick = $widget_radial.getElementsByClassName("joystick")[0];
+const $wr_indicator = $widget_radial.getElementsByClassName("indicator")[0];
 const $wr_center = $widget_radial.getElementsByClassName("center")[0];
 const $wr_value = $widget_radial.getElementsByClassName("value")[0];
 const $wr_inside = $widget_radial.getElementsByClassName("inside")[0];
@@ -270,21 +354,23 @@ function handle_direction_radial(set_value, x, y) {
 	// TODO: add mechanism to disallow jumping from -1 to +1 at angle 0, protection
 
 	if (dist >= deadzone) {
-		const angle = (pi - 2 * Math.atan(x / ( y + dist )));
+		const angle = y <= -1 // protection for division by 0
+			? pi2 - 0.001
+			: (pi - 2 * Math.atan(x / ( y + dist )));
 
 		widget_radial_set(angle);
-		$wr_joystick.style.left = 100 * (0.5 + maxdist * Math.sin(angle)) + '%';
-		$wr_joystick.style.top  = 100 * (0.5 + maxdist * Math.cos(pi - angle)) + '%';
+		$wr_indicator.style.left = 100 * (0.5 + maxdist * Math.sin(angle)) + '%';
+		$wr_indicator.style.top  = 100 * (0.5 + maxdist * Math.cos(pi - angle)) + '%';
 
-		const value = angle / pi - 1;
-		set_value(value); // output between -1 and +1
+		const value = angle / pi2;
+		set_value(value); // output between 0 and 1
 		$wr_value.innerHTML = Math.floor(value * 100) + "%";
 	}
 	// else: deadzone = no update
 }
 
 function widget_radial_set(angle) { /* in rad */
-	const quadrant = Math.floor(2 * angle / pi) % 4;
+	const quadrant = Math.floor(2 * angle / pi) % 4; // TODO: at 100% the full circle disappear like it's 0%
 	const x = 50 * (1 + Math.sin(angle));
 	const y = 50 * (1 + Math.cos(pi - angle));
 	// we're computing a polygon mask to only show the visible arc of a circle

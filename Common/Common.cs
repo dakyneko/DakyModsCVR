@@ -1,5 +1,6 @@
 using ABI_RC.Systems.Camera;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
@@ -61,6 +62,14 @@ namespace Daky
             s.Load();
             // TODO: CVR has bug when values are 0 it consider null maybe and show _Value instead :(
             return s;
+        }
+
+        public static void Upsert<U,V>(this Dictionary<U,V> d, U key, V value)
+        {
+            if (d.TryGetValue(key, out _))
+                d[key] = value;
+            else
+                d.Add(key, value);
         }
     }
 }
