@@ -8,8 +8,8 @@ const pi2 = 2 * Math.PI;
 const $actionmenu = document.getElementById("actionmenu");
 const $background = $actionmenu.getElementsByClassName("background")[0];
 const $joystick = $actionmenu.getElementsByClassName("joystick")[0];
-const $segment = $actionmenu.getElementsByClassName("segment")[0];
-const $active_segments = $actionmenu.getElementsByClassName("active_segments")[0];
+const $sector = $actionmenu.getElementsByClassName("sector")[0];
+const $active_sectors = $actionmenu.getElementsByClassName("active_sectors")[0];
 const $separators = $actionmenu.getElementsByClassName("separators")[0];
 const $inside = $actionmenu.getElementsByClassName("inside")[0];
 const $items = $actionmenu.getElementsByClassName("items")[0];
@@ -36,7 +36,7 @@ function handle_direction(x, y) { // values between -1 and +1
 	return handle_direction_main(x, y);
 }
 
-function sector_to_segment_rotation(sector) {
+function sector_rotation(sector) {
 	const rounded = sector * pi2 / sectors;
 	return rounded * 180 / pi;
 }
@@ -46,14 +46,14 @@ function handle_direction_main(x, y) {
 	const old_selected_sector = selected_sector;
 
 	if (dist >= deadzone) {
-		$segment.style.display = 'block';
+		$sector.style.display = 'block';
 		const angle = 2 * (pi - Math.atan(x / ( y + dist )));
 		selected_sector = Math.round( angle * sectors / pi2 ) % sectors;
-		const sector_rotation = sector_to_segment_rotation(selected_sector);
-		$segment.style.transform = `rotate(${sector_rotation}deg)`;
+		const rounded_angle = sector_rotation(selected_sector);
+		$sector.style.transform = `rotate(${rounded_angle}deg)`;
 	}
 	else { // deadzone = no selection
-		$segment.style.display = 'none';
+		$sector.style.display = 'none';
 		selected_sector = null;
 	}
 
@@ -152,7 +152,7 @@ function handle_click_main() {
 	}
 
 	if (action.exclusive_option) {
-		clear_all_active_segments();
+		clear_all_enabled_sectors();
 		menu.forEach(i => {
 			if (i != item)
 				i.enabled = false;
@@ -215,16 +215,16 @@ function show_item_enabled(sector, item) {
 	const action = item.action;
 	item.enabled = item.enabled ?? false;
 	if (item.enabled) {
-		const $n = $segment.cloneNode();
-		const sector_rotation = sector_to_segment_rotation(sector);
+		const $n = $sector.cloneNode();
+		const angle = sector_rotation(sector);
 		$n.style.display = "block";
-		$n.style.transform = `rotate(${sector_rotation}deg)`;
+		$n.style.transform = `rotate(${angle}deg)`;
 		$n.classList.add('enabled');
-		$active_segments.appendChild($n);
+		$active_sectors.appendChild($n);
 		action.$enabled = $n;
 	}
 	else if (action.$enabled) {
-		$active_segments.removeChild(action.$enabled);
+		$active_sectors.removeChild(action.$enabled);
 		action.$enabled = null;
 	}
 }
@@ -253,12 +253,12 @@ function build_$item(item, i) {
 	return $item;
 }
 
-function clear_all_active_segments() {
+function clear_all_enabled_sectors() {
 	menu.forEach(item => {
 		const action = item.action;
 		if (action?.$enabled != null) {
 			if (action.$enabled.parentNode != null)
-				$active_segments.removeChild(action.$enabled);
+				$active_sectors.removeChild(action.$enabled);
 			delete action.$enabled;
 		}
 	})
@@ -269,9 +269,9 @@ function load_menu(name) {
 	if (menu == null) throw `Menu ${name} not found`;
 
 	$items.innerHTML = '';
-	$active_segments.innerHTML = '';
+	$active_sectors.innerHTML = '';
 	$separators.innerHTML = '';
-	clear_all_active_segments();
+	clear_all_enabled_sectors();
 
 	menu_name = name;
 	sectors = menu.length;
@@ -369,9 +369,14 @@ function handle_direction_radial(set_value, x, y) {
 	// else: deadzone = no update
 }
 
-function widget_radial_set(angle) { /* in rad */
+function widget_radial_set(angle) {
+	const clip_path = compute_radial_mask(angle);
+	$wr_arc.style.clipPath = `polygon(${clip_path})`;
+}
+
+function compute_radial_mask(angle) { // angle in radians
 	const quadrant = Math.floor(2 * angle / pi) % 4; // TODO: at 100% the full circle disappear like it's 0%
-	const x = 50 * (1 + Math.sin(angle));
+	const x = 50 * (1 + Math.sin(angle)); // coordinates are computed in %
 	const y = 50 * (1 + Math.cos(pi - angle));
 	// we're computing a polygon mask to only show the visible arc of a circle
 	let points = [];
@@ -386,8 +391,8 @@ function widget_radial_set(angle) { /* in rad */
 		points = [ [50,0], [50,50], [x, y], [0, y], [0, 100], [100, 100], [100, 0] ];
 	}
 
-	const pointsStr = points.map(([x, y]) => `${x}% ${y}%`).join(" , ");
-	$wr_arc.style.clipPath = `polygon(${pointsStr})`;
+	// format as css clipPath string
+	return points.map(([x, y]) => `${x}% ${y}%`).join(" , ");
 }
 
 

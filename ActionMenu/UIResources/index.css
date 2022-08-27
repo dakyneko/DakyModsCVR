@@ -72,7 +72,7 @@
     text-align: center;
 }
 
-#actionmenu .segment {
+#actionmenu .sector {
     display: none;
     position: absolute;
     top: 250px;
@@ -96,7 +96,7 @@ left: -324px;
 border-left: 566px solid transparent;
 */
 
-#actionmenu .segment.enabled {
+#actionmenu .sector.enabled {
     border-bottom: 250px solid #ded530;
     opacity: 0.5;
 }
