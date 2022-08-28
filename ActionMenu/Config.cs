@@ -28,6 +28,6 @@ namespace ActionMenu
         public object? default_value;
         public bool? toggle;
         public bool? exclusive_option; // highlight a single option in current menu
-        public float? duration;
+        public float? duration; // in seconds (float)
     }
 }

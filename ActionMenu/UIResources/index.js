@@ -1,7 +1,7 @@
-const totalwidth = 500;
-const mid = 250; // half width of whole menu in screen px
-const maxdist = 0.15; // deadzone in screen px
-const deadzone = 0.5; // %
+const totalwidth = 500; // full width of actionmenu in pixels
+const mid = 250; // half width in screen px
+const maxdist = 0.15; // 'inner' joystick zone, normalized
+const deadzone = 0.5; // normalized
 const pi = Math.PI;
 const pi2 = 2 * Math.PI;
 
@@ -25,15 +25,26 @@ var last_leftTrigger = false;
 var gameData = {};
 var active_widget = null;
 var in_vr = false;
+var wait_joystick_recenter = false; // prevent users to input values by mistake for certain widgets
 
 
 function handle_direction(x, y) { // values between -1 and +1
 	if (!quickmenu_active) return;
 
-	if (active_widget?.handle_direction)
-		return active_widget.handle_direction(x, y);
+	const dist = Math.sqrt(x*x + y*y);
 
-	return handle_direction_main(x, y);
+	if (wait_joystick_recenter) {
+		if (dist <= deadzone)
+			wait_joystick_recenter = false;
+		else
+			return;
+	}
+
+	const f = active_widget?.handle_direction
+		? active_widget.handle_direction // widget has taken over
+		: handle_direction_main;
+
+	return f(x, y, dist);
 }
 
 function sector_rotation(sector) {
@@ -46,8 +57,7 @@ function refresh_selection_sector(selected_sector) {
 	$sector.style.transform = `rotate(${rounded_angle}deg)`;
 }
 
-function handle_direction_main(x, y) {
-	const dist = Math.sqrt(x*x + y*y);
+function handle_direction_main(x, y, dist) {
 	const old_selected_sector = selected_sector;
 
 	if (dist >= deadzone) {
@@ -61,7 +71,7 @@ function handle_direction_main(x, y) {
 		selected_sector = null;
 	}
 
-	$joystick.style.left = 100*(0.5 + maxdist * x) + '%'; // denormalize
+	$joystick.style.left = 100*(0.5 + maxdist * x) + '%';
 	$joystick.style.top  = 100*(0.5 + maxdist * y) + '%';
 
 
@@ -92,7 +102,7 @@ function handle_click_main() {
 	const $item = selected_sector != null ? $items.childNodes[selected_sector] : $inside;
 
 	const action = item.action;
-	var action_toggle = false;
+	let action_toggle = false;
 	switch (action.type) {
 		case 'menu':
 			const current_menu = menu_name;
@@ -115,15 +125,16 @@ function handle_click_main() {
 			switch (action.control) {
 				case 'radial':
 					// TODO: restore value from cvr?
-					const start_value = action.default_value ?? 0;
 					const min_value = action.min_value ?? 0;
 					const max_value = action.max_value ?? 1;
 					const delta = max_value - min_value;
+					const start_value = ((action.default_value ?? 0) - min_value) / delta;
 					start_widget_radial(item, start_value, (v) => {
 						const denormalized = v * delta + min_value;
 						appcall("AppChangeAnimatorParam", action.parameter, denormalized);
 					});
 					trigger_animation($wr_inside, "animated-menu");
+					wait_joystick_recenter = true;
 					break;
 
 				case 'impulse':
@@ -320,6 +331,7 @@ function trigger_animation($el, animation) {
 	}, {'once': true});
 }
 
+
 /* radial widget */
 
 const $widget_radial = document.getElementById("widget-radial");
@@ -329,32 +341,32 @@ const $wr_center = $widget_radial.getElementsByClassName("center")[0];
 const $wr_value = $widget_radial.getElementsByClassName("value")[0];
 const $wr_inside = $widget_radial.getElementsByClassName("inside")[0];
 
-function start_widget_radial(item, start_value, set_value) {
-	$actionmenu.style.opacity = 0.5;
+function start_widget_radial(item, start_value, set_value) { // takes normalized value (0 to 1)
 	$widget_radial.style.display = 'block';
 
 	$wr_center.innerHTML = "";
 	const $item = build_$item(item);
 	$wr_center.appendChild($item);
 
-	const handle_direction = (x, y) => handle_direction_radial(set_value, x, y);
-	handle_direction(0, 1);
+	const handle_direction = (x, y, dist) => handle_direction_radial(set_value, x, y, dist);
+	widget_radial_set(pi2 * start_value);
+	$wr_value.innerHTML = Math.floor(start_value * 100) + "%";
 	active_widget = {
 		handle_direction: handle_direction,
 		handle_click: handle_click_radial,
 	};
+
+	$wr_indicator.style.left = $wr_indicator.style.top = '50%'; // start in middle
 }
 
 function handle_click_radial() {
-	$actionmenu.style.opacity = 1;
 	$widget_radial.style.display = 'none';
 
 	active_widget = null; // back
 	trigger_animation($inside, "animated-menu");
 }
 
-function handle_direction_radial(set_value, x, y) {
-	const dist = Math.sqrt(x*x + y*y);
+function handle_direction_radial(set_value, x, y, dist) {
 	// TODO: add mechanism to disallow jumping from -1 to +1 at angle 0, protection
 
 	if (dist >= deadzone) {
@@ -385,7 +397,7 @@ function selection_sector_set(sectors) {
 }
 
 function compute_radial_mask(angle) { // angle in radians
-	const quadrant = Math.floor(2 * angle / pi) % 4; // TODO: at 100% the full circle disappear like it's 0%
+	const quadrant = Math.floor(2 * angle / pi) % 4; // TODO: at 100% = NaN = the full circle disappear like it's 0%
 	const x = 50 * (1 + Math.sin(angle)); // coordinates are computed in %
 	const y = 50 * (1 + Math.cos(pi - angle));
 	// we're computing a polygon mask to only show the visible arc of a circle
