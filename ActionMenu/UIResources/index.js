@@ -137,6 +137,27 @@ function handle_click_main() {
 					wait_joystick_recenter = true;
 					break;
 
+				case 'joystick_2d':
+					const min_value_x = action.min_value_x ?? 0;
+					const max_value_x = action.max_value_x ?? 1;
+					const delta_x = max_value_x - min_value_x;
+					const start_value_x = ((action.default_value_x ?? 0) - min_value_x) / delta_x;
+
+					const min_value_y = action.min_value_y ?? 0;
+					const max_value_y = action.max_value_y ?? 1;
+					const delta_y = max_value_y - min_value_y;
+					const start_value_y = ((action.default_value_y ?? 0) - min_value_y) / delta_y;
+
+					start_widget_joystick_2d(item, start_value_x, start_value_y, (x, y) => {
+						const denormalized_x = x * delta_x + min_value_x;
+						const denormalized_y = y * delta_y + min_value_y;
+						appcall("AppChangeAnimatorParam", action.parameter + '-x', denormalized_x);
+						appcall("AppChangeAnimatorParam", action.parameter + '-y', denormalized_y);
+					});
+					trigger_animation($wj2d_inside, "animated-menu");
+					wait_joystick_recenter = true;
+					break;
+
 				case 'impulse':
 					if (item.enabled) return; // prevent spam
 					const sector = selected_sector;
@@ -238,7 +259,8 @@ function show_item_enabled(sector, item) {
 		action.$enabled = $n;
 	}
 	else if (action.$enabled) {
-		$enabled_sectors.removeChild(action.$enabled);
+		if (action.$enabled.parentNode) // if user changed menu, skip this
+			$enabled_sectors.removeChild(action.$enabled);
 		action.$enabled = null;
 	}
 }
@@ -415,6 +437,76 @@ function compute_radial_mask(angle) { // angle in radians
 
 	// format as css clipPath string
 	return points.map(([x, y]) => `${x}% ${y}%`).join(" , ");
+}
+
+
+/* 2D widget */
+
+const $widget_j2d = document.getElementById("widget-j2d");
+const $wj2d_joystick = $widget_j2d.getElementsByClassName("joystick")[0];
+const $wj2d_center = $widget_j2d.getElementsByClassName("center")[0];
+const $wj2d_inside = $widget_j2d.getElementsByClassName("inside")[0];
+const $wj2d_triangles = $widget_j2d.getElementsByClassName("triangles")[0];
+
+function start_widget_joystick_2d(item, start_value_x, start_value_y, set_value) {
+	$widget_j2d.style.display = 'block';
+
+	$wj2d_triangles.innerHTML = "";
+
+	$wj2d_center.innerHTML = "";
+	const $item = build_$item(item);
+	$wj2d_center.appendChild($item);
+
+	const triangles = 4;
+	[...Array(triangles).keys()].forEach((i) => {
+		const $t = document.createElement('div');
+		$t.className = "triangle";
+		const angle = i * pi2 / triangles;
+		$t.style.top  = 50 + 35 * Math.cos(angle) + '%';
+		$t.style.left = 50 + 35 * Math.sin(angle) + '%';
+		$t.style.transform = `translate(-50%, -50%) rotate(${(pi - angle) * 180 / pi}deg)`;
+		$wj2d_triangles.appendChild($t);
+	});
+
+	const handle_direction = (x, y, dist) => handle_direction_joystick_2d(set_value, x, y, dist);
+	// TODO: handle default x y
+	active_widget = {
+		handle_direction: handle_direction,
+		handle_click: handle_click_joystick_2d,
+	};
+
+	$wj2d_joystick.style.left = $wr_indicator.style.top = '50%'; // start in middle
+}
+
+function handle_direction_joystick_2d(set_value, x, y, dist) {
+	const angle = y <= -1 // protection for division by 0
+		? pi2 - 0.001
+		: (pi - 2 * Math.atan(x / ( y + dist )));
+
+
+	$wj2d_joystick.style.left = 100*(0.5 + maxdist * x) + '%';
+	$wj2d_joystick.style.top  = 100*(0.5 + maxdist * y) + '%';
+
+	const triangles = $wj2d_triangles.childNodes.length;
+	Array.prototype.forEach.call($wj2d_triangles.childNodes, ($t, i) => {
+		const angle =  i * pi2 / triangles;
+		const tx = Math.sin(angle);
+		const ty = Math.cos(angle);
+		const dot = x * tx + y * ty; // between -1 and +1
+
+		const size = 0.1*mid + 0.35*mid * Math.max( 0, dot );
+		$t.style.borderLeft = $t.style.borderRight = size +'px solid transparent';
+		$t.style.borderBottom = size +'px solid #dac024';
+	});
+
+	set_value(0.5 * (1 + x), 0.5 * (1 + y)); // convert range -1,+1 to 0,1
+}
+
+function handle_click_joystick_2d() {
+	$widget_j2d.style.display = 'none';
+
+	active_widget = null; // back
+	trigger_animation($inside, "animated-menu");
 }
 
 

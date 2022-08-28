@@ -42,6 +42,27 @@
                     "event": "AppToggleMute",
                     "toggle":  true
                 }
+            },
+            {
+                "name": "Test exclusive",
+                "action": {
+                    "type": "menu",
+                    "menu": "test_exclusive"
+                }
+            },
+            {
+                "name": "Test joystick 2D",
+                "action": {
+                    "type": "avatar parameter",
+                    "parameter": "ManualTailControl",
+                    "control": "joystick_2d",
+                    "default_value_x": 0,
+                    "min_value_x": 0,
+                    "max_value_x": 1,
+                    "default_value_y": 0,
+                    "min_value_y": 0,
+                    "max_value_y": 1
+                }
             }
         ],
         "settings": [
@@ -119,9 +140,41 @@
                     "type": "avatar parameter",
                     "parameter": "GestureRightWeight",
                     "control": "radial",
-                    "value": 1,
+                    "default_value": -0.5,
                     "min_value": -1,
                     "max_value":  1
+                }
+            }
+        ],
+        "test_exclusive": [
+            {
+                "name": "1",
+                "action": {
+                    "type": "avatar parameter",
+                    "control": "toggle",
+                    "parameter": "Emoji",
+                    "value": 0,
+                    "exclusive_option": true
+                }
+            },
+            {
+                "name": "2",
+                "action": {
+                    "type": "avatar parameter",
+                    "control": "toggle",
+                    "parameter": "Emoji",
+                    "value": 1,
+                    "exclusive_option": true
+                }
+            },
+            {
+                "name": "3",
+                "action": {
+                    "type": "avatar parameter",
+                    "control": "toggle",
+                    "parameter": "Emoji",
+                    "value": 2,
+                    "exclusive_option": true
                 }
             }
         ]

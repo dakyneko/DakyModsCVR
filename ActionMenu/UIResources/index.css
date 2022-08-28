@@ -60,7 +60,7 @@
     padding: 5px;
 }
 
-#widget-radial .center {
+#widget-radial .center, #widget-j2d .center {
     display: block;
     position: absolute;
     top: 50%;
@@ -121,7 +121,9 @@
     }
 }
 
-#actionmenu .joystick, #widget-radial .indicator {
+#actionmenu .joystick,
+#widget-radial .indicator,
+#widget-j2d .joystick {
     display: block;
     position: absolute;
     left: 50%;
@@ -145,6 +147,28 @@
     position: absolute;
     width: 100%;
     height: 100%;
+}
+
+#widget-j2d {
+    display: none;
+    position: absolute;
+    height: 497px;
+    width: 497px;
+
+    background: radial-gradient(#d17f00 28%, #3a1500);
+    border-radius: 50%;
+    overflow: hidden;
+}
+
+#widget-j2d .triangle {
+    display: block;
+    position: absolute;
+    width: 0px;
+    height: 0px;
+    border-left: 20px solid transparent;
+    border-right: 20px solid transparent;
+    border-bottom: 20px solid #dac024;
+    transform: translate(-50%, -50%);
 }
 
 #actionmenu .separators, #actionmenu .items { /* cohtml needs this to show anything */
