@@ -134,17 +134,20 @@
     transform: translate(-50%, -50%);
 }
 
-#widget-radial .joystick {
-    display: block;
-    position: absolute;
-    width: 100%;
-    height: 100%;
+#actionmenu .joystick, #widget-radial .joystick {
     border-radius: 50%;
     background: radial-gradient(#4a3f22,
         #4a3f22 17%, #f0ba27 20%, #534711 23%,
         #513f0c 42%, #dac024 45%, #4f480a 47%,
         #4a4422 57%, #ffc525 60%, #573b15 63%);
     opacity: 0.90;
+}
+
+#widget-radial .joystick {
+    display: block;
+    position: absolute;
+    width: 100%;
+    height: 100%;
 }
 
 #actionmenu .separators, #actionmenu .items { /* cohtml needs this to show anything */
