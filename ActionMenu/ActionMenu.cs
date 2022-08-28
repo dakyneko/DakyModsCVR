@@ -26,6 +26,7 @@ namespace ActionMenu
     {
         private static MelonLogger.Instance logger;
         private static ActionMenuMod instance;
+        private static CohtmlView cohtmlView;
 
         public override void OnApplicationStart()
         {
@@ -73,7 +74,7 @@ namespace ActionMenu
         public static void MenuManagerRegisterEvents()
         {
             var view = CVR_MenuManager.Instance.quickMenu.View;
-            view.RegisterForEvent("CVRAppActionActionMenuReady", (Delegate)new Action(() => instance.OnActionMenuReady(view)));
+            view.RegisterForEvent("CVRAppActionActionMenuReady", new Action(instance.OnActionMenuReady));
         }
 
         private System.Collections.IEnumerator WaitActionMenu()
@@ -95,8 +96,8 @@ namespace ActionMenu
             v.Height = 500;
             v.Page = "coui://uiresources/my_actionmenu/index.html";
 
-            v.enabled = true; // no need to reload!
-            //v.View.Reload();
+            v.enabled = true;
+            cohtmlView = v;
         }
 
         private static void OnToggleQuickMenu(CVR_MenuManager __instance, bool show)
@@ -105,7 +106,7 @@ namespace ActionMenu
             // TODO: this doesn't work with fly mode
             // TODO: technically the opposite hand should be free to work (look around or move)
             PlayerSetup.Instance._movementSystem.SetImmobilized(show);
-            var view = CVR_MenuManager.Instance.quickMenu.View;
+            var view = cohtmlView.View;
             view.TriggerEvent<bool>("ToggleQuickMenu", show);
         }
 
@@ -162,7 +163,7 @@ namespace ActionMenu
                 trigger = __instance._inputManager.interactLeftValue;
             }
 
-            var view = CVR_MenuManager.Instance.quickMenu.View;
+            var view = cohtmlView.View;
             var data = new QuickMenuData {
                 joystick = joystick,
                 trigger = trigger,
@@ -235,7 +236,7 @@ namespace ActionMenu
                         i.action = new ItemAction
                         {
                             type = "avatar parameter",
-                            parameter = s.machineName, // TODO: probably wrong
+                            parameter = s.machineName,
                             control = "radial",
                             default_value = sslider.defaultValue,
                             min_value = 0.0f,
@@ -269,16 +270,14 @@ namespace ActionMenu
 
             m.Add(avatarMenuPrefix, aitems);
 
-            // TODO: very ugly
-            var view = CVR_MenuManager.Instance.quickMenu.View;
-            instance.OnActionMenuReady(view);
+            instance.OnActionMenuReady();
         }
 
-        private void OnActionMenuReady(View view)
+        // TODO: sync state of mic, camera on/off, seated, etc
+        private void OnActionMenuReady()
         {
+            var view = cohtmlView.View;
             logger.Msg($"OnActionMenuReady for view {view}");
-            // TODO: load menu dynamically, for ex for avatars params?
-            // TODO: sync state of mic, camera on/off, seated, etc
             var fromFile = System.IO.File.ReadAllText(@"ChilloutVR_Data\StreamingAssets\Cohtml\UIResources\my_actionmenu\actionmenu.json");
             var config = JsonConvert.DeserializeObject<Config>(fromFile);
             logger.Msg($"Loaded config with {config.menus.Count} menus: {string.Join(", ", config.menus.Keys)}");
@@ -296,48 +295,20 @@ namespace ActionMenu
 
         private void SpawnActionMenu()
         {
-            var view = CVR_MenuManager.Instance?.quickMenu;
-            if (view == null)
+            if (cohtmlView == null)
             {
                 logger.Msg($"SpawnActionMenu view is null!");
                 return;
             }
-            view.View.Reload();
-            view.transform.localScale = new Vector3(0.2f, 0.2f, 0.2f);
+            cohtmlView.View.Reload();
+            cohtmlView.transform.localScale = new Vector3(0.2f, 0.2f, 0.2f);
 
-            logger.Msg($"view reloaded {view} {view.View}");
+            logger.Msg($"view reloaded {cohtmlView} {cohtmlView.View}");
         }
 
         public override void OnUpdate()
         {
             if (Input.GetKeyDown(KeyCode.F3)) SpawnActionMenu(); // reload
         }
-    }
-
-    struct Config
-    {
-        public Dictionary<string, List<MenuItem>> menus;
-    }
-    struct MenuItem
-    {
-        public string? name;
-        public string? icon;
-        public ItemAction action;
-    } 
-    struct ItemAction
-    {
-        public string type;
-        public string? menu;
-        [JsonProperty(PropertyName = "event")]
-        public string? event_;
-        public string? control;
-        public string? parameter;
-        public object? value;
-        public object? min_value;
-        public object? max_value;
-        public object? default_value;
-        public bool? toggle;
-        public bool? exclusive_option; // highlight a single option in current menu
-        public float? duration;
     }
 }
