@@ -71,5 +71,16 @@ namespace Daky
             else
                 d.Add(key, value);
         }
+
+        public static V GetWithDefault<U,V>(this Dictionary<U,V> d, U key, Func<V> makeDefault)
+        {
+            V v;
+            if (d.TryGetValue(key, out v))
+                return v;
+
+            v = makeDefault();
+            d.Add(key, v);
+            return v;
+        }
     }
 }

@@ -179,25 +179,37 @@ namespace ActionMenu
             return false;
         }
 
+        // we interpret names with | as folders to make a hierarchy, ex: Head|Hair|Length
+        // we'll build menus and submenus necessary to allow it automatically
+        private static readonly char HierarchySep = '|';
+        private static readonly string AvatarMenuPrefix = "avatar";
+
         private static Config avatarMenus;
         private static void OnAvatarAdvancedSettings(PlayerSetup __instance)
         {
             avatarMenus = new() { menus = new() };
             var m = avatarMenus.menus;
-            var avatarMenuPrefix = "avatar";
-            List<MenuItem> aitems = new ();
+            HashSet<(string parent, string child)> hierarchy_pairs = new();
 
-            // TODO: build hierarchy of menus from parameter names containing slash / like folders
+            // Build menus from the items directly (leaves in the hierarchy)
             logger.Msg($"OnAvatarAdvancedSettings {__instance._avatarDescriptor.avatarSettings.settings.Count} items");
             foreach (var s in __instance._avatarDescriptor.avatarSettings.settings)
             {
-                logger.Msg($"OnAvatarAdvancedSettings loop {s.name}: {s.type}");
-                var i = new MenuItem { name = s.name };
+                var name = s.name;
+                var parents = AvatarMenuPrefix;
+                var i = s.name.LastIndexOf(HierarchySep);
+                if (i >= 0) { // is in a folder
+                    name = s.name.Substring(i + 1);
+                    parents += HierarchySep + s.name.Substring(0, i);
+                }
+                logger.Msg($"OnAvatarAdvancedSettings loop {name} <- {parents}: {s.type}");
+                var item = new MenuItem { name = name };
 
+                // build the items in the menu
                 switch (s.type)
                 {
                     case SettingsType.GameObjectToggle:
-                        i.action = new ItemAction
+                        item.action = new ItemAction
                         {
                             type = "avatar parameter",
                             parameter = s.machineName,
@@ -207,9 +219,9 @@ namespace ActionMenu
                         break;
 
                     case SettingsType.GameObjectDropdown:
-                        var submenuName = $"{avatarMenuPrefix}_{s.name}";
+                        var submenuName = AvatarMenuPrefix + HierarchySep + s.name;
 
-                        i.action = new ItemAction
+                        item.action = new ItemAction
                         {
                             type = "menu",
                             menu = submenuName,
@@ -233,7 +245,7 @@ namespace ActionMenu
 
                     case SettingsType.Slider:
                         var sslider = s.sliderSettings;
-                        i.action = new ItemAction
+                        item.action = new ItemAction
                         {
                             type = "avatar parameter",
                             parameter = s.machineName,
@@ -245,7 +257,7 @@ namespace ActionMenu
                         break;
 
                     case SettingsType.InputSingle:
-                        i.action = new ItemAction
+                        item.action = new ItemAction
                         {
                             type = "avatar parameter",
                             parameter = s.machineName,
@@ -257,18 +269,63 @@ namespace ActionMenu
                         };
                         break;
 
-                    case SettingsType.MaterialColor:
                     case SettingsType.Joystick2D:
+                        var sjoy = s.joystick2DSetting;
+                        item.action = new ItemAction
+                        {
+                            type = "avatar parameter",
+                            parameter = s.machineName,
+                            control = "joystick_2d",
+                            min_value_x = 0.0f, // TODO: cvr seems to ignore min/max defined in unity, sad :(
+                            max_value_x = 1.0f,
+                            default_value_x = sjoy.defaultValue.x,
+                            min_value_y = 0.0f,
+                            max_value_y = 1.0f,
+                            default_value_y = sjoy.defaultValue.y,
+                        };
+                        break;
+
+                    case SettingsType.MaterialColor:
                     case SettingsType.Joystick3D:
                     case SettingsType.InputVector2:
                     case SettingsType.InputVector3:
                         break; // TODO: unsupported
                 };
 
-                aitems.Add(i);
+                var aitems = m.GetWithDefault(parents, () => new());
+                aitems.Add(item);
+
+                // register the hierarchy upward
+                var hierarchy = parents.Split(HierarchySep);
+                var child = AvatarMenuPrefix;
+                for (var j = 1; j < hierarchy.Length; ++j) {
+                    var parent = child;
+                    child = parent + HierarchySep + hierarchy[j];
+                    logger.Msg($"OnAvatarAdvancedSettings register hierarchy pair loop {child} <- {parent}");
+                    hierarchy_pairs.Add((parent, child));
+                }
             }
 
-            m.Add(avatarMenuPrefix, aitems);
+            // now build the reset, non-leaves up to the root menu (hierarchy of menus)
+            foreach (var x in hierarchy_pairs)
+            {
+                var parent = x.parent;
+                var child = x.child;
+                var i = child.LastIndexOf(HierarchySep);
+                var childName = (i >= 0) ? x.child.Substring(i+1) : child;
+                logger.Msg($"OnAvatarAdvancedSettings build hierarchy ({childName}): {child} <- {parent}");
+
+                var item = new MenuItem
+                {
+                    name = childName,
+                    action = new ItemAction
+                    {
+                        type = "menu",
+                        menu = child,
+                    },
+                };
+                m.GetWithDefault(parent, () => new()).Add(item);
+            }
 
             instance.OnActionMenuReady();
         }

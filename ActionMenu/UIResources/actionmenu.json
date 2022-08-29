@@ -54,7 +54,7 @@
                 "name": "Test joystick 2D",
                 "action": {
                     "type": "avatar parameter",
-                    "parameter": "ManualTailControl",
+                    "parameter": "testjoystick2d",
                     "control": "joystick_2d",
                     "default_value_x": 0,
                     "min_value_x": 0,
