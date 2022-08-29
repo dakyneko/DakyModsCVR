@@ -10,6 +10,7 @@ using cohtml.Net;
 using ABI_RC.Core.InteractionSystem;
 using System;
 using Newtonsoft.Json;
+using ABI.CCK.Scripts;
 
 using OpCodes = System.Reflection.Emit.OpCodes;
 using PlayerSetup = ABI_RC.Core.Player.PlayerSetup;
@@ -184,9 +185,10 @@ namespace ActionMenu
         private static readonly char HierarchySep = '|';
         private static readonly string AvatarMenuPrefix = "avatar";
 
-        private static Config avatarMenus;
+        private static Menu avatarMenus;
         private static void OnAvatarAdvancedSettings(PlayerSetup __instance)
         {
+            var menuPrefix = AvatarMenuPrefix;
             avatarMenus = new() { menus = new() };
             var m = avatarMenus.menus;
             HashSet<(string parent, string child)> hierarchy_pairs = new();
@@ -196,108 +198,23 @@ namespace ActionMenu
             foreach (var s in __instance._avatarDescriptor.avatarSettings.settings)
             {
                 var name = s.name;
-                var parents = AvatarMenuPrefix;
+                var parents = menuPrefix;
                 var i = s.name.LastIndexOf(HierarchySep);
                 if (i >= 0) { // is in a folder
                     name = s.name.Substring(i + 1);
                     parents += HierarchySep + s.name.Substring(0, i);
                 }
                 logger.Msg($"OnAvatarAdvancedSettings loop {name} <- {parents}: {s.type}");
+
                 var item = new MenuItem { name = name };
-
-                // build the items in the menu
-                switch (s.type)
-                {
-                    case SettingsType.GameObjectToggle:
-                        item.action = new ItemAction
-                        {
-                            type = "avatar parameter",
-                            parameter = s.machineName,
-                            control = "toggle",
-                            value = 1f,
-                        };
-                        break;
-
-                    case SettingsType.GameObjectDropdown:
-                        var submenuName = AvatarMenuPrefix + HierarchySep + s.name;
-
-                        item.action = new ItemAction
-                        {
-                            type = "menu",
-                            menu = submenuName,
-                        };
-
-                        List<MenuItem> sitems = s.dropDownSettings.options.Select((o, index) => new MenuItem
-                        {
-                            name = o.name,
-                            action = new ItemAction
-                            {
-                                type = "avatar parameter",
-                                parameter = s.machineName,
-                                control = "toggle",
-                                value = index,
-                                exclusive_option = true,
-                            },
-                        }).ToList();
-
-                        m.Add(submenuName, sitems);
-                        break;
-
-                    case SettingsType.Slider:
-                        var sslider = s.sliderSettings;
-                        item.action = new ItemAction
-                        {
-                            type = "avatar parameter",
-                            parameter = s.machineName,
-                            control = "radial",
-                            default_value = sslider.defaultValue,
-                            min_value = 0.0f,
-                            max_value = 1.0f,
-                        };
-                        break;
-
-                    case SettingsType.InputSingle:
-                        item.action = new ItemAction
-                        {
-                            type = "avatar parameter",
-                            parameter = s.machineName,
-                            control = "radial",
-                            default_value = s.inputSingleSettings.defaultValue,
-                            // TODO: we're guessing here, we should allow to override somewhere
-                            min_value = 0.0f,
-                            max_value = 1.0f,
-                        };
-                        break;
-
-                    case SettingsType.Joystick2D:
-                        var sjoy = s.joystick2DSetting;
-                        item.action = new ItemAction
-                        {
-                            type = "avatar parameter",
-                            parameter = s.machineName,
-                            control = "joystick_2d",
-                            min_value_x = 0.0f, // TODO: cvr seems to ignore min/max defined in unity, sad :(
-                            max_value_x = 1.0f,
-                            default_value_x = sjoy.defaultValue.x,
-                            min_value_y = 0.0f,
-                            max_value_y = 1.0f,
-                            default_value_y = sjoy.defaultValue.y,
-                        };
-                        break;
-
-                    case SettingsType.MaterialColor:
-                    case SettingsType.Joystick3D:
-                    case SettingsType.InputVector2:
-                    case SettingsType.InputVector3:
-                        break; // TODO: unsupported
-                };
+                AvatarParamToItem(ref item, s, menuPrefix, m);
 
                 var aitems = m.GetWithDefault(parents, () => new());
                 aitems.Add(item);
 
                 // register the hierarchy upward
                 var hierarchy = parents.Split(HierarchySep);
-                var child = AvatarMenuPrefix;
+                var child = menuPrefix;
                 for (var j = 1; j < hierarchy.Length; ++j) {
                     var parent = child;
                     child = parent + HierarchySep + hierarchy[j];
@@ -330,13 +247,106 @@ namespace ActionMenu
             instance.OnActionMenuReady();
         }
 
+        private static void AvatarParamToItem(ref MenuItem item, CVRAdvancedSettingsEntry s,
+            string menuPrefix, Menus m)
+        {
+            // build the items in the menu
+            switch (s.type)
+            {
+                case SettingsType.GameObjectToggle:
+                    item.action = new ItemAction
+                    {
+                        type = "avatar parameter",
+                        parameter = s.machineName,
+                        control = "toggle",
+                        value = 1f,
+                    };
+                    break;
+
+                case SettingsType.GameObjectDropdown:
+                    var submenuName = menuPrefix + HierarchySep + s.name;
+                    // if parameter name has suffix Impulse, adapt control type
+                    var isImpulse = s.machineName.EndsWith("Impulse");
+
+                    item.action = new ItemAction
+                    {
+                        type = "menu",
+                        menu = submenuName,
+                    };
+
+                    List<MenuItem> sitems = s.dropDownSettings.options.Select((o, index) => new MenuItem
+                    {
+                        name = o.name,
+                        action = new ItemAction
+                        {
+                            type = "avatar parameter",
+                            parameter = s.machineName,
+                            control = isImpulse ? "impulse" : "toggle",
+                            value = index,
+                            exclusive_option = !isImpulse,
+                        },
+                    }).ToList();
+
+                    m.Add(submenuName, sitems);
+                    break;
+
+                case SettingsType.Slider:
+                    var sslider = s.sliderSettings;
+                    item.action = new ItemAction
+                    {
+                        type = "avatar parameter",
+                        parameter = s.machineName,
+                        control = "radial",
+                        default_value = sslider.defaultValue,
+                        min_value = 0.0f,
+                        max_value = 1.0f,
+                    };
+                    break;
+
+                case SettingsType.InputSingle:
+                    item.action = new ItemAction
+                    {
+                        type = "avatar parameter",
+                        parameter = s.machineName,
+                        control = "radial",
+                        default_value = s.inputSingleSettings.defaultValue,
+                        // TODO: we're guessing here, we should allow to override somewhere
+                        min_value = 0.0f,
+                        max_value = 1.0f,
+                    };
+                    break;
+
+                case SettingsType.Joystick2D:
+                    var sjoy = s.joystick2DSetting;
+                    item.action = new ItemAction
+                    {
+                        type = "avatar parameter",
+                        parameter = s.machineName,
+                        control = "joystick_2d",
+                        min_value_x = 0.0f, // TODO: cvr seems to ignore min/max defined in unity, sad :(
+                        max_value_x = 1.0f,
+                        default_value_x = sjoy.defaultValue.x,
+                        min_value_y = 0.0f,
+                        max_value_y = 1.0f,
+                        default_value_y = sjoy.defaultValue.y,
+                    };
+                    break;
+
+                case SettingsType.MaterialColor:
+                case SettingsType.Joystick3D:
+                case SettingsType.InputVector2:
+                case SettingsType.InputVector3:
+                    break; // TODO: unsupported
+            };
+        }
+
         // TODO: sync state of mic, camera on/off, seated, etc
         private void OnActionMenuReady()
         {
             var view = cohtmlView.View;
             logger.Msg($"OnActionMenuReady for view {view}");
             var fromFile = System.IO.File.ReadAllText(@"ChilloutVR_Data\StreamingAssets\Cohtml\UIResources\my_actionmenu\actionmenu.json");
-            var config = JsonConvert.DeserializeObject<Config>(fromFile);
+            var config = JsonConvert.DeserializeObject<Menu>(fromFile);
             logger.Msg($"Loaded config with {config.menus.Count} menus: {string.Join(", ", config.menus.Keys)}");
 
             if (avatarMenus.menus != null)

@@ -3,10 +3,11 @@ using System.Collections.Generic;
 
 namespace ActionMenu
 {
+    class Menus : Dictionary<string, List<MenuItem>> { }
 
-    struct Config
+    struct Menu
     {
-        public Dictionary<string, List<MenuItem>> menus;
+        public Menus menus;
     }
     struct MenuItem
     {

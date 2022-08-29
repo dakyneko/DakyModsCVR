@@ -187,9 +187,9 @@ function handle_click_main() {
 	}
 
 	if (action.exclusive_option) {
-		clear_all_enabled_sectors();
+		clear_all_enabled_sectors(item.action?.parameter);
 		menu.forEach(i => {
-			if (i != item)
+			if (i != item && i.action?.parameter == action?.parameter)
 				i.enabled = false;
 		});
 	}
@@ -289,9 +289,11 @@ function build_$item(item, i) {
 	return $item;
 }
 
-function clear_all_enabled_sectors() {
+function clear_all_enabled_sectors(parameter) {
 	menu.forEach(item => {
 		const action = item.action;
+		if (parameter != null && item.action?.parameter != parameter)
+			return; // skip if parameter is provided and match
 		if (action?.$enabled != null) {
 			if (action.$enabled.parentNode != null)
 				$enabled_sectors.removeChild(action.$enabled);
