@@ -4,6 +4,7 @@ const maxdist = 0.15; // 'inner' joystick zone, normalized
 const deadzone = 0.5; // normalized
 const pi = Math.PI;
 const pi2 = 2 * Math.PI;
+const clamp = (min, max, v) => Math.min(max, Math.max(min, v));
 
 const $actionmenu = document.getElementById("actionmenu");
 const $background = $actionmenu.getElementsByClassName("background")[0];
@@ -137,11 +138,12 @@ function handle_click_main() {
 					wait_joystick_recenter = true;
 					break;
 
-				case 'joystick_2d':
+				case 'joystick_2d': {
 					const min_value_x = action.min_value_x ?? 0;
 					const max_value_x = action.max_value_x ?? 1;
 					const delta_x = max_value_x - min_value_x;
 					const start_value_x = ((action.default_value_x ?? 0) - min_value_x) / delta_x;
+					// TODO: we should restore from the previously set value
 
 					const min_value_y = action.min_value_y ?? 0;
 					const max_value_y = action.max_value_y ?? 1;
@@ -157,6 +159,39 @@ function handle_click_main() {
 					trigger_animation($wj2d_inside, "animated-menu");
 					wait_joystick_recenter = true;
 					break;
+				}
+
+				// TODO: refactor with joystick_2d?
+				case 'input_vector_2d': {
+					const min_value_x = action.min_value_x ?? 0;
+					const max_value_x = action.max_value_x ?? 1;
+					const delta_x = max_value_x - min_value_x;
+					const start_value_x = ((action.default_value_x ?? 0) - min_value_x) / delta_x;
+
+					const min_value_y = action.min_value_y ?? 0;
+					const max_value_y = action.max_value_y ?? 1;
+					const delta_y = max_value_y - min_value_y;
+					const start_value_y = ((action.default_value_y ?? 0) - min_value_y) / delta_y;
+
+					const delta_scale = 0.01;
+					var last_value_x = start_value_x;
+					var last_value_y =  start_value_y;
+
+					start_widget_joystick_2d(item, start_value_x, start_value_y, (x, y) => {
+						// reconvert from 0,1 to -1,+1 and scale
+						const denormalized_x = clamp(min_value_x, max_value_x,
+							last_value_x + delta_scale * (2*x - 1) * delta_x);
+						const denormalized_y = clamp(min_value_y, max_value_y,
+							last_value_y + delta_scale * (2*y - 1) * delta_y);
+						appcall("AppChangeAnimatorParam", action.parameter + '-x', denormalized_x);
+						appcall("AppChangeAnimatorParam", action.parameter + '-y', denormalized_y);
+						last_value_x = denormalized_x;
+						last_value_y = denormalized_y;
+					});
+					trigger_animation($wj2d_inside, "animated-menu");
+					wait_joystick_recenter = true;
+					break;
+				}
 
 				case 'impulse':
 					if (item.enabled) return; // prevent spam

@@ -55,13 +55,13 @@
                 "action": {
                     "type": "avatar parameter",
                     "parameter": "testjoystick2d",
-                    "control": "joystick_2d",
+                    "control": "input_vector_2d",
                     "default_value_x": 0,
                     "min_value_x": 0,
-                    "max_value_x": 1,
+                    "max_value_x": 0.999,
                     "default_value_y": 0,
                     "min_value_y": 0,
-                    "max_value_y": 1
+                    "max_value_y": 0.999
                 }
             }
         ],

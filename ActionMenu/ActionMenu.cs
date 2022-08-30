@@ -11,6 +11,7 @@ using ABI_RC.Core.InteractionSystem;
 using System;
 using Newtonsoft.Json;
 using ABI.CCK.Scripts;
+using System.IO;
 
 using OpCodes = System.Reflection.Emit.OpCodes;
 using PlayerSetup = ABI_RC.Core.Player.PlayerSetup;
@@ -332,9 +333,24 @@ namespace ActionMenu
                     };
                     break;
 
+                case SettingsType.InputVector2:
+                    var svec = s.inputVector2Settings;
+                    item.action = new ItemAction
+                    {
+                        type = "avatar parameter",
+                        parameter = s.machineName,
+                        control = "input_vector_2d",
+                        min_value_x = 0.0f, // TODO: cvr has no min max values so we're left guessing here
+                        max_value_x = 1.0f,
+                        default_value_x = svec.defaultValue.x,
+                        min_value_y = 0.0f,
+                        max_value_y = 1.0f,
+                        default_value_y = svec.defaultValue.y,
+                    };
+                    break;
+
                 case SettingsType.MaterialColor:
                 case SettingsType.Joystick3D:
-                case SettingsType.InputVector2:
                 case SettingsType.InputVector3:
                     break; // TODO: unsupported
             };
