@@ -82,5 +82,17 @@ namespace Daky
             d.Add(key, v);
             return v;
         }
+
+        public static T TryOrDefault<T>(Func<T> f)
+        {
+            try
+            {
+                return f();
+            }
+            catch (Exception)
+            {
+                return default;
+            }
+        }
     }
 }

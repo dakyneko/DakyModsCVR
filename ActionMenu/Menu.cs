@@ -3,19 +3,19 @@ using System.Collections.Generic;
 
 namespace ActionMenu
 {
-    class Menus : Dictionary<string, List<MenuItem>> { }
+    public class Menus : Dictionary<string, List<MenuItem>> { }
 
-    struct Menu
+    public struct Menu
     {
         public Menus menus;
     }
-    struct MenuItem
+    public struct MenuItem
     {
         public string? name;
         public string? icon;
         public ItemAction action;
     } 
-    struct ItemAction
+    public struct ItemAction
     {
         public string type;
         public string? menu;

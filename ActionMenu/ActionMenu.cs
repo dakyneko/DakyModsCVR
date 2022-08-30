@@ -361,10 +361,12 @@ namespace ActionMenu
         {
             var view = cohtmlView.View;
             logger.Msg($"OnActionMenuReady for view {view}");
-            var fromFile = System.IO.File.ReadAllText(@"ChilloutVR_Data\StreamingAssets\Cohtml\UIResources\my_actionmenu\actionmenu.json");
+            // TODO: file path should be a config variable
+            var fromFile = File.ReadAllText(@"ChilloutVR_Data\StreamingAssets\Cohtml\UIResources\my_actionmenu\actionmenu.json");
             var config = JsonConvert.DeserializeObject<Menu>(fromFile);
             logger.Msg($"Loaded config with {config.menus.Count} menus: {string.Join(", ", config.menus.Keys)}");
 
+            // avatar menu from avatar itself (cvr advanced settings)
             if (avatarMenus.menus != null)
             {
                 foreach (var x in avatarMenus.menus)
@@ -372,7 +374,56 @@ namespace ActionMenu
                 logger.Msg($"Loaded config from avatar {avatarMenus.menus.Count} menus: {string.Join(", ", avatarMenus.menus.Keys)}");
             }
 
-            var jsonTxt = JsonConvert.SerializeObject(config, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+            var avatarGuid = PlayerSetup.Instance?._avatarDescriptor?.avatarSettings?._avatarGuid ?? "default";
+            API.InvokeOnAvatarMenuLoaded(avatarGuid, config.menus);
+
+            // avatar menu override from file
+            var avatarOverridesFile = @"UserData\ActionMenu\AvatarOverrides\for_" + avatarGuid + ".json";
+            if (File.Exists(avatarOverridesFile))
+            {
+                try
+                {
+                    logger.Msg($"loading avatar overrides for {avatarGuid}: {avatarOverridesFile}");
+                    var txt = File.ReadAllText(avatarOverridesFile);
+                    var overrides = JsonConvert.DeserializeObject<Menus>(txt);
+                    foreach (var x in overrides)
+                        // TODO: instead of upsert, could have different sections in json for different actions:
+                        // at root: {"add": {}, "remove": {}, "replace": {}} to add to items to a menu, remove to a menu or totally replace a menu
+                        // a bit like an advanced "patch" system
+                        config.menus.Upsert(x.Key, x.Value);
+                }
+                catch (Exception ex)
+                {
+                    logger.Error($"Error while reading avatar overrides json for avatar {avatarGuid}: {ex}");
+                }
+            }
+            else
+                logger.Msg($"No avatar overrides for {avatarGuid}: {avatarOverridesFile}");
+
+            // global overrides
+            var globalOverridesFiles = Dakytils.TryOrDefault(() => Directory.GetFiles(@"UserData\ActionMenu\GlobalOverrides"));
+            if (globalOverridesFiles == null || globalOverridesFiles.Length == 0)
+                logger.Msg($"no global overrides");
+            foreach (var fpath in globalOverridesFiles ?? new string[] { } )
+            {
+                try
+                {
+                    logger.Msg($"loading global overrides {fpath}");
+                    if (!fpath.EndsWith(".json")) continue;
+                    var txt = File.ReadAllText(fpath);
+                    var overrides = JsonConvert.DeserializeObject<Menus>(txt);
+                    foreach (var x in overrides)
+                        config.menus.Upsert(x.Key, x.Value);
+                }
+                catch (Exception ex)
+                {
+                    logger.Error($"Error while reading global overrides json {fpath}: {ex}");
+                }
+            }
+
+            API.InvokeOnGlobalMenuLoaded(config.menus);
+
+            var jsonTxt = JsonConvert.SerializeObject(config,new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
             view.TriggerEvent<string, bool>("LoadActionMenu", jsonTxt, PlayerSetup.Instance._inVr);
         }
 
