@@ -98,7 +98,7 @@ const virtual_back_item = {
 
 function handle_click_main() {
 	const item = selected_sector != null ? menu[selected_sector] : virtual_back_item;
-	console.log(['click selected_sector', selected_sector, item.name, item]);
+	//console.log(['click selected_sector', selected_sector, item.name, item]);
 
 	const $item = selected_sector != null ? $items.childNodes[selected_sector] : $inside;
 
@@ -270,7 +270,7 @@ function appcall(type, arg1, arg2, arg3, arg4) {
 	arg3 = arg3?.toString() || null;
 	arg4 = arg4?.toString() || null;
 	// yes this function needs all those args even if they're null
-	console.log("CVRAppCallSystemCall", type, arg1, arg2, arg3, arg4);
+	//console.log("CVRAppCallSystemCall", type, arg1, arg2, arg3, arg4);
 	engine.call("CVRAppCallSystemCall", type, arg1, arg2, arg3, arg4);
 }
 

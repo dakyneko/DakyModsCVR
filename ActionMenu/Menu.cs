@@ -37,4 +37,16 @@ namespace ActionMenu
         public bool? exclusive_option; // highlight a single option in current menu
         public float? duration; // in seconds (float)
     }
+
+    // defines modifications to perform on existing Menus: removing, adding and replacing items in them
+    public struct MenusPatch
+    {
+        // menu name -> item names to remove
+        public Dictionary<string, HashSet<string>> remove_items;
+        // menu name -> item to add
+        public Menus add_items;
+        // menu name -> menu to completely replace
+        // if it didn't exist, it is created
+        public Menus overwrites;
+    }
 }

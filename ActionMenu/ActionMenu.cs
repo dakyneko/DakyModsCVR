@@ -186,12 +186,11 @@ namespace ActionMenu
         private static readonly char HierarchySep = '|';
         private static readonly string AvatarMenuPrefix = "avatar";
 
-        private static Menu avatarMenus;
+        private static Menus? avatarMenus;
         private static void OnAvatarAdvancedSettings(PlayerSetup __instance)
         {
             var menuPrefix = AvatarMenuPrefix;
-            avatarMenus = new() { menus = new() };
-            var m = avatarMenus.menus;
+            var m = avatarMenus = new();
             HashSet<(string parent, string child)> hierarchy_pairs = new();
 
             // Build menus from the items directly (leaves in the hierarchy)
@@ -219,7 +218,6 @@ namespace ActionMenu
                 for (var j = 1; j < hierarchy.Length; ++j) {
                     var parent = child;
                     child = parent + HierarchySep + hierarchy[j];
-                    logger.Msg($"OnAvatarAdvancedSettings register hierarchy pair loop {child} <- {parent}");
                     hierarchy_pairs.Add((parent, child));
                 }
             }
@@ -231,7 +229,6 @@ namespace ActionMenu
                 var child = x.child;
                 var i = child.LastIndexOf(HierarchySep);
                 var childName = (i >= 0) ? x.child.Substring(i+1) : child;
-                logger.Msg($"OnAvatarAdvancedSettings build hierarchy ({childName}): {child} <- {parent}");
 
                 var item = new MenuItem
                 {
@@ -356,6 +353,34 @@ namespace ActionMenu
             };
         }
 
+        public static void ApplyMenuPatch(Menus menus, MenusPatch patch)
+        {
+            if (patch.remove_items != null)
+            {
+                foreach (var x in patch.remove_items)
+                {
+                    if (!menus.TryGetValue(x.Key, out var items))
+                        continue;
+                    var toRemove = x.Value;
+                    items.RemoveAll(item => item.name != null && toRemove.Contains(item.name));
+                }
+            }
+
+            if (patch.add_items != null)
+            {
+                foreach (var x in patch.add_items)
+                {
+                    var items = menus.GetWithDefault(x.Key, () => new());
+                    foreach (var item in x.Value)
+                        items.Add(item);
+                }
+            }
+
+            if (patch.overwrites != null)
+                foreach (var x in patch.overwrites)
+                    menus.Upsert(x.Key, x.Value);
+        }
+
         // TODO: sync state of mic, camera on/off, seated, etc
         private void OnActionMenuReady()
         {
@@ -367,11 +392,11 @@ namespace ActionMenu
             logger.Msg($"Loaded config with {config.menus.Count} menus: {string.Join(", ", config.menus.Keys)}");
 
             // avatar menu from avatar itself (cvr advanced settings)
-            if (avatarMenus.menus != null)
+            if (avatarMenus != null)
             {
-                foreach (var x in avatarMenus.menus)
+                foreach (var x in avatarMenus)
                     config.menus.Upsert(x.Key, x.Value);
-                logger.Msg($"Loaded config from avatar {avatarMenus.menus.Count} menus: {string.Join(", ", avatarMenus.menus.Keys)}");
+                logger.Msg($"Loaded config from avatar {avatarMenus.Count} menus: {string.Join(", ", avatarMenus.Keys)}");
             }
 
             var avatarGuid = PlayerSetup.Instance?._avatarDescriptor?.avatarSettings?._avatarGuid ?? "default";
@@ -385,41 +410,32 @@ namespace ActionMenu
                 {
                     logger.Msg($"loading avatar overrides for {avatarGuid}: {avatarOverridesFile}");
                     var txt = File.ReadAllText(avatarOverridesFile);
-                    var overrides = JsonConvert.DeserializeObject<Menus>(txt);
-                    foreach (var x in overrides)
-                        // TODO: instead of upsert, could have different sections in json for different actions:
-                        // at root: {"add": {}, "remove": {}, "replace": {}} to add to items to a menu, remove to a menu or totally replace a menu
-                        // a bit like an advanced "patch" system
-                        config.menus.Upsert(x.Key, x.Value);
+                    var patch = JsonConvert.DeserializeObject<MenusPatch>(txt);
+                    ApplyMenuPatch(config.menus, patch);
                 }
                 catch (Exception ex)
                 {
                     logger.Error($"Error while reading avatar overrides json for avatar {avatarGuid}: {ex}");
                 }
             }
-            else
-                logger.Msg($"No avatar overrides for {avatarGuid}: {avatarOverridesFile}");
 
             // global overrides
             var globalOverridesFiles = Dakytils.TryOrDefault(() => Directory.GetFiles(@"UserData\ActionMenu\GlobalOverrides"));
-            if (globalOverridesFiles == null || globalOverridesFiles.Length == 0)
-                logger.Msg($"no global overrides");
-            foreach (var fpath in globalOverridesFiles ?? new string[] { } )
+            globalOverridesFiles?
+                .Where(fpath => fpath.EndsWith(".json"))
+                .Do(fpath =>
             {
                 try
                 {
-                    logger.Msg($"loading global overrides {fpath}");
-                    if (!fpath.EndsWith(".json")) continue;
                     var txt = File.ReadAllText(fpath);
-                    var overrides = JsonConvert.DeserializeObject<Menus>(txt);
-                    foreach (var x in overrides)
-                        config.menus.Upsert(x.Key, x.Value);
+                    var patch = JsonConvert.DeserializeObject<MenusPatch>(txt);
+                    ApplyMenuPatch(config.menus, patch);
                 }
                 catch (Exception ex)
                 {
                     logger.Error($"Error while reading global overrides json {fpath}: {ex}");
                 }
-            }
+            });
 
             API.InvokeOnGlobalMenuLoaded(config.menus);
 
