@@ -91,6 +91,14 @@
                     "event": "AppToggleSeatedPlay",
                     "toggle":  true
                 }
+            },
+            {
+                "name": "Main-menu",
+                "action": {
+                    "type": "system call",
+                    "event": "ShowMainMenuPage",
+                    "event_arguments": ["settings"]
+                }
             }
         ],
         "avatar": [

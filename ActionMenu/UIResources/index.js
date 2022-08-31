@@ -118,7 +118,8 @@ function handle_click_main() {
 			break;
 
 		case 'system call':
-			appcall(action.event);
+			const args = action.arguments ?? [];
+			appcall(action.event, ...args);
 			action_toggle = action?.toggle;
 			break;
 

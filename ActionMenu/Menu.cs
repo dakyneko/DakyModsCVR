@@ -21,6 +21,7 @@ namespace ActionMenu
         public string? menu;
         [JsonProperty(PropertyName = "event")]
         public string? event_;
+        public string[]? event_arguments;
         public string? control;
         public string? parameter;
         public object? value;
