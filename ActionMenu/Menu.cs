@@ -8,6 +8,7 @@ namespace ActionMenu
     public struct Menu
     {
         public Menus menus;
+        public MenuSettings settings;
     }
     public struct MenuItem
     {
@@ -49,5 +50,11 @@ namespace ActionMenu
         // menu name -> menu to completely replace
         // if it didn't exist, it is created
         public Menus overwrites;
+    }
+
+    public struct MenuSettings
+    {
+        public bool flick;
+        public bool boring_back_button;
     }
 }

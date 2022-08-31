@@ -19,23 +19,26 @@ var quickmenu_active = false;
 var menu_name;
 var menu;
 var menus = {}; // dynamically loaded
+var settings = {}; // dynamically loaded
 var breadcrumb = []; // list of entered menu
-var sectors = 5; // number of items in the menu
+var sectors = 0; // number of items in the menu
 var selected_sector = null;
 var last_leftTrigger = false;
 var gameData = {};
 var active_widget = null;
 var in_vr = false;
 var wait_joystick_recenter = false; // prevent users to input values by mistake for certain widgets
+var was_in_deadzone = false;
 
 
 function handle_direction(x, y) { // values between -1 and +1
 	if (!quickmenu_active) return;
 
 	const dist = Math.sqrt(x*x + y*y);
+	const is_in_deadzone = dist <= deadzone;
 
 	if (wait_joystick_recenter) {
-		if (dist <= deadzone)
+		if (is_in_deadzone)
 			wait_joystick_recenter = false;
 		else
 			return;
@@ -45,7 +48,8 @@ function handle_direction(x, y) { // values between -1 and +1
 		? active_widget.handle_direction // widget has taken over
 		: handle_direction_main;
 
-	return f(x, y, dist);
+	f(x, y, dist);
+	was_in_deadzone = is_in_deadzone;
 }
 
 function sector_rotation(sector) {
@@ -68,6 +72,10 @@ function handle_direction_main(x, y, dist) {
 		refresh_selection_sector(selected_sector);
 	}
 	else { // deadzone = no selection
+		if (settings.flick && !was_in_deadzone && selected_sector != null) {
+			handle_click_main(); // magics
+			return;
+		}
 		$sector.style.display = 'none';
 		selected_sector = null;
 	}
@@ -93,17 +101,23 @@ function handle_click() {
 
 const virtual_back_item = {
 	"name": "back",
+	"icon": "icon_back.png",
 	"action": {"type": "back"},
 }
 
 function handle_click_main() {
-	const item = selected_sector != null ? menu[selected_sector] : virtual_back_item;
+	const item = selected_sector != null
+		? menu[selected_sector]
+		: (settings.boring_back_button ? null : virtual_back_item );
+
+	if (item == null) return;
 	//console.log(['click selected_sector', selected_sector, item.name, item]);
 
 	const $item = selected_sector != null ? $items.childNodes[selected_sector] : $inside;
 
 	const action = item.action;
 	let action_toggle = false;
+
 	switch (action.type) {
 		case 'menu':
 			const current_menu = menu_name;
@@ -160,7 +174,7 @@ function handle_click_main() {
 							appcall("AppChangeAnimatorParam", action.parameter + '-y', denormalized_y);
 						});
 					}
-					if (action.control == 'input_vector_2d') {
+					else if (action.control == 'input_vector_2d') {
 						const delta_scale = 0.01;
 						var last_value_x = start_value_x;
 						var last_value_y =  start_value_y;
@@ -224,6 +238,17 @@ function handle_click_main() {
 		trigger_animation($item, "animated-item");
 
 	appcall("PlayCoreUiSound", "Click");
+}
+
+function back_from_widget() {
+	trigger_animation($inside, "animated-menu");
+
+	if (settings.flick) {
+		selected_sector = null;
+		wait_joystick_recenter = true; // security
+	}
+
+	active_widget = null; // back
 }
 
 document.addEventListener('mousemove', (event) => {
@@ -362,7 +387,7 @@ function load_menu(name) {
 	});
 
 	// middle back button
-	{
+	if (!settings.boring_back_button) {
 		const $item = build_$item(virtual_back_item);
 		$item.style.left = $item.style.top = mid +'px';
 		$items.appendChild($item);
@@ -410,8 +435,7 @@ function start_widget_radial(item, start_value, set_value) { // takes normalized
 function handle_click_radial() {
 	$widget_radial.style.display = 'none';
 
-	active_widget = null; // back
-	trigger_animation($inside, "animated-menu");
+	back_from_widget();
 }
 
 function handle_direction_radial(set_value, x, y, dist) {
@@ -531,8 +555,7 @@ function handle_direction_joystick_2d(set_value, x, y, dist) {
 function handle_click_joystick_2d() {
 	$widget_j2d.style.display = 'none';
 
-	active_widget = null; // back
-	trigger_animation($inside, "animated-menu");
+	back_from_widget();
 }
 
 
@@ -541,6 +564,18 @@ function handle_click_joystick_2d() {
 function loadActionMenu(j) {
 	console.log('fetched', typeof(j), Object.keys(j.menus));
     menus = j.menus;
+	settings = j.settings ?? {};
+	if (settings.flick)
+		wait_joystick_recenter = true;
+
+	// add a nice back button if requested
+	if (settings.boring_back_button) {
+		for (const [name, m] of Object.entries(menus)) {
+			if (name == "main") continue;
+			m.unshift(virtual_back_item);
+		}
+	}
+
 	load_menu("main");
 }
 

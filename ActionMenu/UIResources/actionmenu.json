@@ -186,5 +186,9 @@
                 }
             }
         ]
+    },
+    "settings": {
+        "flick": false,
+        "boring_back_button": true
     }
 }
