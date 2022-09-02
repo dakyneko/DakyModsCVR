@@ -26,7 +26,6 @@ var selected_sector = null;
 var last_leftTrigger = false;
 var gameData = {};
 var active_widget = null;
-var in_vr = false;
 var wait_joystick_recenter = false; // prevent users to input values by mistake for certain widgets
 var was_in_deadzone = false;
 
@@ -72,7 +71,7 @@ function handle_direction_main(x, y, dist) {
 		refresh_selection_sector(selected_sector);
 	}
 	else { // deadzone = no selection
-		if (settings.flick && !was_in_deadzone && selected_sector != null) {
+		if (settings.flick_selection && !was_in_deadzone && selected_sector != null) {
 			handle_click_main(); // magics
 			return;
 		}
@@ -134,6 +133,17 @@ function handle_click_main() {
 		case 'system call':
 			const args = action.arguments ?? [];
 			appcall(action.event, ...args);
+			action_toggle = action?.toggle;
+			break;
+
+		case 'set melon preference':
+			const new_value = item.enabled ? 0 : (action.value ?? 1);
+			engine.call("CVRActionMenuSetMelonPreference", action.parameter, String(new_value));
+			action_toggle = action?.toggle;
+			break;
+
+		case 'callback':
+			engine.call("CVRActionMenuCallback", action.parameter);
 			action_toggle = action?.toggle;
 			break;
 
@@ -243,7 +253,7 @@ function handle_click_main() {
 function back_from_widget() {
 	trigger_animation($inside, "animated-menu");
 
-	if (settings.flick) {
+	if (settings.flick_selection) {
 		selected_sector = null;
 		wait_joystick_recenter = true; // security
 	}
@@ -252,7 +262,7 @@ function back_from_widget() {
 }
 
 document.addEventListener('mousemove', (event) => {
-	if (in_vr) return;
+	if (settings.in_vr) return;
 	let x = (event.clientX - mid);
 	let y = (event.clientY - mid);
 	const dist = Math.sqrt(x*x + y*y);
@@ -272,7 +282,7 @@ document.addEventListener('mousemove', (event) => {
 });
 
 document.addEventListener('mouseup', (event) => {
-	if (in_vr || event.button != 0) return;
+	if (settings.in_vr || event.button != 0) return;
 	handle_click();
 });
 
@@ -387,7 +397,7 @@ function load_menu(name) {
 	});
 
 	// middle back button
-	if (!settings.boring_back_button) {
+	if (!settings.boring_back_button && menu_name != "main") {
 		const $item = build_$item(virtual_back_item);
 		$item.style.left = $item.style.top = mid +'px';
 		$items.appendChild($item);
@@ -561,11 +571,11 @@ function handle_click_joystick_2d() {
 
 /* dispatchers */
 
-function loadActionMenu(j) {
-	console.log('fetched', typeof(j), Object.keys(j.menus));
-    menus = j.menus;
-	settings = j.settings ?? {};
-	if (settings.flick)
+function loadActionMenu(_menu, _settings) {
+    menus = _menu.menus;
+	settings = _settings ?? {};
+
+	if (settings.flick_selection)
 		wait_joystick_recenter = true;
 
 	// add a nice back button if requested
@@ -591,9 +601,8 @@ engine.on('ActionMenuData', (_content) => {
 	last_leftTrigger = leftTrigger;
 });
 
-engine.on('LoadActionMenu', (_content, inVr) => {
-	loadActionMenu(JSON.parse(_content));
-	in_vr = inVr;
+engine.on('LoadActionMenu', (_content, _settings) => {
+	loadActionMenu(JSON.parse(_content), JSON.parse(_settings));
 });
 
 engine.on('ToggleQuickMenu', (show) => {
@@ -608,9 +617,13 @@ if (window.navigator.appVersion != undefined) { // browser only
 	fetch('actionmenu.json')
 	.then((data) =>  data.json())
 	.then((j) => {
-		loadActionMenu(j);
+		loadActionMenu(j, {
+			in_vr: false,
+			boring_back_button: false,
+			flick_selection: false,
+		});
 	});
 	quickmenu_active = true;
 } else {
-	engine.trigger('CVRAppActionActionMenuReady');
+	engine.trigger('CVRActionMenuReady');
 }

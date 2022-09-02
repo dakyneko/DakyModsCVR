@@ -8,7 +8,6 @@ namespace ActionMenu
     public struct Menu
     {
         public Menus menus;
-        public MenuSettings settings;
     }
     public struct MenuItem
     {
@@ -54,7 +53,8 @@ namespace ActionMenu
 
     public struct MenuSettings
     {
-        public bool flick;
+        public bool in_vr;
+        public bool flick_selection;
         public bool boring_back_button;
     }
 }

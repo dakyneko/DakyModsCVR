@@ -31,7 +31,7 @@
                 "action": {
                     "type": "system call",
                     "event": "AppToggleCamera",
-                    "toggle":  true
+                    "toggle": true
                 }
             },
             {
@@ -40,7 +40,7 @@
                 "action": {
                     "type": "system call",
                     "event": "AppToggleMute",
-                    "toggle":  true
+                    "toggle": true
                 }
             },
             {
@@ -72,7 +72,7 @@
                 "action": {
                     "type": "system call",
                     "event": "AppToggleFLightMode",
-                    "toggle":  true
+                    "toggle": true
                 }
             },
             {
@@ -89,7 +89,7 @@
                 "action": {
                     "type": "system call",
                     "event": "AppToggleSeatedPlay",
-                    "toggle":  true
+                    "toggle": true
                 }
             },
             {
@@ -97,7 +97,14 @@
                 "action": {
                     "type": "system call",
                     "event": "ShowMainMenuPage",
-                    "event_arguments": ["settings"]
+                    "event_arguments": [ "settings" ]
+                }
+            },
+            {
+                "name": "Action Menu",
+                "action": {
+                    "type": "menu",
+                    "menu": "settings|actionmenu"
                 }
             }
         ],
@@ -150,7 +157,7 @@
                     "control": "radial",
                     "default_value": -0.5,
                     "min_value": -1,
-                    "max_value":  1
+                    "max_value": 1
                 }
             }
         ],
@@ -185,10 +192,24 @@
                     "exclusive_option": true
                 }
             }
+        ],
+        "settings|actionmenu": [
+            {
+                "name": "Selection flick",
+                "action": {
+                    "type": "set melon preference",
+                    "parameter": "flick_selection",
+                    "toggle": true,
+                    "default_value": false
+                }
+            },
+            {
+                "name": "Daky callback",
+                "action": {
+                    "type": "callback",
+                    "parameter": "ActionMenu.daky_callback"
+                }
+            }
         ]
-    },
-    "settings": {
-        "flick": false,
-        "boring_back_button": true
     }
 }

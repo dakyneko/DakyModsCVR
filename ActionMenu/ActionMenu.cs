@@ -30,10 +30,25 @@ namespace ActionMenu
         private static ActionMenuMod instance;
         private static CohtmlView cohtmlView;
 
+        private MelonPreferences_Category melonPrefs;
+        private Dictionary<string, MelonPreferences_Entry> melonPrefsMap;
+        private MelonPreferences_Entry<bool> flick_selection, boring_back_button;
+
+        private Dictionary<string, Action> callback_items; // unique identifier -> function
+
         public override void OnApplicationStart()
         {
             logger = LoggerInstance;
             instance = this;
+            callback_items = new();
+
+            melonPrefs = MelonPreferences.CreateCategory("ActionMenu", "Action Menu");
+            flick_selection = melonPrefs.CreateEntry("flick_selection", false, "Flick selection");
+            boring_back_button = melonPrefs.CreateEntry("boring_back_button", false, "Boring back button");
+
+            melonPrefsMap = new();
+            foreach (var e in melonPrefs.Entries)
+                melonPrefsMap.Add(e.Identifier, e);
 
             HarmonyInstance.Patch(
                 SymbolExtensions.GetMethodInfo(() => default(CVR_MenuManager).RegisterEvents()),
@@ -76,7 +91,9 @@ namespace ActionMenu
         public static void MenuManagerRegisterEvents()
         {
             var view = CVR_MenuManager.Instance.quickMenu.View;
-            view.RegisterForEvent("CVRAppActionActionMenuReady", new Action(instance.OnActionMenuReady));
+            view.RegisterForEvent("CVRActionMenuReady", new Action(instance.OnActionMenuReady));
+            view.BindCall("CVRActionMenuSetMelonPreference", new Action<string, string>(instance.OnSetMelonPreference));
+            view.BindCall("CVRActionMenuCallback", new Action<string>(instance.OnActionMenuCallback));
         }
 
         private System.Collections.IEnumerator WaitActionMenu()
@@ -179,6 +196,29 @@ namespace ActionMenu
         {
             SchedulerSystem.RemoveJob(new SchedulerSystem.Job(__instance.SendCoreUpdate));
             return false;
+        }
+
+        private Menus? melonPrefsMenus;
+        private void BuildMelonPrefsMenus()
+        {
+            var m = melonPrefsMenus = new();
+            var items = m.GetWithDefault("settings"+ HierarchySep +"actionmenu", () => new());
+
+            foreach (var e in melonPrefs.Entries)
+            {
+                // TODO: we assume they're all boolean for now
+                items.Add(new MenuItem()
+                {
+                    name = e.DisplayName,
+                    action = new()
+                    {
+                        type = "set melon preference",
+                        parameter = e.Identifier,
+                        toggle = true,
+                        default_value = e.BoxedValue,
+                    }
+                });
+            }
         }
 
         // we interpret names with | as folders to make a hierarchy, ex: Head|Hair|Length
@@ -391,6 +431,13 @@ namespace ActionMenu
             var config = JsonConvert.DeserializeObject<Menu>(fromFile);
             logger.Msg($"Loaded config with {config.menus.Count} menus: {string.Join(", ", config.menus.Keys)}");
 
+            // add our melon prefs
+            if (melonPrefsMenus != null)
+            {
+                foreach (var x in melonPrefsMenus)
+                    config.menus.Upsert(x.Key, x.Value);
+            }
+
             // avatar menu from avatar itself (cvr advanced settings)
             if (avatarMenus != null)
             {
@@ -439,9 +486,19 @@ namespace ActionMenu
 
             API.InvokeOnGlobalMenuLoaded(config.menus);
 
-            var jsonTxt = JsonConvert.SerializeObject(config,new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
-            view.TriggerEvent<string, bool>("LoadActionMenu", jsonTxt, PlayerSetup.Instance._inVr);
+            var settings = new MenuSettings
+            {
+                in_vr = PlayerSetup.Instance._inVr,
+                flick_selection = flick_selection.Value,
+                boring_back_button = boring_back_button.Value,
+            };
+
+            var configTxt = JsonSerialize(config);
+            var settingsTxt = JsonSerialize(settings);
+            view.TriggerEvent<string, string>("LoadActionMenu", configTxt, settingsTxt);
         }
+
+        private static string JsonSerialize(object value) => JsonConvert.SerializeObject(value, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
 
         private void SpawnActionMenu()
         {
@@ -454,6 +511,69 @@ namespace ActionMenu
             cohtmlView.transform.localScale = new Vector3(0.2f, 0.2f, 0.2f);
 
             logger.Msg($"view reloaded {cohtmlView} {cohtmlView.View}");
+        }
+
+        private void OnSetMelonPreference(string identifier, string value)
+        {
+            MelonPreferences_Entry e_;
+            if (!melonPrefsMap.TryGetValue(identifier, out e_) || e_ == null)
+            {
+                logger.Warning($"didn't find preference {identifier}");
+                return;
+            }
+
+            // TODO: again we assume preference is only boolean
+            switch (e_)
+            {
+                case MelonPreferences_Entry<bool> e: {
+                    if (float.TryParse(value, out float valueInt))
+                        e.Value = valueInt != 0;
+                    break;
+                }
+
+                default:
+                    logger.Warning($"OnSetMelonPreference {identifier} unsupported type {e_.GetReflectedType()}");
+                    break;
+            }
+
+            // rebuild and send it back
+            BuildMelonPrefsMenus();
+        }
+
+        // Use this to create an item that you can add to any menu and it will call your function when item is selected
+        public static ItemAction BuildCallbackMenuItem(string name, Action callback)
+        {
+            // auto detect namespace of caller so we can suffix identifier to avoid collision between mods
+            // basically, reflection goes weeeeeeeeee
+            var stackTrace = new System.Diagnostics.StackTrace();
+            var caller_ns = stackTrace.GetFrame(1).GetMethod().DeclaringType.Namespace;
+            var identifier = caller_ns + "." + name;
+
+            instance.callback_items.Upsert(identifier, callback);
+            return new ItemAction()
+            {
+                type = "callback",
+                parameter = identifier,
+            };
+        }
+
+        private void OnActionMenuCallback(string identifier)
+        {
+            Action f;
+            if (!callback_items.TryGetValue(identifier, out f) || f == null)
+            {
+                logger.Warning($"didn't find callback {identifier}");
+                return;
+            }
+
+            try
+            {
+                f();
+            }
+            catch (Exception e)
+            {
+                logger.Error($"failure in callback: {e}");
+            }
         }
 
         public override void OnUpdate()
