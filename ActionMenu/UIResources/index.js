@@ -7,7 +7,6 @@ const pi2 = 2 * Math.PI;
 const clamp = (min, max, v) => Math.min(max, Math.max(min, v));
 
 const $actionmenu = document.getElementById("actionmenu");
-const $background = $actionmenu.getElementsByClassName("background")[0];
 const $joystick = $actionmenu.getElementsByClassName("joystick")[0];
 const $sector = $actionmenu.getElementsByClassName("sector")[0];
 const $enabled_sectors = $actionmenu.getElementsByClassName("enabled_sectors")[0];
@@ -23,10 +22,9 @@ var settings = {}; // dynamically loaded
 var breadcrumb = []; // list of entered menu
 var sectors = 0; // number of items in the menu
 var selected_sector = null;
-var last_leftTrigger = false;
 var gameData = {};
 var active_widget = null;
-var wait_joystick_recenter = false; // prevent users to input values by mistake for certain widgets
+var wait_joystick_recenter = false; // prevent users to select items by mistake for certain widgets
 var was_in_deadzone = false;
 
 
@@ -118,50 +116,76 @@ function handle_click_main() {
 	let action_toggle = false;
 
 	switch (action.type) {
-		case 'menu':
+		case 'menu': {
 			const current_menu = menu_name;
 			load_menu(action.menu);
 			breadcrumb.push(current_menu);
 			break;
+		}
 
-		case 'back':
+		case 'back': {
 			const last_menu_name = breadcrumb.pop();
 			if (last_menu_name != undefined) // if fail: main menu probably
 				load_menu(last_menu_name);
 			break;
+		}
 
-		case 'system call':
-			const args = action.arguments ?? [];
+		case 'system call': {
+			const args = action.event_arguments ?? [];
 			appcall(action.event, ...args);
 			action_toggle = action?.toggle;
 			break;
+		}
 
-		case 'set melon preference':
+		case 'set melon preference': {
 			const new_value = item.enabled ? 0 : (action.value ?? 1);
 			engine.call("CVRActionMenuSetMelonPreference", action.parameter, String(new_value));
 			action_toggle = action?.toggle;
 			break;
+		}
 
-		case 'callback':
+		case 'callback': {
 			engine.call("CVRActionMenuCallback", action.parameter);
 			action_toggle = action?.toggle;
 			break;
+		}
 
-		case 'avatar parameter':
+		case 'avatar parameter': {
 			switch (action.control) {
-				case 'radial':
+				case 'toggle': {
+					action_toggle = true;
+					const new_value = item.enabled ? 0 : (action.value ?? 1);
+					appcall("AppChangeAnimatorParam", action.parameter, new_value);
+					break;
+				}
+
+				case 'impulse': {
+					if (item.enabled) return; // prevent spam
+					const sector = selected_sector;
+					toggle_item_enabled(sector, item);
+					appcall("AppChangeAnimatorParam", action.parameter, action.value ?? 1);
+					setTimeout(() => {
+						if (!item.enabled) return;
+						toggle_item_enabled(sector, item);
+						appcall("AppChangeAnimatorParam", action.parameter, action.default_value ?? 0);
+						appcall("PlayCoreUiSound", "Click");
+					}, (action.duration ?? 1) * 1000);
+					break;
+				}
+
+				case 'radial': {
 					// TODO: restore value from cvr?
 					const min_value = action.min_value ?? 0;
 					const max_value = action.max_value ?? 1;
 					const delta = max_value - min_value;
 					const start_value = ((action.default_value ?? 0) - min_value) / delta;
-					start_widget_radial(item, start_value, (v) => {
+					widget_radial.start(item, start_value, (v) => {
 						const denormalized = v * delta + min_value;
 						appcall("AppChangeAnimatorParam", action.parameter, denormalized);
 					});
-					trigger_animation($wr_inside, "animated-menu");
 					wait_joystick_recenter = true;
 					break;
+				}
 
 				case 'joystick_2d':
 				case 'input_vector_2d': {
@@ -177,7 +201,7 @@ function handle_click_main() {
 					const start_value_y = ((action.default_value_y ?? 0) - min_value_y) / delta_y;
 
 					if (action.control == 'joystick_2d') {
-						start_widget_joystick_2d(item, start_value_x, start_value_y, (x, y) => {
+						widget_j2d.start(item, start_value_x, start_value_y, (x, y) => {
 							const denormalized_x = x * delta_x + min_value_x;
 							const denormalized_y = y * delta_y + min_value_y;
 							appcall("AppChangeAnimatorParam", action.parameter + '-x', denormalized_x);
@@ -186,10 +210,10 @@ function handle_click_main() {
 					}
 					else if (action.control == 'input_vector_2d') {
 						const delta_scale = 0.01;
-						var last_value_x = start_value_x;
-						var last_value_y =  start_value_y;
+						let last_value_x = start_value_x;
+						let last_value_y = start_value_y;
 
-						start_widget_joystick_2d(item, start_value_x, start_value_y, (x, y) => {
+						widget_j2d.start(item, start_value_x, start_value_y, (x, y) => {
 							// reconvert from 0,1 to -1,+1 and scale
 							const denormalized_x = clamp(min_value_x, max_value_x,
 								last_value_x + delta_scale * (2*x - 1) * delta_x);
@@ -201,34 +225,15 @@ function handle_click_main() {
 							last_value_y = denormalized_y;
 						});
 					}
-					trigger_animation($wj2d_inside, "animated-menu");
 					wait_joystick_recenter = true;
 					break;
 				}
-
-				case 'impulse':
-					if (item.enabled) return; // prevent spam
-					const sector = selected_sector;
-					toggle_item_enabled(sector, item);
-					appcall("AppChangeAnimatorParam", action.parameter, action.value ?? 1);
-					setTimeout(() => {
-						if (!item.enabled) return;
-						toggle_item_enabled(sector, item);
-						appcall("AppChangeAnimatorParam", action.parameter, action.default_value ?? 0);
-						appcall("PlayCoreUiSound", "Click");
-					}, (action.duration ?? 1) * 1000);
-					break;
-
-				case 'toggle':
-					action_toggle = true;
-					const new_value = item.enabled ? 0 : (action.value ?? 1);
-					appcall("AppChangeAnimatorParam", action.parameter, new_value);
-					break;
 
 				default:
 					throw `unsupported control type: ${action.control}`;
 			}
 			break;
+		}
 
 		default:
 			throw `Unknown action: ${action.type} item ${item.name}`;
@@ -414,64 +419,6 @@ function trigger_animation($el, animation) {
 	}, {'once': true});
 }
 
-
-/* radial widget */
-
-const $widget_radial = document.getElementById("widget-radial");
-const $wr_arc = $widget_radial.getElementsByClassName("arc")[0];
-const $wr_indicator = $widget_radial.getElementsByClassName("indicator")[0];
-const $wr_center = $widget_radial.getElementsByClassName("center")[0];
-const $wr_value = $widget_radial.getElementsByClassName("value")[0];
-const $wr_inside = $widget_radial.getElementsByClassName("inside")[0];
-
-function start_widget_radial(item, start_value, set_value) { // takes normalized value (0 to 1)
-	$widget_radial.style.display = 'block';
-
-	$wr_center.innerHTML = "";
-	const $item = build_$item(item);
-	$wr_center.appendChild($item);
-
-	const handle_direction = (x, y, dist) => handle_direction_radial(set_value, x, y, dist);
-	widget_radial_set(pi2 * start_value);
-	$wr_value.innerHTML = Math.floor(start_value * 100) + "%";
-	active_widget = {
-		handle_direction: handle_direction,
-		handle_click: handle_click_radial,
-	};
-
-	$wr_indicator.style.left = $wr_indicator.style.top = '50%'; // start in middle
-}
-
-function handle_click_radial() {
-	$widget_radial.style.display = 'none';
-
-	back_from_widget();
-}
-
-function handle_direction_radial(set_value, x, y, dist) {
-	// TODO: add mechanism to disallow jumping from -1 to +1 at angle 0, protection
-
-	if (dist >= deadzone) {
-		const angle = y <= -1 // protection for division by 0
-			? pi2 - 0.001
-			: (pi - 2 * Math.atan(x / ( y + dist )));
-
-		widget_radial_set(angle);
-		$wr_indicator.style.left = 100 * (0.5 + maxdist * Math.sin(angle)) + '%';
-		$wr_indicator.style.top  = 100 * (0.5 + maxdist * Math.cos(pi - angle)) + '%';
-
-		const value = angle / pi2;
-		set_value(value); // output between 0 and 1
-		$wr_value.innerHTML = Math.floor(value * 100) + "%";
-	}
-	// else: deadzone = no update
-}
-
-function widget_radial_set(angle) {
-	const clip_path = compute_radial_mask(angle);
-	$wr_arc.style.clipPath = `polygon(${clip_path})`;
-}
-
 function selection_sector_set(sectors) {
 	const angle = pi2 / sectors;
 	const clip_path = compute_radial_mask(angle);
@@ -500,73 +447,145 @@ function compute_radial_mask(angle) { // angle in radians
 }
 
 
-/* 2D widget */
+/* radial widget */
 
-const $widget_j2d = document.getElementById("widget-j2d");
-const $wj2d_joystick = $widget_j2d.getElementsByClassName("joystick")[0];
-const $wj2d_center = $widget_j2d.getElementsByClassName("center")[0];
-const $wj2d_inside = $widget_j2d.getElementsByClassName("inside")[0];
-const $wj2d_triangles = $widget_j2d.getElementsByClassName("triangles")[0];
+const widget_radial = (function() {
+	const $w = document.getElementById("widget-radial");
+	const $arc = $w.getElementsByClassName("arc")[0];
+	const $indicator = $w.getElementsByClassName("indicator")[0];
+	const $center = $w.getElementsByClassName("center")[0];
+	const $value = $w.getElementsByClassName("value")[0];
+	const $inside = $w.getElementsByClassName("inside")[0];
 
-function start_widget_joystick_2d(item, start_value_x, start_value_y, set_value) {
-	$widget_j2d.style.display = 'block';
+	const handle_click_radial = () => {
+		$w.style.display = 'none';
 
-	$wj2d_triangles.innerHTML = "";
+		back_from_widget();
+	}
 
-	$wj2d_center.innerHTML = "";
-	const $item = build_$item(item);
-	$wj2d_center.appendChild($item);
+	const handle_direction_radial = (set_value, x, y, dist) => {
+		// TODO: add mechanism to disallow jumping from -1 to +1 at angle 0, protection
 
-	const triangles = 4;
-	[...Array(triangles).keys()].forEach((i) => {
-		const $t = document.createElement('div');
-		$t.className = "triangle";
-		const angle = i * pi2 / triangles;
-		$t.style.top  = 50 + 35 * Math.cos(angle) + '%';
-		$t.style.left = 50 + 35 * Math.sin(angle) + '%';
-		$t.style.transform = `translate(-50%, -50%) rotate(${(pi - angle) * 180 / pi}deg)`;
-		$wj2d_triangles.appendChild($t);
-	});
+		if (dist >= deadzone) {
+			const angle = y <= -1 // protection for division by 0
+				? pi2 - 0.001
+				: (pi - 2 * Math.atan(x / ( y + dist )));
 
-	const handle_direction = (x, y, dist) => handle_direction_joystick_2d(set_value, x, y, dist);
-	// TODO: handle default x y
-	active_widget = {
-		handle_direction: handle_direction,
-		handle_click: handle_click_joystick_2d,
+			widget_radial_set(angle);
+			$indicator.style.left = 100 * (0.5 + maxdist * Math.sin(angle)) + '%';
+			$indicator.style.top  = 100 * (0.5 + maxdist * Math.cos(pi - angle)) + '%';
+
+			const value = angle / pi2;
+			set_value(value); // output between 0 and 1
+			$value.innerHTML = Math.floor(value * 100) + "%";
+		}
+		// else: deadzone = no update
+	}
+
+	const widget_radial_set = (angle) => {
+		const clip_path = compute_radial_mask(angle);
+		$arc.style.clipPath = `polygon(${clip_path})`;
+	}
+
+	const start = (item, start_value, set_value) => { // takes normalized value (0 to 1)
+		$w.style.display = 'block';
+
+		$center.innerHTML = "";
+		const $item = build_$item(item);
+		$center.appendChild($item);
+
+		const handle_direction = (x, y, dist) => handle_direction_radial(set_value, x, y, dist);
+		widget_radial_set(pi2 * start_value);
+		$value.innerHTML = Math.floor(start_value * 100) + "%";
+		active_widget = {
+			handle_direction: handle_direction,
+			handle_click: handle_click_radial,
+		};
+
+		$indicator.style.left = $indicator.style.top = '50%'; // start in middle
+		trigger_animation($inside, "animated-menu");
+	}
+
+
+	return {
+		'start': start,
 	};
-
-	$wj2d_joystick.style.left = $wr_indicator.style.top = '50%'; // start in middle
-}
-
-function handle_direction_joystick_2d(set_value, x, y, dist) {
-	const angle = y <= -1 // protection for division by 0
-		? pi2 - 0.001
-		: (pi - 2 * Math.atan(x / ( y + dist )));
+})();
 
 
-	$wj2d_joystick.style.left = 100*(0.5 + maxdist * x) + '%';
-	$wj2d_joystick.style.top  = 100*(0.5 + maxdist * y) + '%';
+/* joystick 2D widget */
 
-	const triangles = $wj2d_triangles.childNodes.length;
-	Array.prototype.forEach.call($wj2d_triangles.childNodes, ($t, i) => {
-		const angle =  i * pi2 / triangles;
-		const tx = Math.sin(angle);
-		const ty = Math.cos(angle);
-		const dot = x * tx + y * ty; // between -1 and +1
+const widget_j2d = (function() {
+	const $w = document.getElementById("widget-j2d");
+	const $joystick = $w.getElementsByClassName("joystick")[0];
+	const $center = $w.getElementsByClassName("center")[0];
+	const $inside = $w.getElementsByClassName("inside")[0];
+	const $triangles = $w.getElementsByClassName("triangles")[0];
 
-		const size = 0.1*mid + 0.35*mid * Math.max( 0, dot );
-		$t.style.borderLeft = $t.style.borderRight = size +'px solid transparent';
-		$t.style.borderBottom = size +'px solid #dac024';
-	});
+	const handle_direction_joystick_2d = (set_value, x, y, dist) => {
+		const angle = y <= -1 // protection for division by 0
+			? pi2 - 0.001
+			: (pi - 2 * Math.atan(x / ( y + dist )));
 
-	set_value(0.5 * (1 + x), 0.5 * (1 + y)); // convert range -1,+1 to 0,1
-}
 
-function handle_click_joystick_2d() {
-	$widget_j2d.style.display = 'none';
+		$joystick.style.left = 100*(0.5 + maxdist * x) + '%';
+		$joystick.style.top  = 100*(0.5 + maxdist * y) + '%';
 
-	back_from_widget();
-}
+		const triangles = $triangles.childNodes.length;
+		Array.prototype.forEach.call($triangles.childNodes, ($t, i) => {
+			const angle =  i * pi2 / triangles;
+			const tx = Math.sin(angle);
+			const ty = Math.cos(angle);
+			const dot = x * tx + y * ty; // between -1 and +1
+
+			const size = 0.1*mid + 0.35*mid * Math.max( 0, dot );
+			$t.style.borderLeft = $t.style.borderRight = size +'px solid transparent';
+			$t.style.borderBottom = size +'px solid #dac024';
+		});
+
+		set_value(0.5 * (1 + x), 0.5 * (1 + y)); // convert range -1,+1 to 0,1
+	}
+
+	const handle_click_joystick_2d = () => {
+		$w.style.display = 'none';
+
+		back_from_widget();
+	}
+
+	const start = (item, start_value_x, start_value_y, set_value) => {
+		$w.style.display = 'block';
+
+		$triangles.innerHTML = "";
+
+		$center.innerHTML = "";
+		const $item = build_$item(item);
+		$center.appendChild($item);
+
+		const triangles = 4;
+		[...Array(triangles).keys()].forEach((i) => {
+			const $t = document.createElement('div');
+			$t.className = "triangle";
+			const angle = i * pi2 / triangles;
+			$t.style.top  = 50 + 35 * Math.cos(angle) + '%';
+			$t.style.left = 50 + 35 * Math.sin(angle) + '%';
+			$t.style.transform = `translate(-50%, -50%) rotate(${(pi - angle) * 180 / pi}deg)`;
+			$triangles.appendChild($t);
+		});
+
+		const handle_direction = (x, y, dist) => handle_direction_joystick_2d(set_value, x, y, dist);
+		active_widget = {
+			handle_direction: handle_direction,
+			handle_click: handle_click_joystick_2d,
+		};
+
+		$joystick.style.left = $joystick.style.top = '50%'; // start in middle
+		trigger_animation($inside, "animated-menu");
+	}
+
+	return {
+		'start': start,
+	}
+})();
 
 
 /* dispatchers */
@@ -589,17 +608,21 @@ function loadActionMenu(_menu, _settings) {
 	load_menu("main");
 }
 
-engine.on('ActionMenuData', (_content) => {
-	gameData = JSON.parse(_content);
-	//console.log(['ActionMenuData', _content]);
+(function() {
+	let last_trigger = false;
 
-	const joyvec = gameData.joystick;
-	handle_direction(joyvec.x, -joyvec.y); // we invert y
+	engine.on('ActionMenuData', (_content) => {
+		gameData = JSON.parse(_content);
 
-	const leftTrigger = gameData.trigger > 0.9;
-	if (leftTrigger && !last_leftTrigger) handle_click();
-	last_leftTrigger = leftTrigger;
-});
+		const joyvec = gameData.joystick;
+		handle_direction(joyvec.x, -joyvec.y); // we invert y
+
+		const trigger = gameData.trigger > 0.9;
+		if (trigger && !last_trigger)
+			handle_click();
+		last_trigger = trigger;
+	});
+})();
 
 engine.on('LoadActionMenu', (_content, _settings) => {
 	loadActionMenu(JSON.parse(_content), JSON.parse(_settings));
