@@ -107,7 +107,6 @@ namespace ActionMenu
             var t = go.transform;
             var v = t.GetComponent<CohtmlView>();
 
-            go.transform.localScale = new Vector3(0.2f, 0.2f, 0.2f);
             v.enabled = false;
             v.AutoFocus = false;
             v.IsTransparent = true;
@@ -127,6 +126,7 @@ namespace ActionMenu
             PlayerSetup.Instance._movementSystem.SetImmobilized(show);
             var view = cohtmlView.View;
             view.TriggerEvent<bool>("ToggleQuickMenu", show);
+            cohtmlView.transform.localScale = new Vector3(0.2f, 0.2f, 0.2f); // haxxx to keep it small
         }
 
         [Serializable]
@@ -508,7 +508,6 @@ namespace ActionMenu
                 return;
             }
             cohtmlView.View.Reload();
-            cohtmlView.transform.localScale = new Vector3(0.2f, 0.2f, 0.2f);
 
             logger.Msg($"view reloaded {cohtmlView} {cohtmlView.View}");
         }
