@@ -3,14 +3,15 @@ using MelonLoader;
 using UnityEngine;
 using ABI.CCK.Components;
 using ABI_RC.Core.Savior;
+using ABI_RC.Core.InteractionSystem;
+using ABI_RC.Systems.MovementSystem;
+using ABI.CCK.Scripts;
 using System.Collections.Generic;
 using System.Linq;
 using cohtml;
 using cohtml.Net;
-using ABI_RC.Core.InteractionSystem;
 using System;
 using Newtonsoft.Json;
-using ABI.CCK.Scripts;
 using System.IO;
 
 using OpCodes = System.Reflection.Emit.OpCodes;
@@ -76,6 +77,20 @@ namespace ActionMenu
                 SymbolExtensions.GetMethodInfo(() => default(PlayerSetup).initializeAdvancedAvatarSettings()),
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnAvatarAdvancedSettings))));
 
+
+            // monitor game changes to update menu items state
+            HarmonyInstance.Patch(
+                SymbolExtensions.GetMethodInfo(() => default(CVRCamController).Toggle()),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRCameraToggle))));
+            HarmonyInstance.Patch(
+                SymbolExtensions.GetMethodInfo(() => ABI_RC.Core.Base.Audio.SetMicrophoneActive(default)),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRMicrophoneToggle))));
+            HarmonyInstance.Patch(
+                SymbolExtensions.GetMethodInfo(() => default(PlayerSetup).SwitchSeatedPlay(default)),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRSeatedToggle))));
+            HarmonyInstance.Patch(
+                SymbolExtensions.GetMethodInfo(() => default(MovementSystem).ToggleFlight()),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRFlyToggle))));
         }
 
         private static IEnumerable<CodeInstruction> TranspileMenuManagerRegisterEvents(IEnumerable<CodeInstruction> instructions)
@@ -120,6 +135,66 @@ namespace ActionMenu
 
             v.enabled = true;
             cohtmlView = v;
+        }
+
+        private static void OnCVRCameraToggle(CVRCamController __instance)
+        {
+            MelonLogger.Msg($"OnCVRCameraToggle {__instance}");
+            var u = new MenuItemValueUpdate()
+            {
+                action = new ItemAction()
+                {
+                    type = "system call",
+                    event_ = "AppToggleCamera",
+                    value = __instance?.cvrCamera?.activeSelf ?? false
+                },
+            };
+            cohtmlView.View.TriggerEvent<string>("OnMenuItemValueUpdate", JsonSerialize(u));
+        }
+
+        private static void OnCVRMicrophoneToggle(bool muted)
+        {
+            MelonLogger.Msg($"OnCVRMicrophoneToggle {muted}");
+            var u = new MenuItemValueUpdate()
+            {
+                action = new ItemAction()
+                {
+                    type = "system call",
+                    event_ = "AppToggleMute",
+                    value = !muted,
+                },
+            };
+            cohtmlView.View.TriggerEvent<string>("OnMenuItemValueUpdate", JsonSerialize(u));
+        }
+
+        private static void OnCVRSeatedToggle(PlayerSetup __instance)
+        {
+            MelonLogger.Msg($"OnCVRSeatedToggle {__instance.seatedPlay}");
+            var u = new MenuItemValueUpdate()
+            {
+                action = new ItemAction()
+                {
+                    type = "system call",
+                    event_ = "AppToggleSeatedPlay",
+                    value = __instance.seatedPlay,
+                },
+            };
+            cohtmlView.View.TriggerEvent<string>("OnMenuItemValueUpdate", JsonSerialize(u));
+        }
+
+        private static void OnCVRFlyToggle(MovementSystem __instance)
+        {
+            MelonLogger.Msg($"OnCVRFlyToggle {__instance.flying}");
+            var u = new MenuItemValueUpdate()
+            {
+                action = new ItemAction()
+                {
+                    type = "system call",
+                    event_ = "AppToggleFLightMode",
+                    value = __instance.flying,
+                },
+            };
+            cohtmlView.View.TriggerEvent<string>("OnMenuItemValueUpdate", JsonSerialize(u));
         }
 
         private static void OnToggleQuickMenu(CVR_MenuManager __instance, bool show)

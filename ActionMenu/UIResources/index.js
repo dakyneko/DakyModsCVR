@@ -26,6 +26,7 @@ var gameData = {};
 var active_widget = null;
 var wait_joystick_recenter = false; // prevent users to select items by mistake for certain widgets
 var was_in_deadzone = false;
+var update_to_items = {}; // items registry to sync game<>menu state
 
 
 function handle_direction(x, y) { // values between -1 and +1
@@ -331,6 +332,36 @@ function show_item_enabled(sector, item) {
 	}
 }
 
+// WARN: this doesn't support Object in any of the values!
+const action_to_update_key = (action) => 
+	['type', 'event', 'event_arguments', 'parameter']
+	.map(k => String(action[k]))
+	.join('\0');
+
+function OnMenuItemValueUpdate(update) {
+	const k = action_to_update_key(update);
+	const items = update_to_items[k];
+	if (!items) return;
+
+	items.forEach(item => {
+		const action = item.action;
+		if (action.toggle)
+			item.enabled = (action.value ?? true) == update.value;
+		['default_value', 'default_value_x', 'default_value_y'] // TODO: support more?
+		.forEach(k => {
+			const v = update[k];
+			if (v != null)
+			action[k] = v;
+		});
+	});
+
+	// update current menu in case an item is currently visible
+	menu.forEach((item, i) => {
+		if (items.includes(item))
+			show_item_enabled(i, item);
+	})
+}
+
 function build_$item(item, i) {
 	const $item = document.createElement('div');
 	$item.className = "item";
@@ -607,6 +638,15 @@ function loadActionMenu(_menu, _settings) {
 		}
 	}
 
+	// need an item registry to sync game<>menu update system
+	Object.values(menus).forEach(m => {
+		m.forEach(item => {
+			const k = action_to_update_key(item.action);
+			const xs = update_to_items[k] = update_to_items[k] ?? [];
+			xs.push(item);
+		});
+	});
+
 	load_menu("main");
 }
 
@@ -633,6 +673,11 @@ engine.on('LoadActionMenu', (_content, _settings) => {
 engine.on('ToggleQuickMenu', (show) => {
 	console.log(['ToggleQuickMenu', show]);
 	quickmenu_active = show;
+});
+
+engine.on('OnMenuItemValueUpdate', (_update) => {
+	//console.log(['OnMenuItemValueUpdate', _update]);
+	OnMenuItemValueUpdate(JSON.parse(_update).action);
 });
 
 

@@ -57,4 +57,10 @@ namespace ActionMenu
         public bool flick_selection;
         public bool boring_back_button;
     }
+
+    // serves to communicate change of CVR and other game update to the menu so it can react to them
+    public struct MenuItemValueUpdate
+    {
+        public ItemAction action; // only some fields are used to determine impacted menu items
+    }
 }
