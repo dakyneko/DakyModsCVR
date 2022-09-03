@@ -32,7 +32,7 @@ namespace ActionMenu
 
         private MelonPreferences_Category melonPrefs;
         private Dictionary<string, MelonPreferences_Entry> melonPrefsMap;
-        private MelonPreferences_Entry<bool> flick_selection, boring_back_button;
+        private MelonPreferences_Entry<bool> flickSelection, boringBackButton, splitAvatarOvercrowdedMenu;
 
         private Dictionary<string, Action> callback_items; // unique identifier -> function
 
@@ -43,13 +43,16 @@ namespace ActionMenu
             callback_items = new();
 
             melonPrefs = MelonPreferences.CreateCategory("ActionMenu", "Action Menu");
-            flick_selection = melonPrefs.CreateEntry("flick_selection", false, "Flick selection");
-            boring_back_button = melonPrefs.CreateEntry("boring_back_button", false, "Boring back button");
+            flickSelection = melonPrefs.CreateEntry("flick_selection", false, "Flick selection");
+            boringBackButton = melonPrefs.CreateEntry("boring_back_button", false, "Boring back button");
+            // TODO: implement
+            splitAvatarOvercrowdedMenu = melonPrefs.CreateEntry("split_overcrowded_avatar_menu", false, "Split avatar menu in multiple pages when it's too crowded");
 
             melonPrefsMap = new();
             foreach (var e in melonPrefs.Entries)
                 melonPrefsMap.Add(e.Identifier, e);
 
+            // FIXME: hijack quick menu cohtml for now
             HarmonyInstance.Patch(
                 SymbolExtensions.GetMethodInfo(() => default(CVR_MenuManager).RegisterEvents()),
                 transpiler: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(TranspileMenuManagerRegisterEvents))));
@@ -66,12 +69,13 @@ namespace ActionMenu
                 SymbolExtensions.GetMethodInfo(() => default(CVR_MenuManager).SendCoreUpdate()),
                 prefix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCoreUpdateQuickMenu))));
 
+            MelonCoroutines.Start(WaitActionMenu()); // actual QuickMenu hijack
 
+            // build avatar menu from parameters after avatar is loaded
             HarmonyInstance.Patch(
                 SymbolExtensions.GetMethodInfo(() => default(PlayerSetup).initializeAdvancedAvatarSettings()),
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnAvatarAdvancedSettings))));
 
-            MelonCoroutines.Start(WaitActionMenu());
         }
 
         private static IEnumerable<CodeInstruction> TranspileMenuManagerRegisterEvents(IEnumerable<CodeInstruction> instructions)
@@ -126,7 +130,7 @@ namespace ActionMenu
             PlayerSetup.Instance._movementSystem.SetImmobilized(show);
             var view = cohtmlView.View;
             view.TriggerEvent<bool>("ToggleQuickMenu", show);
-            cohtmlView.transform.localScale = new Vector3(0.2f, 0.2f, 0.2f); // haxxx to keep it small
+            cohtmlView.transform.localScale = new Vector3(0.2f, 0.2f, 0.2f); // FIXME: haxxx to keep it small
         }
 
         [Serializable]
@@ -233,7 +237,7 @@ namespace ActionMenu
             var m = avatarMenus = new();
             HashSet<(string parent, string child)> hierarchy_pairs = new();
 
-            // Build menus from the items directly (leaves in the hierarchy)
+            // Build menus from the avatar parameters, focus on items directly (leaves in the hierarchy)
             logger.Msg($"OnAvatarAdvancedSettings {__instance._avatarDescriptor.avatarSettings.settings.Count} items");
             foreach (var s in __instance._avatarDescriptor.avatarSettings.settings)
             {
@@ -244,7 +248,7 @@ namespace ActionMenu
                     name = s.name.Substring(i + 1);
                     parents += HierarchySep + s.name.Substring(0, i);
                 }
-                logger.Msg($"OnAvatarAdvancedSettings loop {name} <- {parents}: {s.type}");
+                logger.Msg($"OnAvatarAdvancedSettings parameter {name} <- {parents}: {s.type}");
 
                 var item = new MenuItem { name = name };
                 AvatarParamToItem(ref item, s, menuPrefix, m);
@@ -262,7 +266,7 @@ namespace ActionMenu
                 }
             }
 
-            // now build the reset, non-leaves up to the root menu (hierarchy of menus)
+            // now build the rest, non-leaves up to the root menu (hierarchy of menus)
             foreach (var x in hierarchy_pairs)
             {
                 var parent = x.parent;
@@ -421,7 +425,6 @@ namespace ActionMenu
                     menus.Upsert(x.Key, x.Value);
         }
 
-        // TODO: sync state of mic, camera on/off, seated, etc
         private void OnActionMenuReady()
         {
             var view = cohtmlView.View;
@@ -489,8 +492,8 @@ namespace ActionMenu
             var settings = new MenuSettings
             {
                 in_vr = PlayerSetup.Instance._inVr,
-                flick_selection = flick_selection.Value,
-                boring_back_button = boring_back_button.Value,
+                flick_selection = flickSelection.Value,
+                boring_back_button = boringBackButton.Value,
             };
 
             var configTxt = JsonSerialize(config);
@@ -540,6 +543,7 @@ namespace ActionMenu
         }
 
         // Use this to create an item that you can add to any menu and it will call your function when item is selected
+        // TODO: implement other widget type: toggle with bool, radial with float, etc
         public static ItemAction BuildCallbackMenuItem(string name, Action callback)
         {
             // auto detect namespace of caller so we can suffix identifier to avoid collision between mods

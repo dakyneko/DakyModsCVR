@@ -114,6 +114,7 @@ function handle_click_main() {
 
 	const action = item.action;
 	let action_toggle = false;
+	const is_enabled = !!item.enabled;
 
 	switch (action.type) {
 		case 'menu': {
@@ -133,7 +134,7 @@ function handle_click_main() {
 		case 'system call': {
 			const args = action.event_arguments ?? [];
 			appcall(action.event, ...args);
-			action_toggle = action?.toggle;
+			action_toggle = !!action.toggle;
 			break;
 		}
 
@@ -162,11 +163,11 @@ function handle_click_main() {
 				case 'impulse': {
 					if (item.enabled) return; // prevent spam
 					const sector = selected_sector;
-					toggle_item_enabled(sector, item);
+					set_item_enabled(sector, item, true);
 					appcall("AppChangeAnimatorParam", action.parameter, action.value ?? 1);
 					setTimeout(() => {
 						if (!item.enabled) return;
-						toggle_item_enabled(sector, item);
+						set_item_enabled(sector, item, false);
 						appcall("AppChangeAnimatorParam", action.parameter, action.default_value ?? 0);
 						appcall("PlayCoreUiSound", "Click");
 					}, (action.duration ?? 1) * 1000);
@@ -247,7 +248,7 @@ function handle_click_main() {
 		});
 	}
 	if (action_toggle)
-		toggle_item_enabled(selected_sector, item);
+		set_item_enabled(selected_sector, item, !is_enabled);
 
 	if ($item?.parentNode != null)
 		trigger_animation($item, "animated-item");
@@ -303,8 +304,8 @@ function appcall(type, arg1, arg2, arg3, arg4) {
 	engine.call("CVRAppCallSystemCall", type, arg1, arg2, arg3, arg4);
 }
 
-function toggle_item_enabled(sector, item) {
-	item.enabled = !(item.enabled ?? false);
+function set_item_enabled(sector, item, new_value) {
+	item.enabled = new_value;
 	show_item_enabled(sector, item);
 }
 
@@ -314,6 +315,7 @@ function show_item_enabled(sector, item) {
 	const action = item.action;
 	item.enabled = item.enabled ?? false;
 	if (item.enabled) {
+		if (action.$enabled) return; // ignore
 		const $n = $sector.cloneNode();
 		const angle = sector_rotation(sector);
 		$n.style.display = "block";

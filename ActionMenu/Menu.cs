@@ -39,7 +39,7 @@ namespace ActionMenu
         public float? duration; // in seconds (float)
     }
 
-    // defines modifications to perform on existing Menus: removing, adding and replacing items in them
+    // defines modifications to perform on existing Menus: removing, adding items and replacing whole menu
     public struct MenusPatch
     {
         // menu name -> item names to remove
