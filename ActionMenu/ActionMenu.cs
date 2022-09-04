@@ -578,7 +578,7 @@ namespace ActionMenu
 
             if (patch.overwrites != null)
                 foreach (var x in patch.overwrites)
-                    menus.Upsert(x.Key, x.Value);
+                    menus[x.Key] = x.Value;
         }
 
         private void OnActionMenuReady()
@@ -594,14 +594,14 @@ namespace ActionMenu
             if (melonPrefsMenus != null)
             {
                 foreach (var x in melonPrefsMenus)
-                    config.menus.Upsert(x.Key, x.Value);
+                    config.menus[x.Key] = x.Value;
             }
 
             // avatar menu from avatar itself (cvr advanced settings)
             if (avatarMenus != null)
             {
                 foreach (var x in avatarMenus)
-                    config.menus.Upsert(x.Key, x.Value);
+                    config.menus[x.Key] = x.Value;
                 logger.Msg($"Loaded config from avatar {avatarMenus.Count} menus: {string.Join(", ", avatarMenus.Keys)}");
             }
 
@@ -687,7 +687,7 @@ namespace ActionMenu
             var caller_ns = stackTrace.GetFrame(1).GetMethod().DeclaringType.Namespace;
             var identifier = caller_ns + "." + name;
 
-            instance.callback_items.Upsert(identifier, callback);
+            instance.callback_items[identifier] = callback;
             return new ItemAction()
             {
                 type = "callback",

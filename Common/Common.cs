@@ -64,14 +64,6 @@ namespace Daky
             return s;
         }
 
-        public static void Upsert<U,V>(this Dictionary<U,V> d, U key, V value)
-        {
-            if (d.TryGetValue(key, out _))
-                d[key] = value;
-            else
-                d.Add(key, value);
-        }
-
         public static V GetWithDefault<U,V>(this Dictionary<U,V> d, U key, Func<V> makeDefault)
         {
             V v;
