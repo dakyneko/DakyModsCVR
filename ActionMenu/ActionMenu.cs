@@ -52,6 +52,8 @@ namespace ActionMenu
             melonPrefsMap = new();
             foreach (var e in melonPrefs.Entries)
                 melonPrefsMap.Add(e.Identifier, e);
+            BuildOurMelonPrefsMenus();
+
 
             // FIXME: hijack quick menu cohtml for now
             HarmonyInstance.Patch(
@@ -278,27 +280,49 @@ namespace ActionMenu
         }
 
         private Menus? melonPrefsMenus;
-        // TODO: implement public method so other mods can expose theirs melon prefs too
-        private void BuildMelonPrefsMenus()
+        private void BuildOurMelonPrefsMenus()
         {
-            var m = melonPrefsMenus = new();
-            var items = m.GetWithDefault("settings"+ HierarchySep +"actionmenu", () => new());
+            melonPrefsMenus = BuildMelonPrefsMenus(melonPrefs.Entries);
+        }
 
-            foreach (var e in melonPrefs.Entries)
+        public static Menus BuildMelonPrefsMenus(List<MelonPreferences_Entry> melonPrefs)
+        {
+            // auto detect namespace of caller so we can suffix identifier to avoid collision between mods
+            // basically, reflection goes weeeeeeeeee
+            var stackTrace = new System.Diagnostics.StackTrace();
+            var caller_ns = stackTrace.GetFrame(1).GetMethod().DeclaringType.Namespace;
+            logger.Msg($"BuildMelonPrefsMenus caller_ns={caller_ns}");
+
+            var m = new Menus();
+            var items = m.GetWithDefault("settings"+ HierarchySep + caller_ns, () => new());
+
+            foreach (var e_ in melonPrefs)
             {
-                // TODO: we assume they're all boolean for now
-                items.Add(new MenuItem()
+                switch (e_)
                 {
-                    name = e.DisplayName,
-                    action = new()
-                    {
-                        type = "set melon preference",
-                        parameter = e.Identifier,
-                        toggle = true,
-                        default_value = e.BoxedValue,
-                    }
-                });
+                    case MelonPreferences_Entry<bool> e:
+                        items.Add(new MenuItem()
+                        {
+                            name = e.DisplayName,
+                            action = new()
+                            {
+                                type = "set melon preference",
+                                parameter = e.Identifier,
+                                toggle = true,
+                                default_value = e.Value,
+                            }
+                        });
+                        break;
+
+                    // TODO: implement other types
+
+                    default:
+                        logger.Warning($"OnSetMelonPreference {e_.Identifier} unsupported type {e_.GetReflectedType()}");
+                        break;
+                }
             }
+
+            return m;
         }
 
         // we interpret names with | as folders to make a hierarchy, ex: Head|Hair|Length
@@ -650,8 +674,7 @@ namespace ActionMenu
                     break;
             }
 
-            // rebuild and send it back
-            BuildMelonPrefsMenus();
+            BuildOurMelonPrefsMenus(); // value update = rebuild and send it back
         }
 
         // Use this to create an item that you can add to any menu and it will call your function when item is selected
