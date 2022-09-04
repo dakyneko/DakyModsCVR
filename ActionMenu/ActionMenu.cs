@@ -309,6 +309,7 @@ namespace ActionMenu
         private static Menus? avatarMenus;
         private static void OnAvatarAdvancedSettings(PlayerSetup __instance)
         {
+            var avatarGuid = PlayerSetup.Instance?._avatarDescriptor?.avatarSettings?._avatarGuid ?? "default";
             var menuPrefix = AvatarMenuPrefix;
             var m = avatarMenus = new();
             HashSet<(string parent, string child)> hierarchy_pairs = new();
@@ -395,10 +396,29 @@ namespace ActionMenu
                     action = new() { type = "menu", menu = parents },
                 });
             }
-
             // TODO: add cvr avatar ToggleState?
 
-            instance.OnActionMenuReady();
+            // let mods modify the avatar menu
+            API.InvokeOnAvatarMenuLoaded(avatarGuid, m);
+
+            // avatar menu override from json file
+            var avatarOverridesFile = @"UserData\ActionMenu\AvatarOverrides\for_" + avatarGuid + ".json";
+            if (File.Exists(avatarOverridesFile))
+            {
+                try
+                {
+                    logger.Msg($"loading avatar overrides for {avatarGuid}: {avatarOverridesFile}");
+                    var txt = File.ReadAllText(avatarOverridesFile);
+                    var patch = JsonConvert.DeserializeObject<MenusPatch>(txt);
+                    ApplyMenuPatch(m, patch);
+                }
+                catch (Exception ex)
+                {
+                    logger.Error($"Error while reading avatar overrides json for avatar {avatarGuid}: {ex}");
+                }
+            }
+
+            instance.OnActionMenuReady(); // reload
         }
 
         private static void AvatarParamToItem(ref MenuItem item, CVRAdvancedSettingsEntry s,
@@ -559,26 +579,6 @@ namespace ActionMenu
                 foreach (var x in avatarMenus)
                     config.menus.Upsert(x.Key, x.Value);
                 logger.Msg($"Loaded config from avatar {avatarMenus.Count} menus: {string.Join(", ", avatarMenus.Keys)}");
-            }
-
-            var avatarGuid = PlayerSetup.Instance?._avatarDescriptor?.avatarSettings?._avatarGuid ?? "default";
-            API.InvokeOnAvatarMenuLoaded(avatarGuid, config.menus);
-
-            // avatar menu override from file
-            var avatarOverridesFile = @"UserData\ActionMenu\AvatarOverrides\for_" + avatarGuid + ".json";
-            if (File.Exists(avatarOverridesFile))
-            {
-                try
-                {
-                    logger.Msg($"loading avatar overrides for {avatarGuid}: {avatarOverridesFile}");
-                    var txt = File.ReadAllText(avatarOverridesFile);
-                    var patch = JsonConvert.DeserializeObject<MenusPatch>(txt);
-                    ApplyMenuPatch(config.menus, patch);
-                }
-                catch (Exception ex)
-                {
-                    logger.Error($"Error while reading avatar overrides json for avatar {avatarGuid}: {ex}");
-                }
             }
 
             // global overrides
