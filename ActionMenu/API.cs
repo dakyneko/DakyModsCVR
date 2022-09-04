@@ -2,14 +2,14 @@
 namespace ActionMenu
 {
     public class API {
-        public static event OnAvatarMenuLoadedEvent? OnOnAvatarMenuLoaded;
+        public static event OnAvatarMenuLoadedEvent? OnAvatarMenuLoaded;
         public delegate void OnAvatarMenuLoadedEvent(string avatarGuid, Menus menus);
         internal static void InvokeOnAvatarMenuLoaded(string avatarGuid, Menus menus) =>
-            OnOnAvatarMenuLoaded?.Invoke(avatarGuid, menus);
+            OnAvatarMenuLoaded?.Invoke(avatarGuid, menus);
 
-        public static event OnGlobalMenuLoadedEvent? OnOnGlobalMenuLoaded;
+        public static event OnGlobalMenuLoadedEvent? OnGlobalMenuLoaded;
         public delegate void OnGlobalMenuLoadedEvent(Menus menus);
         internal static void InvokeOnGlobalMenuLoaded(Menus menus) =>
-            OnOnGlobalMenuLoaded?.Invoke(menus);
+            OnGlobalMenuLoaded?.Invoke(menus);
     }
 }

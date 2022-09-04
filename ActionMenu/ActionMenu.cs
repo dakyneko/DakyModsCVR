@@ -27,9 +27,123 @@ namespace ActionMenu
     using Daky;
     public class ActionMenuMod : MelonMod
     {
+        // we interpret names with | as folders to make a hierarchy, ex: Head|Hair|Length
+        // we'll build menus and submenus necessary to allow it automatically
+        public static readonly char HierarchySep = '|';
+        public static readonly string AvatarMenuPrefix = "avatar";
+
+        // Public library for all mods to use, you can extend this
+        public class Lib
+        {
+            private ActionMenuMod instance;
+            private string prefix_ns;
+
+            public Lib()
+            {
+                instance = ActionMenuMod.instance;
+
+                // auto detect namespace of caller so we can suffix identifier to avoid collision between mods
+                // basically, reflection goes weeeeeeeeee
+                var stackTrace = new System.Diagnostics.StackTrace();
+                prefix_ns = stackTrace.GetFrame(1).GetMethod().DeclaringType.Namespace;
+
+                API.OnAvatarMenuLoaded += OnAvatarMenuLoaded;
+                API.OnGlobalMenuLoaded += OnGlobalMenuLoaded;
+            }
+
+            // override this to manipulate avatar menus after they're built
+            virtual protected void OnAvatarMenuLoaded(string avatarGuid, Menus menus)
+            {
+            }
+
+            // override this to manipulate menus after all menus are built
+            virtual protected void OnGlobalMenuLoaded(Menus menus)
+            {
+            }
+
+            // if you want to expose your MelonPreference into a menu, build them with this.
+            // it may have to build a hierarchy of menu so add an item pointing to: settings|YourNameMod
+            // TODO: implement other types, only boolean for now
+            public Menus BuildMelonPrefsMenus(List<MelonPreferences_Entry> melonPrefs)
+            {
+                var m = new Menus();
+                var items = m.GetWithDefault("settings"+ HierarchySep + prefix_ns, () => new());
+
+                foreach (var e_ in melonPrefs)
+                {
+                    switch (e_)
+                    {
+                        case MelonPreferences_Entry<bool> e:
+                            items.Add(new MenuItem()
+                            {
+                                name = e.DisplayName,
+                                action = new()
+                                {
+                                    type = "set melon preference",
+                                    parameter = e.Identifier,
+                                    toggle = true,
+                                    default_value = e.Value,
+                                }
+                            });
+                            break;
+
+                        default:
+                            logger.Warning($"OnSetMelonPreference {e_.Identifier} unsupported type {e_.GetReflectedType()}");
+                            break;
+                    }
+                }
+
+                return m;
+            }
+
+            public static void ApplyMenuPatch(Menus menus, MenusPatch patch)
+            {
+                if (patch.remove_items != null)
+                {
+                    foreach (var x in patch.remove_items)
+                    {
+                        if (!menus.TryGetValue(x.Key, out var items))
+                            continue;
+                        var toRemove = x.Value;
+                        items.RemoveAll(item => item.name != null && toRemove.Contains(item.name));
+                    }
+                }
+
+                if (patch.add_items != null)
+                {
+                    foreach (var x in patch.add_items)
+                    {
+                        var items = menus.GetWithDefault(x.Key, () => new());
+                        foreach (var item in x.Value)
+                            items.Add(item);
+                    }
+                }
+
+                if (patch.overwrites != null)
+                    foreach (var x in patch.overwrites)
+                        menus[x.Key] = x.Value;
+            }
+
+            // Use this to create an item that you can add to any menu and it will call your function when item is selected
+            // TODO: implement other widget type: toggle with bool, radial with float, etc
+            public ItemAction BuildCallbackMenuItem(string name, Action callback)
+            {
+                var identifier = prefix_ns + "." + name;
+                instance.callback_items[identifier] = callback;
+                return new ItemAction()
+                {
+                    type = "callback",
+                    parameter = identifier,
+                };
+            }
+
+        }
+
+        // Private implementation
         private static MelonLogger.Instance logger;
         private static ActionMenuMod instance;
         private static CohtmlView cohtmlView;
+        private static Lib ourLib;
 
         private MelonPreferences_Category melonPrefs;
         private Dictionary<string, MelonPreferences_Entry> melonPrefsMap;
@@ -42,6 +156,8 @@ namespace ActionMenu
             logger = LoggerInstance;
             instance = this;
             callback_items = new();
+
+            ourLib = new();
 
             melonPrefs = MelonPreferences.CreateCategory("ActionMenu", "Action Menu");
             flickSelection = melonPrefs.CreateEntry("flick_selection", false, "Flick selection");
@@ -104,12 +220,12 @@ namespace ActionMenu
                 logger.Error($"TranspileMenuManagerRegisterEvents patch failed");
                 return instructions;
             }
-            var m = AccessTools.Method(typeof(ActionMenuMod), nameof(MenuManagerRegisterEvents));
+            var m = SymbolExtensions.GetMethodInfo(() => ActionMenuMod.MenuManagerRegisterEvents());
             xs.Insert(i++, new CodeInstruction(OpCodes.Call, m));
             return xs.AsEnumerable();
         }
 
-        public static void MenuManagerRegisterEvents()
+        private static void MenuManagerRegisterEvents()
         {
             var view = CVR_MenuManager.Instance.quickMenu.View;
             view.RegisterForEvent("CVRActionMenuReady", new Action(instance.OnActionMenuReady));
@@ -282,53 +398,8 @@ namespace ActionMenu
         private Menus? melonPrefsMenus;
         private void BuildOurMelonPrefsMenus()
         {
-            melonPrefsMenus = BuildMelonPrefsMenus(melonPrefs.Entries);
+            melonPrefsMenus = ourLib.BuildMelonPrefsMenus(melonPrefs.Entries);
         }
-
-        public static Menus BuildMelonPrefsMenus(List<MelonPreferences_Entry> melonPrefs)
-        {
-            // auto detect namespace of caller so we can suffix identifier to avoid collision between mods
-            // basically, reflection goes weeeeeeeeee
-            var stackTrace = new System.Diagnostics.StackTrace();
-            var caller_ns = stackTrace.GetFrame(1).GetMethod().DeclaringType.Namespace;
-            logger.Msg($"BuildMelonPrefsMenus caller_ns={caller_ns}");
-
-            var m = new Menus();
-            var items = m.GetWithDefault("settings"+ HierarchySep + caller_ns, () => new());
-
-            foreach (var e_ in melonPrefs)
-            {
-                switch (e_)
-                {
-                    case MelonPreferences_Entry<bool> e:
-                        items.Add(new MenuItem()
-                        {
-                            name = e.DisplayName,
-                            action = new()
-                            {
-                                type = "set melon preference",
-                                parameter = e.Identifier,
-                                toggle = true,
-                                default_value = e.Value,
-                            }
-                        });
-                        break;
-
-                    // TODO: implement other types
-
-                    default:
-                        logger.Warning($"OnSetMelonPreference {e_.Identifier} unsupported type {e_.GetReflectedType()}");
-                        break;
-                }
-            }
-
-            return m;
-        }
-
-        // we interpret names with | as folders to make a hierarchy, ex: Head|Hair|Length
-        // we'll build menus and submenus necessary to allow it automatically
-        private static readonly char HierarchySep = '|';
-        private static readonly string AvatarMenuPrefix = "avatar";
 
         private static Menus? avatarMenus;
         private static void OnAvatarAdvancedSettings(PlayerSetup __instance)
@@ -434,7 +505,7 @@ namespace ActionMenu
                     logger.Msg($"loading avatar overrides for {avatarGuid}: {avatarOverridesFile}");
                     var txt = File.ReadAllText(avatarOverridesFile);
                     var patch = JsonConvert.DeserializeObject<MenusPatch>(txt);
-                    ApplyMenuPatch(m, patch);
+                    Lib.ApplyMenuPatch(m, patch);
                 }
                 catch (Exception ex)
                 {
@@ -553,34 +624,6 @@ namespace ActionMenu
             };
         }
 
-        public static void ApplyMenuPatch(Menus menus, MenusPatch patch)
-        {
-            if (patch.remove_items != null)
-            {
-                foreach (var x in patch.remove_items)
-                {
-                    if (!menus.TryGetValue(x.Key, out var items))
-                        continue;
-                    var toRemove = x.Value;
-                    items.RemoveAll(item => item.name != null && toRemove.Contains(item.name));
-                }
-            }
-
-            if (patch.add_items != null)
-            {
-                foreach (var x in patch.add_items)
-                {
-                    var items = menus.GetWithDefault(x.Key, () => new());
-                    foreach (var item in x.Value)
-                        items.Add(item);
-                }
-            }
-
-            if (patch.overwrites != null)
-                foreach (var x in patch.overwrites)
-                    menus[x.Key] = x.Value;
-        }
-
         private void OnActionMenuReady()
         {
             var view = cohtmlView.View;
@@ -615,7 +658,7 @@ namespace ActionMenu
                 {
                     var txt = File.ReadAllText(fpath);
                     var patch = JsonConvert.DeserializeObject<MenusPatch>(txt);
-                    ApplyMenuPatch(config.menus, patch);
+                    Lib.ApplyMenuPatch(config.menus, patch);
                 }
                 catch (Exception ex)
                 {
@@ -675,24 +718,6 @@ namespace ActionMenu
             }
 
             BuildOurMelonPrefsMenus(); // value update = rebuild and send it back
-        }
-
-        // Use this to create an item that you can add to any menu and it will call your function when item is selected
-        // TODO: implement other widget type: toggle with bool, radial with float, etc
-        public static ItemAction BuildCallbackMenuItem(string name, Action callback)
-        {
-            // auto detect namespace of caller so we can suffix identifier to avoid collision between mods
-            // basically, reflection goes weeeeeeeeee
-            var stackTrace = new System.Diagnostics.StackTrace();
-            var caller_ns = stackTrace.GetFrame(1).GetMethod().DeclaringType.Namespace;
-            var identifier = caller_ns + "." + name;
-
-            instance.callback_items[identifier] = callback;
-            return new ItemAction()
-            {
-                type = "callback",
-                parameter = identifier,
-            };
         }
 
         private void OnActionMenuCallback(string identifier)
