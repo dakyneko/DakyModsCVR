@@ -278,6 +278,7 @@ namespace ActionMenu
         }
 
         private Menus? melonPrefsMenus;
+        // TODO: implement public method so other mods can expose theirs melon prefs too
         private void BuildMelonPrefsMenus()
         {
             var m = melonPrefsMenus = new();
@@ -360,6 +361,42 @@ namespace ActionMenu
                 };
                 m.GetWithDefault(parent, () => new()).Add(item);
             }
+
+            // add avatar emotes
+            var emoteNames = PlayerSetup.Instance.GetEmoteNames();
+            if (emoteNames.Length > 0)
+            {
+                var parents = menuPrefix + HierarchySep + "emotes";
+                var aitems = m.GetWithDefault(parents, () => new());
+                var i = 1;
+                emoteNames.Do(name =>
+                {
+                    logger.Msg($"OnAvatarAdvancedSettings emote {name} <- {parents}");
+                    var item = new MenuItem
+                    {
+                        name = name,
+                        action = new ItemAction
+                        {
+                            type = "system call",
+                            event_ = "AppPlayEmote",
+                            event_arguments = new string[] { i.ToString() },
+                            exclusive_option = true,
+                            toggle = true, // TODO: would be nice to have control=impulse here
+                        },
+                    };
+                    aitems.Add(item);
+                    ++i;
+                });
+
+                m.GetWithDefault(menuPrefix, () => new()).Add(new MenuItem()
+                {
+                    name = "Emotes",
+                    icon = "icon_avatar_emotes.png",
+                    action = new() { type = "menu", menu = parents },
+                });
+            }
+
+            // TODO: add cvr avatar ToggleState?
 
             instance.OnActionMenuReady();
         }
@@ -599,7 +636,6 @@ namespace ActionMenu
                 return;
             }
 
-            // TODO: again we assume preference is only boolean
             switch (e_)
             {
                 case MelonPreferences_Entry<bool> e: {
@@ -607,6 +643,7 @@ namespace ActionMenu
                         e.Value = valueInt != 0;
                     break;
                 }
+                // TODO: implement other types
 
                 default:
                     logger.Warning($"OnSetMelonPreference {identifier} unsupported type {e_.GetReflectedType()}");
