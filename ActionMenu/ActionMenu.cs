@@ -24,6 +24,7 @@ using SettingsType = ABI.CCK.Scripts.CVRAdvancedSettingsEntry.SettingsType;
 namespace ActionMenu
 {
     using Daky;
+    using MenuBuilder = Func<List<MenuItem>>;
     public class ActionMenuMod : MelonMod
     {
         // Public library for all mods to use, you can extend this
@@ -132,6 +133,18 @@ namespace ActionMenu
                 };
             }
 
+            // Create an ItemAction when triggered, will call you back so you can build your own menu dynamically
+            // Basically building dynamic menus from a mod
+            public ItemAction BuildCallbackMenu(string name, MenuBuilder menuBuilder)
+            {
+                var identifier = prefix_ns + "." + name;
+                instance.dynamic_menus[identifier] = menuBuilder;
+                return new ItemAction()
+                {
+                    type = "dynamic menu",
+                    menu = identifier,
+                };
+            }
         }
 
         // for avatar menu we interpret names with | as folders to make a hierarchy, ex: Head|Hair|Length
@@ -158,13 +171,13 @@ namespace ActionMenu
         private MelonPreferences_Entry<bool> flickSelection, boringBackButton, splitAvatarOvercrowdedMenu;
 
         private Dictionary<string, Action> callback_items; // unique identifier -> function
+        private Dictionary<string, MenuBuilder> dynamic_menus = new();
 
         public override void OnApplicationStart()
         {
             logger = LoggerInstance;
             instance = this;
             callback_items = new();
-
             ourLib = new();
 
             melonPrefs = MelonPreferences.CreateCategory("ActionMenu", "Action Menu");
@@ -814,13 +827,30 @@ namespace ActionMenu
             Action f;
             if (!callbackItems.TryGetValue(identifier, out f) || f == null)
             {
+                logger.Error($"didn't find callback {identifier}");
+                return;
+            }
+
+            logger.Msg($"OnItemCallback calling {identifier}: {f}"); // TODO debug
+            try { f(); }
+            catch (Exception e) { logger.Error($"failure in callback {identifier}: {e}"); }
+        }
+
+        private void OnRequestDynamicMenu(string identifier)
+        {
+            MenuBuilder f;
+            if (!dynamic_menus.TryGetValue(identifier, out f) || f == null)
+            {
                 logger.Error($"didn't find builder {identifier}");
                 return;
             }
 
+            logger.Msg($"OnRequestDynamicMenu calling {identifier}: {f}"); // TODO debug
             try
             {
-                f();
+                var items = f();
+                var menus = new Menus { [identifier] = items };
+                cohtmlView.View.TriggerEvent<string>("DynamicMenuData", JsonSerialize(menus));
             }
             catch (Exception e)
             {

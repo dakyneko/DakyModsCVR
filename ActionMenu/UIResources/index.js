@@ -125,6 +125,13 @@ function handle_click_main() {
 			break;
 		}
 
+		case 'dynamic menu': {
+			const current_menu = menu_name;
+			load_dynamic_menu(action.menu);
+			breadcrumb.push(current_menu);
+			break;
+		}
+
 		case 'back': {
 			const last_menu_name = breadcrumb.pop();
 			if (last_menu_name != undefined) // if fail: main menu probably
@@ -650,6 +657,30 @@ function load_action_menu(_menu, _settings) {
 
 	load_menu("main");
 }
+
+(function () {
+	let waiting_for_menu;
+
+	window.load_dynamic_menu = (name) => {
+		waiting_for_menu = name;
+		engine.call('RequestDynamicMenu', name);
+	};
+
+	engine.on('DynamicMenuData', (_menus) => {
+		if (!waiting_for_menu) throw `Not waiting for a menu ${waiting_for_menu}`;
+
+		const m = JSON.parse(_menus)
+		if (m[waiting_for_menu] == null) throw `Waiting for ${waiting_for_menu} but not found`;
+
+		Object.keys(m).forEach(k => {
+			menus[k] = m[k];
+		});
+
+		const new_menu = waiting_for_menu;
+		waiting_for_menu = null;
+		load_menu(new_menu);
+	});
+})();
 
 (function() {
 	let last_trigger = false;
