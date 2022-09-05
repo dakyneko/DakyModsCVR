@@ -339,6 +339,7 @@ const action_to_update_key = (action) =>
 	.join('\0');
 
 function OnMenuItemValueUpdate(update) {
+	if (update_to_items.length == 0) return; // not init yet
 	const k = action_to_update_key(update);
 	const items = update_to_items[k];
 	if (!items) return;

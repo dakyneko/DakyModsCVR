@@ -1,7 +1,7 @@
 ﻿using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
-using ABI.CCK.Components;
+using ABI_RC.Core;
 using ABI_RC.Core.Savior;
 using ABI_RC.Core.InteractionSystem;
 using ABI_RC.Systems.MovementSystem;
@@ -9,7 +9,6 @@ using ABI.CCK.Scripts;
 using System.Collections.Generic;
 using System.Linq;
 using cohtml;
-using cohtml.Net;
 using System;
 using Newtonsoft.Json;
 using System.IO;
@@ -27,11 +26,6 @@ namespace ActionMenu
     using Daky;
     public class ActionMenuMod : MelonMod
     {
-        // we interpret names with | as folders to make a hierarchy, ex: Head|Hair|Length
-        // we'll build menus and submenus necessary to allow it automatically
-        public static readonly char HierarchySep = '|';
-        public static readonly string AvatarMenuPrefix = "avatar";
-
         // Public library for all mods to use, you can extend this
         public class Lib
         {
@@ -64,6 +58,7 @@ namespace ActionMenu
             // if you want to expose your MelonPreference into a menu, build them with this.
             // it may have to build a hierarchy of menu so add an item pointing to: settings|YourNameMod
             // TODO: implement other types, only boolean for now
+            // TODO: add listener so we can update menu items state automatically (enabled, visually etc)
             public Menus BuildMelonPrefsMenus(List<MelonPreferences_Entry> melonPrefs)
             {
                 var m = new Menus();
@@ -139,10 +134,23 @@ namespace ActionMenu
 
         }
 
+        // for avatar menu we interpret names with | as folders to make a hierarchy, ex: Head|Hair|Length
+        // we'll build menus and submenus necessary to allow it automatically
+        public static readonly char HierarchySep = '|';
+        public static readonly string AvatarMenuPrefix = "avatar";
+        public static readonly string couiPath = @"ChilloutVR_Data\StreamingAssets\Cohtml\UIResources\ActionMenu";
+        public static readonly string couiUrl = "coui://UIResources/ActionMenu";
+
+
         // Private implementation
         private static MelonLogger.Instance logger;
         private static ActionMenuMod instance;
+        private static Transform menuTransform;
         private static CohtmlView cohtmlView;
+        private static Collider menuCollider;
+        private static CVR_MenuManager menuManager;
+        private static Animator menuAnimator;
+        private static int cohtmlReadyState = 0; // 0=stratup, 1=binding ready, 2=CVRActionMenuReady
         private static Lib ourLib;
 
         private MelonPreferences_Category melonPrefs;
@@ -171,24 +179,18 @@ namespace ActionMenu
             BuildOurMelonPrefsMenus();
 
 
-            // FIXME: hijack quick menu cohtml for now
-            HarmonyInstance.Patch(
-                SymbolExtensions.GetMethodInfo(() => default(CVR_MenuManager).RegisterEvents()),
-                transpiler: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(TranspileMenuManagerRegisterEvents))));
-
-            HarmonyInstance.Patch(
-                SymbolExtensions.GetMethodInfo(() => default(CVR_MenuManager).ToggleQuickMenu(default)),
-                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnToggleQuickMenu))));
-
+            // FIXME: disable quickmenu for now
             HarmonyInstance.Patch(
                 SymbolExtensions.GetMethodInfo(() => default(CVR_MenuManager).LateUpdate()),
                 prefix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnLateUpdateQuickMenu))));
 
             HarmonyInstance.Patch(
-                SymbolExtensions.GetMethodInfo(() => default(CVR_MenuManager).SendCoreUpdate()),
-                prefix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCoreUpdateQuickMenu))));
+                SymbolExtensions.GetMethodInfo(() => default(ABI_RC.Core.Player.CVR_MovementSystem).FixedUpdate()),
+                prefix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnFixedUpdateMovementSystem))));
 
-            MelonCoroutines.Start(WaitActionMenu()); // actual QuickMenu hijack
+            // TODO: create directory + deploy web files into it (from assembly resources?)
+            Directory.CreateDirectory(couiPath);
+            MelonCoroutines.Start(WaitCohtmlSpawned());
 
             // build avatar menu from parameters after avatar is loaded
             HarmonyInstance.Patch(
@@ -211,52 +213,81 @@ namespace ActionMenu
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRFlyToggle))));
         }
 
-        private static IEnumerable<CodeInstruction> TranspileMenuManagerRegisterEvents(IEnumerable<CodeInstruction> instructions)
+        private static bool OnFixedUpdateMovementSystem(ABI_RC.Core.Player.CVR_MovementSystem __instance)
         {
-            var xs = new List<CodeInstruction>(instructions);
-            var i = xs.Count - 8;
-            if (xs[i].opcode != OpCodes.Ldarg_0 || xs[i+1].opcode != OpCodes.Ldftn || xs[i+2].opcode != OpCodes.Newobj)
-            {
-                logger.Error($"TranspileMenuManagerRegisterEvents patch failed");
-                return instructions;
-            }
-            var m = SymbolExtensions.GetMethodInfo(() => ActionMenuMod.MenuManagerRegisterEvents());
-            xs.Insert(i++, new CodeInstruction(OpCodes.Call, m));
-            return xs.AsEnumerable();
+            return cohtmlView?.enabled != true; // TODO: animation still run, prevent emotes
         }
 
-        private static void MenuManagerRegisterEvents()
+        private void MenuManagerRegisterEvents()
         {
-            var view = CVR_MenuManager.Instance.quickMenu.View;
-            view.RegisterForEvent("CVRActionMenuReady", new Action(instance.OnActionMenuReady));
-            view.BindCall("CVRActionMenuSetMelonPreference", new Action<string, string>(instance.OnSetMelonPreference));
-            view.BindCall("CVRActionMenuCallback", new Action<string>(instance.OnActionMenuCallback));
+            var view = cohtmlView.View;
+            view.RegisterForEvent("CVRActionMenuReady", new Action(OnActionMenuReady));
+            view.BindCall("CVRAppCallSystemCall", new Action<string, string, string, string, string>(menuManager.HandleSystemCall));
+            view.BindCall("CVRActionMenuSetMelonPreference", new Action<string, string>(OnSetMelonPreference));
+            view.BindCall("ItemCallback", new Action<string>(OnActionMenuCallback));
+
+            // TODO: adjust effect
+            var material = menuTransform.GetComponent<MeshRenderer>().materials[0];
+            material.SetTexture("_DesolvePattern", menuManager.pattern);
+            material.SetTexture("_DesolveTiming", menuManager.timing);
+            material.SetTextureScale("_DesolvePattern", new Vector2(1f, 1f));
+
+            cohtmlReadyState = 1;
         }
 
-        private System.Collections.IEnumerator WaitActionMenu()
+        private System.Collections.IEnumerator WaitCohtmlSpawned()
         {
-            GameObject qm;
-            while ((qm = GameObject.Find("/Cohtml/QuickMenu")) == null)
+            GameObject cwv;
+            CohtmlUISystem cohtmlUISystem;
+            while ((cwv = GameObject.Find("/Cohtml/CohtmlWorldView")) == null)
                 yield return null;
-            logger.Msg($"WaitActionMenu start {qm}");
+            while ((cohtmlUISystem = GameObject.Find("/Cohtml/CohtmlUISystem").GetComponent<CohtmlUISystem>()) == null)
+                yield return null;
+            menuManager = CVR_MenuManager.Instance;
 
-            var go = qm;
-            var t = go.transform;
-            var v = t.GetComponent<CohtmlView>();
+            var parent = cwv.transform.parent;
+            var animator = cwv.GetComponent<Animator>().runtimeAnimatorController;
 
+            var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            //hideFlags = HideFlags.HideAndDontSave; // TODO: needed?
+            go.SetActive(false);
+            go.name = "ActionMenu";
+            go.layer = LayerMask.NameToLayer("UI");
+
+            var t = menuTransform = go.transform;
+            t.SetParent(parent, false);
+            var scale = MetaPort.Instance.isUsingVr ? 0.2f : 0.5f;
+            t.localScale = new Vector3(scale, scale, scale);
+
+            menuCollider = t.GetComponent<Collider>();
+
+            var r = t.GetComponent<MeshRenderer>();
+            r.sortingLayerID = 0;
+            r.sortingOrder = 10;
+
+            var a = menuAnimator = go.AddComponent<Animator>();
+            a.runtimeAnimatorController = animator;
+            a.SetBool("Open", true);
+
+            var v = cohtmlView = go.AddComponent<CohtmlView>();
+            v.Listener.ReadyForBindings += MenuManagerRegisterEvents;
             v.enabled = false;
+            v.CohtmlUISystem = cohtmlUISystem;
             v.AutoFocus = false;
             v.IsTransparent = true;
             v.Width = 500;
             v.Height = 500;
-            v.Page = "coui://uiresources/my_actionmenu/index.html";
+            v.Page = couiUrl +"/index.html";
 
+            // ready set go
             v.enabled = true;
-            cohtmlView = v;
+            go.SetActive(true);
+            UpdatePositionToAnchor();
         }
 
         private static void OnCVRCameraToggle(CVRCamController __instance)
         {
+            if (cohtmlReadyState < 2) return; // not ready for events
             MelonLogger.Msg($"OnCVRCameraToggle {__instance}");
             var u = new MenuItemValueUpdate()
             {
@@ -272,6 +303,7 @@ namespace ActionMenu
 
         private static void OnCVRMicrophoneToggle(bool muted)
         {
+            if (cohtmlReadyState < 2) return; // not ready for events
             MelonLogger.Msg($"OnCVRMicrophoneToggle {muted}");
             var u = new MenuItemValueUpdate()
             {
@@ -287,6 +319,7 @@ namespace ActionMenu
 
         private static void OnCVRSeatedToggle(PlayerSetup __instance)
         {
+            if (cohtmlReadyState < 2) return; // not ready for events
             MelonLogger.Msg($"OnCVRSeatedToggle {__instance.seatedPlay}");
             var u = new MenuItemValueUpdate()
             {
@@ -302,6 +335,7 @@ namespace ActionMenu
 
         private static void OnCVRFlyToggle(MovementSystem __instance)
         {
+            if (cohtmlReadyState < 2) return; // not ready for events
             MelonLogger.Msg($"OnCVRFlyToggle {__instance.flying}");
             var u = new MenuItemValueUpdate()
             {
@@ -315,84 +349,144 @@ namespace ActionMenu
             cohtmlView.View.TriggerEvent<string>("OnMenuItemValueUpdate", JsonSerialize(u));
         }
 
-        private static void OnToggleQuickMenu(CVR_MenuManager __instance, bool show)
-        {
-            logger.Msg($"OnToggleQuickMenu {show}: {__instance}");
-            // TODO: this doesn't work with fly mode
-            // TODO: technically the opposite hand should be free to work (look around or move)
-            PlayerSetup.Instance._movementSystem.SetImmobilized(show);
-            var view = cohtmlView.View;
-            view.TriggerEvent<bool>("ToggleQuickMenu", show);
-            cohtmlView.transform.localScale = new Vector3(0.2f, 0.2f, 0.2f); // FIXME: haxxx to keep it small
-        }
-
         [Serializable]
         internal struct QuickMenuData
         {
             public Vector2 joystick;
             public float trigger;
-        } 
+        }
 
-        private static bool OnLateUpdateQuickMenu(CVR_MenuManager __instance)
+        public void ToggleMenu(bool show)
         {
-            if (__instance._inputManager == null)
-                __instance._inputManager = CVRInputManager.Instance;
+            if (cohtmlView == null || cohtmlView.View == null) return;
+            cohtmlView.View.TriggerEvent<bool>("ToggleQuickMenu", show);
+            cohtmlView.enabled = show; // TODO: doesn this reload cohtml each time? careful
+            menuAnimator.SetBool("Open", show);
+            var vr = menuManager._desktopMouseMode && !MetaPort.Instance.isUsingVr;
+            if (show)
+            {
+                if (menuCollider?.enabled ?? false)
+                {
+                    UpdatePositionToAnchor();
+                }
+                if (!MetaPort.Instance.isUsingVr)
+                    ViewManager.Instance.UiStateToggle(false);
+                if (vr)
+                {
+                    PlayerSetup.Instance._movementSystem.disableCameraControl = true;
+                    CVRInputManager.Instance.inputEnabled = false;
+                    RootLogic.Instance.ToggleMouse(true);
+                    menuManager.desktopControllerRay.enabled = false;
+                }
+                else
+                    PlayerSetup.Instance._movementSystem.SetImmobilized(true); // TODO: this doesn't work well
+            }
+            else
+            {
+                if (vr)
+                {
+                    PlayerSetup.Instance._movementSystem.disableCameraControl = false;
+                    CVRInputManager.Instance.inputEnabled = true;
+                    RootLogic.Instance.ToggleMouse(false);
+                    menuManager.desktopControllerRay.enabled = true;
+                }
+                else
+                    PlayerSetup.Instance._movementSystem.SetImmobilized(false);
+            }
+        }
+
+        private static bool OnLateUpdateQuickMenu()
+        {
+            return false; // don't run
+        }
+
+        public override void OnLateUpdate()
+        {
+            if (menuManager == null || menuTransform == null) return;
+            if (menuManager._inputManager == null)
+                menuManager._inputManager = CVRInputManager.Instance;
             if (CVRInputManager.Instance.quickMenuButton)
             {
-                if (__instance.coreData.menuParameters.quickMenuInGrabMode)
-                    __instance.ExitRepositionMode();
+                if (menuManager.coreData.menuParameters.quickMenuInGrabMode)
+                    menuManager.ExitRepositionMode();
                 else
-                    __instance.ToggleQuickMenu(!__instance._quickMenuOpen);
+                    ToggleMenu(!cohtmlView.enabled);
             }
-            if (__instance._inputManager.quickMenuButtonHold)
-                __instance.ToggleQuickMenu(true);
+            if (menuManager._inputManager.quickMenuButtonHold)
+                ToggleMenu(true);
 
-            if (!__instance._quickMenuOpen) return false;
-
+            if (cohtmlView?.enabled != true || cohtmlView?.View == null) return;
 
             var joystick = Vector2.zero;
             var trigger = 0f;
-            if (__instance._desktopMouseMode && !MetaPort.Instance.isUsingVr) // Desktop mode
+            if (menuManager._desktopMouseMode && !MetaPort.Instance.isUsingVr) // Desktop mode
             {
-                if (__instance._camera == null) __instance._camera = PlayerSetup.Instance.desktopCamera.GetComponent<Camera>();
+                if (menuManager._camera == null)
+                    menuManager._camera = PlayerSetup.Instance.desktopCamera.GetComponent<Camera>();
 
                 RaycastHit hitInfo;
-                if (__instance.quickMenuCollider.Raycast(__instance._camera.ScreenPointToRay(Input.mousePosition), out hitInfo, 1000f))
+                if (menuCollider.Raycast(menuManager._camera.ScreenPointToRay(Input.mousePosition), out hitInfo, 1000f))
                 {
                     var coord = hitInfo.textureCoord;
                     joystick = new Vector2(coord.x * 2 - 1, coord.y * 2 - 1);
                 }
                 trigger = Input.GetMouseButtonDown(0) ? 1 : 0; // do we need button up anyway?
+                UpdatePositionToDesktopAnchor();
             }
             else
             {
-                if (__instance._quickMenuCollider.enabled)
+                if (menuCollider.enabled)
                 {
-                    var qm = __instance.quickMenu.transform;
-                    var anch = __instance._leftVrAnchor.transform;
-                    qm.position = anch.position;
-                    qm.rotation = anch.rotation;
+                    UpdatePositionToVrAnchor();
                 }
 
-                var movVect = __instance._inputManager.movementVector;
+                var movVect = menuManager._inputManager.movementVector;
                 joystick = new Vector2(movVect.x, movVect.z); // y is 0 and irrelevant
-                trigger = __instance._inputManager.interactLeftValue;
+                trigger = menuManager._inputManager.interactLeftValue; // TODO: auto detect side
             }
 
+            if (cohtmlReadyState < 2) return;
             var view = cohtmlView.View;
             var data = new QuickMenuData {
                 joystick = joystick,
                 trigger = trigger,
             };
             view.TriggerEvent<string>("ActionMenuData", JsonUtility.ToJson(data));
-
-            return false; // never run the original method
         }
 
-        private static bool OnCoreUpdateQuickMenu(CVR_MenuManager __instance)
+        private void UpdatePositionToAnchor()
         {
-            SchedulerSystem.RemoveJob(new SchedulerSystem.Job(__instance.SendCoreUpdate));
-            return false;
+            if (MetaPort.Instance.isUsingVr)
+                UpdatePositionToVrAnchor();
+            else
+                UpdatePositionToDesktopAnchor();
+        }
+
+        private void UpdatePositionToDesktopAnchor()
+        {
+            if (cohtmlReadyState < 1) return;
+            Transform rotationPivot = PlayerSetup.Instance._movementSystem.rotationPivot;
+            menuTransform.eulerAngles = rotationPivot.eulerAngles;
+            menuTransform.position = rotationPivot.position + rotationPivot.forward * 1f; // TODO: scale factor needed?
+        }
+
+        private void UpdatePositionToVrAnchor()
+        {
+            if (cohtmlReadyState < 1) return;
+            // TODO: auto detect left or right anchor
+            var anch = menuManager._leftVrAnchor.transform;
+            menuTransform.position = anch.position;
+            menuTransform.rotation = anch.rotation;
+            /* 
+            if (!((UnityEngine.Object)this._quickMenuCollider != (UnityEngine.Object)null)
+                || this._quickMenuCollider.enabled && (this.needsQuickmenuPositionUpdate || MetaPort.Instance.isUsingVr)
+                || !((UnityEngine.Object)PlayerSetup.Instance != (UnityEngine.Object)null)
+                || !((UnityEngine.Object)PlayerSetup.Instance._movementSystem != (UnityEngine.Object)null)
+                || !((UnityEngine.Object)PlayerSetup.Instance._movementSystem.rotationPivot != (UnityEngine.Object)null))
+            Transform rotationPivot = PlayerSetup.Instance._movementSystem.rotationPivot;
+            menuTransform.eulerAngles = rotationPivot.eulerAngles;
+            menuTransform.position = rotationPivot.position + rotationPivot.forward * 1f; // TODO: scale factor needed?
+            */
         }
 
         private Menus? melonPrefsMenus;
@@ -670,7 +764,7 @@ namespace ActionMenu
 
             var settings = new MenuSettings
             {
-                in_vr = PlayerSetup.Instance._inVr,
+                in_vr = MetaPort.Instance.isUsingVr,
                 flick_selection = flickSelection.Value,
                 boring_back_button = boringBackButton.Value,
             };
@@ -678,6 +772,8 @@ namespace ActionMenu
             var configTxt = JsonSerialize(config);
             var settingsTxt = JsonSerialize(settings);
             view.TriggerEvent<string, string>("LoadActionMenu", configTxt, settingsTxt);
+            cohtmlReadyState = 2;
+            cohtmlView.enabled = false; // hide it by default
         }
 
         private static string JsonSerialize(object value) => JsonConvert.SerializeObject(value, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
@@ -742,6 +838,8 @@ namespace ActionMenu
         public override void OnUpdate()
         {
             if (Input.GetKeyDown(KeyCode.F3)) SpawnActionMenu(); // reload
+
+            if (menuTransform != null) UpdatePositionToVrAnchor();
         }
     }
 }
