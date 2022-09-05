@@ -150,7 +150,7 @@ namespace ActionMenu
         private static Collider menuCollider;
         private static CVR_MenuManager menuManager;
         private static Animator menuAnimator;
-        private static int cohtmlReadyState = 0; // 0=stratup, 1=binding ready, 2=CVRActionMenuReady
+        private static int cohtmlReadyState = 0; // 0=stratup, 1=binding ready, 2=ActionMenuReady
         private static Lib ourLib;
 
         private MelonPreferences_Category melonPrefs;
@@ -221,10 +221,10 @@ namespace ActionMenu
         private void MenuManagerRegisterEvents()
         {
             var view = cohtmlView.View;
-            view.RegisterForEvent("CVRActionMenuReady", new Action(OnActionMenuReady));
+            view.RegisterForEvent("ActionMenuReady", new Action(OnActionMenuReady));
             view.BindCall("CVRAppCallSystemCall", new Action<string, string, string, string, string>(menuManager.HandleSystemCall));
-            view.BindCall("CVRActionMenuSetMelonPreference", new Action<string, string>(OnSetMelonPreference));
-            view.BindCall("ItemCallback", new Action<string>(OnActionMenuCallback));
+            view.BindCall("SetMelonPreference", new Action<string, string>(OnSetMelonPreference));
+            view.BindCall("ItemCallback", new Action<string>(OnItemCallback));
 
             // TODO: adjust effect
             var material = menuTransform.GetComponent<MeshRenderer>().materials[0];
@@ -298,7 +298,7 @@ namespace ActionMenu
                     value = __instance?.cvrCamera?.activeSelf ?? false
                 },
             };
-            cohtmlView.View.TriggerEvent<string>("OnMenuItemValueUpdate", JsonSerialize(u));
+            cohtmlView.View.TriggerEvent<string>("GameValueUpdate", JsonSerialize(u));
         }
 
         private static void OnCVRMicrophoneToggle(bool muted)
@@ -314,7 +314,7 @@ namespace ActionMenu
                     value = !muted,
                 },
             };
-            cohtmlView.View.TriggerEvent<string>("OnMenuItemValueUpdate", JsonSerialize(u));
+            cohtmlView.View.TriggerEvent<string>("GameValueUpdate", JsonSerialize(u));
         }
 
         private static void OnCVRSeatedToggle(PlayerSetup __instance)
@@ -330,7 +330,7 @@ namespace ActionMenu
                     value = __instance.seatedPlay,
                 },
             };
-            cohtmlView.View.TriggerEvent<string>("OnMenuItemValueUpdate", JsonSerialize(u));
+            cohtmlView.View.TriggerEvent<string>("GameValueUpdate", JsonSerialize(u));
         }
 
         private static void OnCVRFlyToggle(MovementSystem __instance)
@@ -346,11 +346,11 @@ namespace ActionMenu
                     value = __instance.flying,
                 },
             };
-            cohtmlView.View.TriggerEvent<string>("OnMenuItemValueUpdate", JsonSerialize(u));
+            cohtmlView.View.TriggerEvent<string>("GameValueUpdate", JsonSerialize(u));
         }
 
         [Serializable]
-        internal struct QuickMenuData
+        internal struct InputData
         {
             public Vector2 joystick;
             public float trigger;
@@ -359,39 +359,30 @@ namespace ActionMenu
         public void ToggleMenu(bool show)
         {
             if (cohtmlView == null || cohtmlView.View == null) return;
-            cohtmlView.View.TriggerEvent<bool>("ToggleQuickMenu", show);
+
+            cohtmlView.View.TriggerEvent<bool>("ToggleActionMenu", show);
             cohtmlView.enabled = show; // TODO: doesn this reload cohtml each time? careful
             menuAnimator.SetBool("Open", show);
-            var vr = menuManager._desktopMouseMode && !MetaPort.Instance.isUsingVr;
-            if (show)
+
+            var vr = !menuManager._desktopMouseMode || MetaPort.Instance.isUsingVr;
+            var moveSys = PlayerSetup.Instance._movementSystem;
+
+            if (show && menuCollider?.enabled == true)
             {
-                if (menuCollider?.enabled ?? false)
-                {
-                    UpdatePositionToAnchor();
-                }
-                if (!MetaPort.Instance.isUsingVr)
-                    ViewManager.Instance.UiStateToggle(false);
-                if (vr)
-                {
-                    PlayerSetup.Instance._movementSystem.disableCameraControl = true;
-                    CVRInputManager.Instance.inputEnabled = false;
-                    RootLogic.Instance.ToggleMouse(true);
-                    menuManager.desktopControllerRay.enabled = false;
-                }
-                else
-                    PlayerSetup.Instance._movementSystem.SetImmobilized(true); // TODO: this doesn't work well
+                UpdatePositionToAnchor();
+            }
+
+            if (vr)
+            {
+                moveSys.canMove = !show;
+                moveSys.canFly = !show;
             }
             else
             {
-                if (vr)
-                {
-                    PlayerSetup.Instance._movementSystem.disableCameraControl = false;
-                    CVRInputManager.Instance.inputEnabled = true;
-                    RootLogic.Instance.ToggleMouse(false);
-                    menuManager.desktopControllerRay.enabled = true;
-                }
-                else
-                    PlayerSetup.Instance._movementSystem.SetImmobilized(false);
+                moveSys.disableCameraControl = show;
+                CVRInputManager.Instance.inputEnabled = !show;
+                RootLogic.Instance.ToggleMouse(show);
+                menuManager.desktopControllerRay.enabled = !show;
             }
         }
 
@@ -447,11 +438,11 @@ namespace ActionMenu
 
             if (cohtmlReadyState < 2) return;
             var view = cohtmlView.View;
-            var data = new QuickMenuData {
+            var data = new InputData {
                 joystick = joystick,
                 trigger = trigger,
             };
-            view.TriggerEvent<string>("ActionMenuData", JsonUtility.ToJson(data));
+            view.TriggerEvent<string>("InputData", JsonUtility.ToJson(data));
         }
 
         private void UpdatePositionToAnchor()
@@ -610,6 +601,7 @@ namespace ActionMenu
             instance.OnActionMenuReady(); // reload
         }
 
+        // TODO: could make part of this public for other mods' use
         private static void AvatarParamToItem(ref MenuItem item, CVRAdvancedSettingsEntry s,
             string menuPrefix, Menus m)
         {
@@ -778,14 +770,15 @@ namespace ActionMenu
 
         private static string JsonSerialize(object value) => JsonConvert.SerializeObject(value, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
 
-        private void SpawnActionMenu()
+        private void Reload()
         {
             if (cohtmlView == null)
             {
-                logger.Msg($"SpawnActionMenu view is null!");
+                logger.Msg($"Reload view is null!");
                 return;
             }
-            cohtmlView.View.Reload();
+            cohtmlReadyState = 0;
+            cohtmlView.View.Reload(); // TODO: reloading is broken, this fix?
 
             logger.Msg($"view reloaded {cohtmlView} {cohtmlView.View}");
         }
@@ -816,12 +809,12 @@ namespace ActionMenu
             BuildOurMelonPrefsMenus(); // value update = rebuild and send it back
         }
 
-        private void OnActionMenuCallback(string identifier)
+        private void OnItemCallback(string identifier)
         {
             Action f;
-            if (!callback_items.TryGetValue(identifier, out f) || f == null)
+            if (!callbackItems.TryGetValue(identifier, out f) || f == null)
             {
-                logger.Warning($"didn't find callback {identifier}");
+                logger.Error($"didn't find builder {identifier}");
                 return;
             }
 
@@ -837,7 +830,7 @@ namespace ActionMenu
 
         public override void OnUpdate()
         {
-            if (Input.GetKeyDown(KeyCode.F3)) SpawnActionMenu(); // reload
+            if (Input.GetKeyDown(KeyCode.F3)) Reload(); // reload
 
             if (menuTransform != null) UpdatePositionToVrAnchor();
         }

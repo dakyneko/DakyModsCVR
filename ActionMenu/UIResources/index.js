@@ -141,13 +141,13 @@ function handle_click_main() {
 
 		case 'set melon preference': {
 			const new_value = item.enabled ? 0 : (action.value ?? 1);
-			engine.call("CVRActionMenuSetMelonPreference", action.parameter, String(new_value));
+			engine.call("SetMelonPreference", action.parameter, String(new_value));
 			action_toggle = action?.toggle;
 			break;
 		}
 
 		case 'callback': {
-			engine.call("CVRActionMenuCallback", action.parameter);
+			engine.call("ItemCallback", action.parameter);
 			action_toggle = action?.toggle;
 			break;
 		}
@@ -338,7 +338,7 @@ const action_to_update_key = (action) =>
 	.map(k => String(action[k]))
 	.join('\0');
 
-function OnMenuItemValueUpdate(update) {
+function on_game_value_update(update) {
 	if (update_to_items.length == 0) return; // not init yet
 	const k = action_to_update_key(update);
 	const items = update_to_items[k];
@@ -624,7 +624,7 @@ const widget_j2d = (function() {
 
 /* dispatchers */
 
-function loadActionMenu(_menu, _settings) {
+function load_action_menu(_menu, _settings) {
     menus = _menu.menus;
 	settings = _settings ?? {};
 
@@ -654,7 +654,7 @@ function loadActionMenu(_menu, _settings) {
 (function() {
 	let last_trigger = false;
 
-	engine.on('ActionMenuData', (_content) => {
+	engine.on('InputData', (_content) => {
 		gameData = JSON.parse(_content);
 
 		const joyvec = gameData.joystick;
@@ -668,17 +668,15 @@ function loadActionMenu(_menu, _settings) {
 })();
 
 engine.on('LoadActionMenu', (_content, _settings) => {
-	loadActionMenu(JSON.parse(_content), JSON.parse(_settings));
+	load_action_menu(JSON.parse(_content), JSON.parse(_settings));
 });
 
-engine.on('ToggleQuickMenu', (show) => {
-	console.log(['ToggleQuickMenu', show]);
+engine.on('ToggleActionMenu', (show) => {
 	quickmenu_active = show;
 });
 
-engine.on('OnMenuItemValueUpdate', (_update) => {
-	//console.log(['OnMenuItemValueUpdate', _update]);
-	OnMenuItemValueUpdate(JSON.parse(_update).action);
+engine.on('GameValueUpdate', (_update) => {
+	on_game_value_update(JSON.parse(_update).action);
 });
 
 
@@ -688,7 +686,7 @@ if (window.navigator.appVersion != undefined) { // browser only
 	fetch('actionmenu.json')
 	.then((data) =>  data.json())
 	.then((j) => {
-		loadActionMenu(j, {
+		load_action_menu(j, {
 			in_vr: false,
 			boring_back_button: false,
 			flick_selection: false,
@@ -696,5 +694,5 @@ if (window.navigator.appVersion != undefined) { // browser only
 	});
 	quickmenu_active = true;
 } else {
-	engine.trigger('CVRActionMenuReady');
+	engine.trigger('ActionMenuReady');
 }
