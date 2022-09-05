@@ -99,7 +99,7 @@ function handle_click() {
 
 const virtual_back_item = {
 	"name": "back",
-	"icon": "icon_back.png",
+	"icon": "icon_back.svg",
 	"action": {"type": "back"},
 }
 

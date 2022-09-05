@@ -634,7 +634,7 @@ namespace ActionMenu
                 m.GetWithDefault(menuPrefix, () => new()).Add(new MenuItem()
                 {
                     name = "Emotes",
-                    icon = "icon_avatar_emotes.png",
+                    icon = "icon_avatar_emotes.svg",
                     action = new() { type = "menu", menu = parents },
                 });
             }
@@ -777,7 +777,7 @@ namespace ActionMenu
             var view = cohtmlView.View;
             logger.Msg($"OnActionMenuReady for view {view}");
             // TODO: file path should be a config variable
-            var fromFile = File.ReadAllText(@"ChilloutVR_Data\StreamingAssets\Cohtml\UIResources\my_actionmenu\actionmenu.json");
+            var fromFile = File.ReadAllText(@"ChilloutVR_Data\StreamingAssets\Cohtml\UIResources\ActionMenu\actionmenu.json");
             var config = JsonConvert.DeserializeObject<Menu>(fromFile);
             logger.Msg($"Loaded config with {config.menus.Count} menus: {string.Join(", ", config.menus.Keys)}");
 
