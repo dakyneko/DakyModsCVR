@@ -154,8 +154,43 @@ function handle_click_main() {
 		}
 
 		case 'callback': {
-			engine.call("ItemCallback", action.parameter);
-			action_toggle = action?.toggle;
+			switch (action.control) {
+				case undefined:
+				case null: {
+					engine.call("ItemCallback", action.parameter)
+					break;
+				}
+
+				case 'toggle': {
+					action_toggle = true;
+					engine.call("ItemCallback_bool", action.parameter, !item.enabled);
+					break;
+				}
+
+				case 'impulse': {
+					if (control_type_impulse(item, action,
+						v => engine.call("ItemCallback_bool", action.parameter, v))
+						)
+						return;
+					break;
+				}
+
+				case 'radial': {
+					control_type_radial(item, action,
+						v => engine.call("ItemCallback_double", action.parameter, v));
+					break;
+				}
+
+				case 'joystick_2d':
+				case 'input_vector_2d': {
+					control_type_2d(item, action,
+						(x, y) => engine.call("ItemCallback_double_double", action.parameter, x, y));
+					break;
+				}
+
+				default:
+					throw `unsupported control type: ${action.control}`;
+			}
 			break;
 		}
 
@@ -169,72 +204,26 @@ function handle_click_main() {
 				}
 
 				case 'impulse': {
-					if (item.enabled) return; // prevent spam
-					const sector = selected_sector;
-					set_item_enabled(sector, item, true);
-					appcall("AppChangeAnimatorParam", action.parameter, action.value ?? 1);
-					setTimeout(() => {
-						if (!item.enabled) return;
-						set_item_enabled(sector, item, false);
-						appcall("AppChangeAnimatorParam", action.parameter, action.default_value ?? 0);
-						appcall("PlayCoreUiSound", "Click");
-					}, (action.duration ?? 1) * 1000);
+					if (control_type_impulse(item, action,
+						v => appcall("AppChangeAnimatorParam", action.parameter, v))
+						)
+						return;
 					break;
 				}
 
 				case 'radial': {
 					// TODO: restore value from cvr?
-					const min_value = action.min_value ?? 0;
-					const max_value = action.max_value ?? 1;
-					const delta = max_value - min_value;
-					const start_value = ((action.default_value ?? 0) - min_value) / delta;
-					widget_radial.start(item, start_value, (v) => {
-						const denormalized = v * delta + min_value;
-						appcall("AppChangeAnimatorParam", action.parameter, denormalized);
-					});
-					wait_joystick_recenter = true;
+					control_type_radial(item, action,
+						v => appcall("AppChangeAnimatorParam", action.parameter, v));
 					break;
 				}
 
 				case 'joystick_2d':
 				case 'input_vector_2d': {
-					const min_value_x = action.min_value_x ?? 0;
-					const max_value_x = action.max_value_x ?? 1;
-					const delta_x = max_value_x - min_value_x;
-					const start_value_x = ((action.default_value_x ?? 0) - min_value_x) / delta_x;
-					// TODO: we should restore from the previously set value
-
-					const min_value_y = action.min_value_y ?? 0;
-					const max_value_y = action.max_value_y ?? 1;
-					const delta_y = max_value_y - min_value_y;
-					const start_value_y = ((action.default_value_y ?? 0) - min_value_y) / delta_y;
-
-					if (action.control == 'joystick_2d') {
-						widget_j2d.start(item, start_value_x, start_value_y, (x, y) => {
-							const denormalized_x = x * delta_x + min_value_x;
-							const denormalized_y = y * delta_y + min_value_y;
-							appcall("AppChangeAnimatorParam", action.parameter + '-x', denormalized_x);
-							appcall("AppChangeAnimatorParam", action.parameter + '-y', denormalized_y);
-						});
-					}
-					else if (action.control == 'input_vector_2d') {
-						const delta_scale = 0.01;
-						let last_value_x = start_value_x;
-						let last_value_y = start_value_y;
-
-						widget_j2d.start(item, start_value_x, start_value_y, (x, y) => {
-							// reconvert from 0,1 to -1,+1 and scale
-							const denormalized_x = clamp(min_value_x, max_value_x,
-								last_value_x + delta_scale * (2*x - 1) * delta_x);
-							const denormalized_y = clamp(min_value_y, max_value_y,
-								last_value_y + delta_scale * (2*y - 1) * delta_y);
-							appcall("AppChangeAnimatorParam", action.parameter + '-x', denormalized_x);
-							appcall("AppChangeAnimatorParam", action.parameter + '-y', denormalized_y);
-							last_value_x = denormalized_x;
-							last_value_y = denormalized_y;
-						});
-					}
-					wait_joystick_recenter = true;
+					control_type_2d(item, action, (denormalized_x, denormalized_y) => {
+						appcall("AppChangeAnimatorParam", action.parameter + '-x', denormalized_x);
+						appcall("AppChangeAnimatorParam", action.parameter + '-y', denormalized_y);
+					});
 					break;
 				}
 
@@ -262,6 +251,70 @@ function handle_click_main() {
 		trigger_animation($item, "animated-item");
 
 	appcall("PlayCoreUiSound", "Click");
+}
+
+function control_type_impulse(item, action, set_value) {
+	if (item.enabled) return true; // prevent spam
+	const sector = selected_sector;
+	set_item_enabled(sector, item, true);
+	appcall("AppChangeAnimatorParam", action.parameter, action.value ?? 1);
+	setTimeout(() => {
+		if (!item.enabled) return;
+		set_item_enabled(sector, item, false);
+		set_value(action.default_value ?? 0);
+		appcall("PlayCoreUiSound", "Click");
+	}, (action.duration ?? 1) * 1000);
+}
+
+function control_type_radial(item, action, set_value) {
+	const min_value = action.min_value ?? 0;
+	const max_value = action.max_value ?? 1;
+	const delta = max_value - min_value;
+	const start_value = ((action.default_value ?? 0) - min_value) / delta;
+	widget_radial.start(item, start_value, (v) => {
+		const denormalized = v * delta + min_value;
+		set_value(denormalized);
+		
+	});
+	wait_joystick_recenter = true;
+}
+
+function control_type_2d(item, action, set_values) {
+	const min_value_x = action.min_value_x ?? 0;
+	const max_value_x = action.max_value_x ?? 1;
+	const delta_x = max_value_x - min_value_x;
+	const start_value_x = ((action.default_value_x ?? 0) - min_value_x) / delta_x;
+	// TODO: we should restore from the previously set value
+
+	const min_value_y = action.min_value_y ?? 0;
+	const max_value_y = action.max_value_y ?? 1;
+	const delta_y = max_value_y - min_value_y;
+	const start_value_y = ((action.default_value_y ?? 0) - min_value_y) / delta_y;
+
+	if (action.control == 'joystick_2d') {
+		widget_j2d.start(item, start_value_x, start_value_y, (x, y) => {
+			const denormalized_x = x * delta_x + min_value_x;
+			const denormalized_y = y * delta_y + min_value_y;
+			set_values(denormalized_x, denormalized_y);
+		});
+	}
+	else if (action.control == 'input_vector_2d') {
+		const delta_scale = 0.01;
+		let last_value_x = start_value_x;
+		let last_value_y = start_value_y;
+
+		widget_j2d.start(item, start_value_x, start_value_y, (x, y) => {
+			// reconvert from 0,1 to -1,+1 and scale
+			const denormalized_x = clamp(min_value_x, max_value_x,
+				last_value_x + delta_scale * (2*x - 1) * delta_x);
+			const denormalized_y = clamp(min_value_y, max_value_y,
+				last_value_y + delta_scale * (2*y - 1) * delta_y);
+			set_values(denormalized_x, denormalized_y);
+			last_value_x = denormalized_x;
+			last_value_y = denormalized_y;
+		});
+	}
+	wait_joystick_recenter = true;
 }
 
 function back_from_widget() {

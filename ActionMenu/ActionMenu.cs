@@ -120,18 +120,60 @@ namespace ActionMenu
                         menus[x.Key] = x.Value;
             }
 
-            // Use this to create an item that you can add to any menu and it will call your function when item is selected
-            // TODO: implement other widget type: toggle with bool, radial with float, etc
-            public ItemAction BuildCallbackMenuItem(string name, Action callback)
+            // Create an ItemAction when triggered, will call your function
+            // Basically for button/widget item for callback in your mod
+            public ItemAction BuildButtonItem(string name, Action callback)
             {
-                var identifier = prefix_ns + "." + name;
-                instance.callback_items[identifier] = callback;
+                var identifier = prefix_ns + ".call." + name;
+                instance.callbackItems[identifier] = callback;
                 return new ItemAction()
                 {
                     type = "callback",
                     parameter = identifier,
                 };
             }
+
+            private ItemAction BuildBoolItem(string name, Action<bool> callback, string control)
+            {
+                var identifier = prefix_ns + "."+ control +"." + name;
+                instance.callbackItems_bool[identifier] = callback;
+                return new ItemAction()
+                {
+                    type = "callback",
+                    parameter = identifier,
+                    control = "toggle",
+                };
+            }
+            public ItemAction BuildToggleItem(string name, Action<bool> callback)
+                => BuildBoolItem(name, callback, "toggle");
+            public ItemAction BuildImpulseItem(string name, Action<bool> callback)
+                => BuildBoolItem(name, callback, "impulse");
+
+            public ItemAction BuildRadialItem(string name, Action<double> callback)
+            {
+                var identifier = prefix_ns + ".radial." + name;
+                instance.callbackItems_double[identifier] = callback;
+                return new ItemAction() {
+                    type = "callback",
+                    parameter = identifier,
+                    control = "radial",
+                };
+            }
+
+            private ItemAction Build2DItem(string name, Action<double, double> callback, string control)
+            {
+                var identifier = prefix_ns + "."+ control +"." + name;
+                instance.callbackItems_double_double[identifier] = callback;
+                return new ItemAction() {
+                    type = "callback",
+                    parameter = identifier,
+                    control = control,
+                };
+            }
+            public ItemAction BuildJoystick2D(string name, Action<double, double> callback)
+                => Build2DItem(name, callback, "joystick_2d");
+            public ItemAction BuildInputVector2D(string name, Action<double, double> callback)
+                => Build2DItem(name, callback, "input_vector_2d");
 
             // Create an ItemAction when triggered, will call you back so you can build your own menu dynamically
             // Basically building dynamic menus from a mod
@@ -170,14 +212,17 @@ namespace ActionMenu
         private Dictionary<string, MelonPreferences_Entry> melonPrefsMap;
         private MelonPreferences_Entry<bool> flickSelection, boringBackButton, splitAvatarOvercrowdedMenu;
 
-        private Dictionary<string, Action> callback_items; // unique identifier -> function
+        // unique identifier -> function or menu
+        private Dictionary<string, Action> callbackItems = new();
+        private Dictionary<string, Action<bool>> callbackItems_bool = new();
+        private Dictionary<string, Action<double>> callbackItems_double = new();
+        private Dictionary<string, Action<double, double>> callbackItems_double_double = new();
         private Dictionary<string, MenuBuilder> dynamic_menus = new();
 
         public override void OnApplicationStart()
         {
             logger = LoggerInstance;
             instance = this;
-            callback_items = new();
             ourLib = new();
 
             melonPrefs = MelonPreferences.CreateCategory("ActionMenu", "Action Menu");
@@ -238,6 +283,10 @@ namespace ActionMenu
             view.BindCall("CVRAppCallSystemCall", new Action<string, string, string, string, string>(menuManager.HandleSystemCall));
             view.BindCall("SetMelonPreference", new Action<string, string>(OnSetMelonPreference));
             view.BindCall("ItemCallback", new Action<string>(OnItemCallback));
+            view.BindCall("ItemCallback_bool", new Action<string, bool>(OnItemCallback_bool));
+            view.BindCall("ItemCallback_double", new Action<string, double>(OnItemCallback_double));
+            view.BindCall("ItemCallback_double_double", new Action<string, double, double>(OnItemCallback_double_double));
+            view.BindCall("RequestDynamicMenu", new Action<string>(OnRequestDynamicMenu));
 
             // TODO: adjust effect
             var material = menuTransform.GetComponent<MeshRenderer>().materials[0];
@@ -833,6 +882,45 @@ namespace ActionMenu
 
             logger.Msg($"OnItemCallback calling {identifier}: {f}"); // TODO debug
             try { f(); }
+            catch (Exception e) { logger.Error($"failure in callback {identifier}: {e}"); }
+        }
+
+        private void OnItemCallback_bool(string identifier, bool value)
+        {
+            Action<bool> f;
+            if (!callbackItems_bool.TryGetValue(identifier, out f) || f == null)
+            {
+                logger.Error($"didn't find callback {identifier}");
+                return;
+            }
+
+            try { f(value); }
+            catch (Exception e) { logger.Error($"failure in callback {identifier}: {e}"); }
+        }
+
+        private void OnItemCallback_double(string identifier, double value)
+        {
+            Action<double> f;
+            if (!callbackItems_double.TryGetValue(identifier, out f) || f == null)
+            {
+                logger.Error($"didn't find callback {identifier}");
+                return;
+            }
+
+            try { f(value); }
+            catch (Exception e) { logger.Error($"failure in callback {identifier}: {e}"); }
+        }
+
+        private void OnItemCallback_double_double(string identifier, double x, double y)
+        {
+            Action<double, double> f;
+            if (!callbackItems_double_double.TryGetValue(identifier, out f) || f == null)
+            {
+                logger.Error($"didn't find callback {identifier}");
+                return;
+            }
+
+            try { f(x ,y); }
             catch (Exception e) { logger.Error($"failure in callback {identifier}: {e}"); }
         }
 
