@@ -58,9 +58,9 @@ namespace CameraInstants
             var plane = GameObject.CreatePrimitive(PrimitiveType.Quad);
             var t = plane.transform;
             t.SetParent(portableCamera.transform.parent, false); // to CVR Camera 2.0
-            t.localPosition = 100 * Vector3.left;
+            t.localPosition = 150 * Vector3.left;
             t.localRotation = Quaternion.Euler(0, 0, 180);
-            t.localScale = new Vector3(72f, 72f * aspectRatio, 1f);
+            t.localScale = new Vector3(140f, 140f * aspectRatio, 1f);
 
             // make it double sided because easy to lose it in the world
             var backside = GameObject.CreatePrimitive(PrimitiveType.Quad);
