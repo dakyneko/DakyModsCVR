@@ -8,15 +8,22 @@ namespace Daky
 {
     public static class Dakytils
     {
-        public static Sprite SpriteFromAssembly(string namespace_, string filename, int width = 512, int height = 512)
+        public static byte[]? BytesFromAssembly(string namespace_, string filename)
         {
             using var stream = System.Reflection.Assembly.GetExecutingAssembly()
                 .GetManifestResourceStream(namespace_ + "." + filename);
             if (stream == null || stream.Length == 0) return null;
+
             using var memStream = new MemoryStream((int)stream.Length);
             stream.CopyTo(memStream);
+            return memStream.ToArray();
+        }
+
+        public static Sprite SpriteFromAssembly(string namespace_, string filename, int width = 512, int height = 512)
+        {
+            var bytes = BytesFromAssembly(namespace_, filename);
             var texture = new Texture2D(512, 512, TextureFormat.RGBA32, false);
-            texture.LoadImage(memStream.ToArray());
+            texture.LoadImage(bytes);
             return Sprite.Create(texture, new Rect(0, 0, width, height), new Vector2(0, 0));
         }
 

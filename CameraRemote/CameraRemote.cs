@@ -16,6 +16,7 @@ using VisualMods = ABI_RC.Systems.Camera.VisualMods;
 
 namespace CameraRemote
 {
+    using static Daky.Dakytils;
     public class CameraRemoteMod : MelonMod
     {
         private static MelonLogger.Instance logger;
@@ -56,17 +57,7 @@ namespace CameraRemote
         private GameObject _remote;
         private bool _grabbed = false;
 
-        public RemoteControl()
-        {
-            using var stream = System.Reflection.Assembly.GetExecutingAssembly()
-                .GetManifestResourceStream(this.GetType().Namespace + ".img_431709.png");
-            if (stream == null || stream.Length == 0) return;
-            using var memStream = new MemoryStream((int)stream.Length);
-            stream.CopyTo(memStream);
-            var texture = new Texture2D(512, 512, TextureFormat.RGBA32, false);
-            texture.LoadImage(memStream.ToArray());
-            _icon = Sprite.Create(texture, new Rect(0, 0, 512, 512), new Vector2(0, 0));
-        }
+        public RemoteControl() => _icon = SpriteFromAssembly(this.GetType().Namespace, "img_431709.png");
 
         public string GetModName(string language) => "Remote Control";
         public Sprite GetModImage() => _icon;

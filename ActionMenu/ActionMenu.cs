@@ -23,7 +23,7 @@ using SettingsType = ABI.CCK.Scripts.CVRAdvancedSettingsEntry.SettingsType;
 
 namespace ActionMenu
 {
-    using Daky;
+    using static Daky.Dakytils;
     using MenuBuilder = Func<List<MenuItem>>;
     public class ActionMenuMod : MelonMod
     {
@@ -797,7 +797,7 @@ namespace ActionMenu
             }
 
             // global overrides
-            var globalOverridesFiles = Dakytils.TryOrDefault(() => Directory.GetFiles(@"UserData\ActionMenu\GlobalOverrides"));
+            var globalOverridesFiles = TryOrDefault(() => Directory.GetFiles(@"UserData\ActionMenu\GlobalOverrides"));
             globalOverridesFiles?
                 .Where(fpath => fpath.EndsWith(".json"))
                 .Do(fpath =>
