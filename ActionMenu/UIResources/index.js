@@ -461,8 +461,8 @@ function clear_all_enabled_sectors(parameter) {
 }
 
 function load_menu(name) {
+	if (menus[name] == null) throw `Menu ${name} not found`;
 	menu = menus[name];
-	if (menu == null) throw `Menu ${name} not found`;
 
 	$items.innerHTML = '';
 	$enabled_sectors.innerHTML = '';
