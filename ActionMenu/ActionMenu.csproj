@@ -8,4 +8,16 @@
         <LangVersion>latest</LangVersion>
         <Version>1.0.0.0</Version>
     </PropertyGroup>
+	
+	<ItemGroup>
+        <EmbeddedResource Include="UIResources\index.html" />
+        <EmbeddedResource Include="UIResources\index.js" />
+        <EmbeddedResource Include="UIResources\index.css" />
+        <EmbeddedResource Include="UIResources\actionmenu.json" />
+
+        <EmbeddedResource Include="UIResources\icon_actionmenu.svg" />
+        <EmbeddedResource Include="UIResources\icon_menu.svg" />
+        <EmbeddedResource Include="UIResources\icon_back.svg" />
+        <EmbeddedResource Include="UIResources\icon_avatar_emotes.svg" />
+    </ItemGroup>
 </Project>

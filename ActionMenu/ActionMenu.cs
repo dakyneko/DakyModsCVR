@@ -195,6 +195,11 @@ namespace ActionMenu
         public static readonly string AvatarMenuPrefix = "avatar";
         public static readonly string couiPath = @"ChilloutVR_Data\StreamingAssets\Cohtml\UIResources\ActionMenu";
         public static readonly string couiUrl = "coui://UIResources/ActionMenu";
+        public static readonly string[] couiFiles = new string[]
+        {
+            "index.html", "index.js", "index.css", "actionmenu.json",
+            "icon_actionmenu.svg", "icon_menu.svg", "icon_back.svg", "icon_avatar_emotes.svg"
+        };
 
 
         // Private implementation
@@ -210,7 +215,7 @@ namespace ActionMenu
 
         private MelonPreferences_Category melonPrefs;
         private Dictionary<string, MelonPreferences_Entry> melonPrefsMap;
-        private MelonPreferences_Entry<bool> flickSelection, boringBackButton, splitAvatarOvercrowdedMenu;
+        private MelonPreferences_Entry<bool> flickSelection, boringBackButton, dontInstallResources, splitAvatarOvercrowdedMenu;
 
         // unique identifier -> function or menu
         private Dictionary<string, Action> callbackItems = new();
@@ -228,6 +233,7 @@ namespace ActionMenu
             melonPrefs = MelonPreferences.CreateCategory("ActionMenu", "Action Menu");
             flickSelection = melonPrefs.CreateEntry("flick_selection", false, "Flick selection");
             boringBackButton = melonPrefs.CreateEntry("boring_back_button", false, "Boring back button");
+            dontInstallResources = melonPrefs.CreateEntry("dont_install_resources", false, "Don't install nor overwrite the resource files (useful for dev Action Menu)");
             // TODO: implement
             splitAvatarOvercrowdedMenu = melonPrefs.CreateEntry("split_overcrowded_avatar_menu", false, "Split avatar menu in multiple pages when it's too crowded");
 
@@ -246,9 +252,30 @@ namespace ActionMenu
                 SymbolExtensions.GetMethodInfo(() => default(ABI_RC.Core.Player.CVR_MovementSystem).FixedUpdate()),
                 prefix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnFixedUpdateMovementSystem))));
 
-            // TODO: create directory + deploy web files into it (from assembly resources?)
-            Directory.CreateDirectory(couiPath);
+
+            // handle directory stuff
+            if (dontInstallResources.Value)
+            {
+                logger.Msg($"We won't install resource files as requested. Beware of updates though.");
+            }
+            else
+            {
+                Directory.CreateDirectory(couiPath);
+                var couiNs = this.GetType().Namespace + ".UIResources";
+                foreach (var fname in couiFiles)
+                {
+                    var raw = BytesFromAssembly(couiNs, fname);
+                    if (raw == null)
+                    {
+                        logger.Warning($"File missing from assembly {fname}");
+                        continue;
+                    }
+                    File.WriteAllBytes(couiPath + @"\" + fname, raw);
+                }
+                logger.Msg($"Installed {couiFiles.Length} resource files from assembly into {couiPath}");
+            }
             MelonCoroutines.Start(WaitCohtmlSpawned());
+
 
             // build avatar menu from parameters after avatar is loaded
             HarmonyInstance.Patch(
@@ -776,7 +803,6 @@ namespace ActionMenu
         {
             var view = cohtmlView.View;
             logger.Msg($"OnActionMenuReady for view {view}");
-            // TODO: file path should be a config variable
             var fromFile = File.ReadAllText(@"ChilloutVR_Data\StreamingAssets\Cohtml\UIResources\ActionMenu\actionmenu.json");
             var config = JsonConvert.DeserializeObject<Menu>(fromFile);
             logger.Msg($"Loaded config with {config.menus.Count} menus: {string.Join(", ", config.menus.Keys)}");
