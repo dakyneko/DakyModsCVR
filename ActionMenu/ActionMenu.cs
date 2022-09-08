@@ -215,7 +215,8 @@ namespace ActionMenu
 
         private MelonPreferences_Category melonPrefs;
         private Dictionary<string, MelonPreferences_Entry> melonPrefsMap;
-        private MelonPreferences_Entry<bool> flickSelection, boringBackButton, dontInstallResources, splitAvatarOvercrowdedMenu;
+        private MelonPreferences_Entry<bool> flickSelection, boringBackButton, dontInstallResources,
+            splitAvatarOvercrowdedMenu, quickMenuLongPress;
 
         // unique identifier -> function or menu
         private Dictionary<string, Action> callbackItems = new();
@@ -234,6 +235,7 @@ namespace ActionMenu
             flickSelection = melonPrefs.CreateEntry("flick_selection", false, "Flick selection");
             boringBackButton = melonPrefs.CreateEntry("boring_back_button", false, "Boring back button");
             dontInstallResources = melonPrefs.CreateEntry("dont_install_resources", false, "Don't install nor overwrite the resource files (useful for dev Action Menu)");
+            quickMenuLongPress = melonPrefs.CreateEntry("quickmenu_long_press", false, "Makes the ActionMenu appear with a short press; QuickMenu with long");
             // TODO: implement
             splitAvatarOvercrowdedMenu = melonPrefs.CreateEntry("split_overcrowded_avatar_menu", false, "Split avatar menu in multiple pages when it's too crowded");
 
@@ -507,35 +509,47 @@ namespace ActionMenu
 
         private static float qmButtonStart = -1;
         private static readonly float actionMenuShowHoldDuration = 0.5f;
+        private void ShortPressMenuToggle(bool show)
+        {
+            if (quickMenuLongPress.Value) ToggleMenu(show);
+            else menuManager.ToggleQuickMenu(show);
+        }
+        private void LongPressMenuToggle(bool show) {
+            if (quickMenuLongPress.Value) menuManager.ToggleQuickMenu(show);
+            else ToggleMenu(show);
+        }
         private void OnUpdateInput(bool buttonDown, bool buttonUp)
         {
             var now = Time.time;
-            var enabled = cohtmlView?.enabled == true;
             var im = CVRInputManager.Instance;
+            var amOpen = cohtmlView?.enabled == true;
+            var qmOpen = menuManager._quickMenuOpen;
+            var shortPressMenuShown = quickMenuLongPress.Value ? amOpen : qmOpen;
+            var longPressMenuShown = quickMenuLongPress.Value ? qmOpen : amOpen;
+
+            im.quickMenuButton = false; // override the default behavior, always
 
             if (buttonUp)
             {
                 if (qmButtonStart >= 0)
-                {
-                    im.quickMenuButton = true; // back to default behavior
-                }
+                    ShortPressMenuToggle(!shortPressMenuShown);
                 qmButtonStart = -1;
             }
-            else if (buttonDown && !menuManager._quickMenuOpen) // ignore if quickmenu is open
+            else if (buttonDown) // ignore if quickmenu is open
             {
-                im.quickMenuButton = false; // override default behavior
-                if (enabled)
-                    ToggleMenu(false);
+                if (longPressMenuShown)
+                    LongPressMenuToggle(false);
+                else if (shortPressMenuShown)
+                    ShortPressMenuToggle(false);
                 else
                     qmButtonStart = now;
             }
-            else if (qmButtonStart >= 0 && !enabled) // holding
+            else if (qmButtonStart >= 0 && !longPressMenuShown) // holding
             {
-                im.quickMenuButton = false; // override default behavior
                 if (now - qmButtonStart >= actionMenuShowHoldDuration)
                 {
-                    ToggleMenu(true);
-                    qmButtonStart = -1;
+                    LongPressMenuToggle(true);
+                    qmButtonStart = -1; // prevent other menu to pop
                 }
             }
         }
@@ -608,16 +622,6 @@ namespace ActionMenu
             var anch = menuManager._leftVrAnchor.transform;
             menuTransform.position = anch.position;
             menuTransform.rotation = anch.rotation;
-            /* 
-            if (!((UnityEngine.Object)this._quickMenuCollider != (UnityEngine.Object)null)
-                || this._quickMenuCollider.enabled && (this.needsQuickmenuPositionUpdate || MetaPort.Instance.isUsingVr)
-                || !((UnityEngine.Object)PlayerSetup.Instance != (UnityEngine.Object)null)
-                || !((UnityEngine.Object)PlayerSetup.Instance._movementSystem != (UnityEngine.Object)null)
-                || !((UnityEngine.Object)PlayerSetup.Instance._movementSystem.rotationPivot != (UnityEngine.Object)null))
-            Transform rotationPivot = PlayerSetup.Instance._movementSystem.rotationPivot;
-            menuTransform.eulerAngles = rotationPivot.eulerAngles;
-            menuTransform.position = rotationPivot.position + rotationPivot.forward * 1f; // TODO: scale factor needed?
-            */
         }
 
         private Menus? melonPrefsMenus;
