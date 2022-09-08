@@ -12,11 +12,11 @@ using cohtml;
 using System;
 using Newtonsoft.Json;
 using System.IO;
+using Valve.VR;
 
-using OpCodes = System.Reflection.Emit.OpCodes;
 using PlayerSetup = ABI_RC.Core.Player.PlayerSetup;
-using SchedulerSystem = ABI_RC.Core.IO.SchedulerSystem;
 using SettingsType = ABI.CCK.Scripts.CVRAdvancedSettingsEntry.SettingsType;
+using BindFlags = System.Reflection.BindingFlags;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
 [assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "ActionMenu", "1.0.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
@@ -243,14 +243,25 @@ namespace ActionMenu
             BuildOurMelonPrefsMenus();
 
 
-            // FIXME: disable quickmenu for now
+            // override the quickmenu button behavior, long press means action menu
             HarmonyInstance.Patch(
-                SymbolExtensions.GetMethodInfo(() => default(CVR_MenuManager).LateUpdate()),
-                prefix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnLateUpdateQuickMenu))));
+                typeof(InputModuleSteamVR).GetMethod(nameof(InputModuleSteamVR.UpdateInput), BindFlags.Public | BindFlags.Instance),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateInputSteamVR))));
+            HarmonyInstance.Patch(
+                typeof(InputModuleSteamVR).GetMethod(nameof(InputModuleSteamVR.UpdateImportantInput), BindFlags.Public | BindFlags.Instance),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateInputSteamVR))));
+            HarmonyInstance.Patch(
+                typeof(InputModuleMouseKeyboard).GetMethod(nameof(InputModuleMouseKeyboard.UpdateInput), BindFlags.Public | BindFlags.Instance),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateInputDesktop))));
+            HarmonyInstance.Patch(
+                typeof(InputModuleMouseKeyboard).GetMethod(nameof(InputModuleMouseKeyboard.UpdateImportantInput), BindFlags.Public | BindFlags.Instance),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateInputDesktop))));
 
+
+            // FIXME: this stops the avatar animator from moving too, but not ideal, cannot fly anymore or rotate head
             HarmonyInstance.Patch(
-                SymbolExtensions.GetMethodInfo(() => default(ABI_RC.Core.Player.CVR_MovementSystem).FixedUpdate()),
-                prefix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnFixedUpdateMovementSystem))));
+                SymbolExtensions.GetMethodInfo(() => default(MovementSystem).Update()),
+                prefix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateMovementSystem))));
 
 
             // handle directory stuff
@@ -298,8 +309,9 @@ namespace ActionMenu
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRFlyToggle))));
         }
 
-        private static bool OnFixedUpdateMovementSystem(ABI_RC.Core.Player.CVR_MovementSystem __instance)
+        private static bool OnUpdateMovementSystem(ABI_RC.Core.Player.CVR_MovementSystem __instance)
         {
+            if (!MetaPort.Instance.isUsingVr) return true;
             return cohtmlView?.enabled != true; // TODO: animation still run, prevent emotes
         }
 
@@ -463,8 +475,9 @@ namespace ActionMenu
 
             if (vr)
             {
-                moveSys.canMove = !show;
-                moveSys.canFly = !show;
+                //moveSys.SetImmobilized(show);
+                //moveSys.canMove = !show; // TODO: this isn't enough, body animator still move
+                //moveSys.canFly = !show;
             }
             else
             {
@@ -475,9 +488,56 @@ namespace ActionMenu
             }
         }
 
-        private static bool OnLateUpdateQuickMenu()
+        private static void OnUpdateInputSteamVR(InputModuleSteamVR __instance)
         {
-            return false; // don't run
+            if (__instance.vrMenuButton == null) return; // cvr calls this even in desktop, doh
+
+            instance.OnUpdateInput(
+                __instance.vrMenuButton.GetStateDown(SteamVR_Input_Sources.LeftHand),
+                __instance.vrMenuButton.GetStateUp(SteamVR_Input_Sources.LeftHand));
+            // TODO: add support for right hand too
+        }
+
+        private static void OnUpdateInputDesktop(InputModuleMouseKeyboard __instance)
+        {
+            instance.OnUpdateInput(
+                Input.GetKeyDown(KeyCode.Tab),
+                Input.GetKeyUp(KeyCode.Tab));
+        }
+
+        private static float qmButtonStart = -1;
+        private static readonly float actionMenuShowHoldDuration = 0.5f;
+        private void OnUpdateInput(bool buttonDown, bool buttonUp)
+        {
+            var now = Time.time;
+            var enabled = cohtmlView?.enabled == true;
+            var im = CVRInputManager.Instance;
+
+            if (buttonUp)
+            {
+                if (qmButtonStart >= 0)
+                {
+                    im.quickMenuButton = true; // back to default behavior
+                }
+                qmButtonStart = -1;
+            }
+            else if (buttonDown && !menuManager._quickMenuOpen) // ignore if quickmenu is open
+            {
+                im.quickMenuButton = false; // override default behavior
+                if (enabled)
+                    ToggleMenu(false);
+                else
+                    qmButtonStart = now;
+            }
+            else if (qmButtonStart >= 0 && !enabled) // holding
+            {
+                im.quickMenuButton = false; // override default behavior
+                if (now - qmButtonStart >= actionMenuShowHoldDuration)
+                {
+                    ToggleMenu(true);
+                    qmButtonStart = -1;
+                }
+            }
         }
 
         public override void OnLateUpdate()
@@ -485,15 +545,6 @@ namespace ActionMenu
             if (menuManager == null || menuTransform == null) return;
             if (menuManager._inputManager == null)
                 menuManager._inputManager = CVRInputManager.Instance;
-            if (CVRInputManager.Instance.quickMenuButton)
-            {
-                if (menuManager.coreData.menuParameters.quickMenuInGrabMode)
-                    menuManager.ExitRepositionMode();
-                else
-                    ToggleMenu(!cohtmlView.enabled);
-            }
-            if (menuManager._inputManager.quickMenuButtonHold)
-                ToggleMenu(true);
 
             if (cohtmlView?.enabled != true || cohtmlView?.View == null) return;
 
