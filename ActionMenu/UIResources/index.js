@@ -687,6 +687,8 @@ const widget_j2d = (function() {
 function load_action_menu(_menu, _settings) {
     menus = _menu.menus;
 	settings = _settings ?? {};
+	console.log('load_action_menu menus:', Object.keys(_menu.menus));
+	console.log('load_action_menu settings:', JSON.stringify(settings));
 
 	if (settings.flick_selection)
 		wait_joystick_recenter = true;

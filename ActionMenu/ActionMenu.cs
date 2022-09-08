@@ -320,6 +320,7 @@ namespace ActionMenu
         private void MenuManagerRegisterEvents()
         {
             var view = cohtmlView.View;
+            logger.Msg($"MenuManagerRegisterEvents called {view}");
             view.RegisterForEvent("ActionMenuReady", new Action(OnActionMenuReady));
             view.BindCall("CVRAppCallSystemCall", new Action<string, string, string, string, string>(menuManager.HandleSystemCall));
             view.BindCall("SetMelonPreference", new Action<string, string>(OnSetMelonPreference));
@@ -346,6 +347,7 @@ namespace ActionMenu
                 yield return null;
             while ((cohtmlUISystem = GameObject.Find("/Cohtml/CohtmlUISystem").GetComponent<CohtmlUISystem>()) == null)
                 yield return null;
+            logger.Msg($"WaitCohtmlSpawned start {cwv}");
             menuManager = CVR_MenuManager.Instance;
 
             var parent = cwv.transform.parent;
@@ -461,6 +463,7 @@ namespace ActionMenu
 
         public void ToggleMenu(bool show)
         {
+            logger.Msg($"ToggleMenu show={show} , cohtmlView.enabled={cohtmlView.enabled} collider={menuCollider?.enabled} vr={MetaPort.Instance.isUsingVr}");
             if (cohtmlView == null || cohtmlView.View == null) return;
 
             cohtmlView.View.TriggerEvent<bool>("ToggleActionMenu", show);
@@ -471,9 +474,7 @@ namespace ActionMenu
             var moveSys = PlayerSetup.Instance._movementSystem;
 
             if (show && menuCollider?.enabled == true)
-            {
                 UpdatePositionToAnchor();
-            }
 
             if (vr)
             {
