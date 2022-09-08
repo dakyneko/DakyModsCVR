@@ -257,7 +257,7 @@ function control_type_impulse(item, action, set_value) {
 	if (item.enabled) return true; // prevent spam
 	const sector = selected_sector;
 	set_item_enabled(sector, item, true);
-	appcall("AppChangeAnimatorParam", action.parameter, action.value ?? 1);
+	set_value(action.value ?? 1);
 	setTimeout(() => {
 		if (!item.enabled) return;
 		set_item_enabled(sector, item, false);
