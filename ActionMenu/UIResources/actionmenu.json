@@ -85,7 +85,7 @@
                 "icon": "icon_actionmenu.svg",
                 "action": {
                     "type": "menu",
-                    "menu": "settings|ActionMenu"
+                    "menu": "settings/ActionMenu"
                 }
             }
         ],
@@ -95,7 +95,7 @@
                 "icon": "icon_avatar_emotes.svg",
                 "action": {
                     "type": "menu",
-                    "menu": "avatar|emotes"
+                    "menu": "avatar/emotes"
                 }
             },
             {

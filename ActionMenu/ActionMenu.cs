@@ -57,7 +57,7 @@ namespace ActionMenu
             }
 
             // if you want to expose your MelonPreference into a menu, build them with this.
-            // it may have to build a hierarchy of menu so add an item pointing to: settings|YourNameMod
+            // it may have to build a hierarchy of menu so add an item pointing to: settings/YourNameMod
             // TODO: implement other types, only boolean for now
             // TODO: add listener so we can update menu items state automatically (enabled, visually etc)
             public Menus BuildMelonPrefsMenus(List<MelonPreferences_Entry> melonPrefs)
@@ -189,9 +189,9 @@ namespace ActionMenu
             }
         }
 
-        // for avatar menu we interpret names with | as folders to make a hierarchy, ex: Head|Hair|Length
+        // for avatar menu we interpret names with / as folders to make a hierarchy, ex: Head/Hair/Length
         // we'll build menus and submenus necessary to allow it automatically
-        public static readonly char HierarchySep = '|';
+        public static readonly char HierarchySep = '/';
         public static readonly string AvatarMenuPrefix = "avatar";
         public static readonly string couiPath = @"ChilloutVR_Data\StreamingAssets\Cohtml\UIResources\ActionMenu";
         public static readonly string couiUrl = "coui://UIResources/ActionMenu";
