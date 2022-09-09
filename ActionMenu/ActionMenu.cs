@@ -31,7 +31,7 @@ namespace ActionMenu
         public class Lib
         {
             private ActionMenuMod instance;
-            private string prefix_ns;
+            public readonly string prefixNs;
 
             public Lib()
             {
@@ -40,10 +40,62 @@ namespace ActionMenu
                 // auto detect namespace of caller so we can suffix identifier to avoid collision between mods
                 // basically, reflection goes weeeeeeeeee
                 var stackTrace = new System.Diagnostics.StackTrace();
-                prefix_ns = stackTrace.GetFrame(1).GetMethod().DeclaringType.Namespace;
+                prefixNs = stackTrace.GetFrame(1).GetMethod().DeclaringType.Namespace;
 
-                API.OnAvatarMenuLoaded += OnAvatarMenuLoaded;
+                RegisterOnLoaded();
+            }
+
+            // if you don't need this, you can override it empty
+            virtual protected void RegisterOnLoaded()
+            {
                 API.OnGlobalMenuLoaded += OnGlobalMenuLoaded;
+                API.OnAvatarMenuLoaded += OnAvatarMenuLoaded;
+            }
+
+            virtual protected string modName => prefixNs; // by default your class name
+            virtual protected string? modIcon => null; // can accept: data:image/jpeg;base64
+            virtual protected string entry => "main"; // the name of your mod main menu
+            virtual protected string modMenuPath(params string[] components)
+                => prefixNs + HierarchySep + string.Join(HierarchySep.ToString(), components);
+
+            // Mods can create a menu very easily by filling up some items here.
+            virtual protected List<MenuItem> modMenuItems() => new();
+
+            // Or create many menus yourself for your mod. Your menus will have automatically the prefixNs prefix.
+            virtual public Menus BuildModMenu()
+            {
+                var xs = modMenuItems();
+                return new()
+                {
+                    // the main menu of the mod
+                    [entry] = modMenuItems(),
+                    // more submenus can be added separately here
+                };
+            }
+
+            // Override this to manipulate menus after all menus are built. Usually not required for simple mod menus.
+            virtual protected void OnGlobalMenuLoaded(Menus menus)
+            {
+                var m = BuildModMenu();
+                if (m.Keys.SequenceEqual(new string[] { entry }) && m.GetWithDefault(entry).Count == 0)
+                    return; // if empty don't create anything
+
+                // add all mod menus and take care of the prefixNs prefix
+                foreach (var x in m) {
+                    var items = x.Value.Select(item =>
+                    {
+                        if (item.action.type == "menu")
+                            item.action.menu = modMenuPath(item.action.menu);
+                        return item;
+                    });
+                    menus.GetWithDefault(modMenuPath(x.Key)).AddRange(items);
+                }
+                menus.GetWithDefault(SubmenuNameForMods).Add(new MenuItem()
+                {
+                    name = modName,
+                    icon = modIcon,
+                    action = new ItemAction() { type = "menu", menu = modMenuPath(entry) },
+                });
             }
 
             // override this to manipulate avatar menus after they're built
@@ -51,19 +103,118 @@ namespace ActionMenu
             {
             }
 
-            // override this to manipulate menus after all menus are built
-            virtual protected void OnGlobalMenuLoaded(Menus menus)
+            // Nice way to modify the Menus. This is to play nice with other mods as well.
+            public static void ApplyMenuPatch(Menus menus, MenusPatch patch) => patch.ApplyToMenu(menus);
+
+            // Create an ItemAction when triggered, will call your function
+            // Basically for button/widget item for callback in your mod
+            public ItemAction BuildButtonItem(string name, Action callback)
             {
+                var identifier = prefixNs + ".call." + name;
+                instance.callbackItems[identifier] = callback;
+                return new ItemAction()
+                {
+                    type = "callback",
+                    parameter = identifier,
+                };
+            }
+
+            private ItemAction BuildBoolItem(string name, Action<bool> callback, string control,
+                object? value = null, object? defaultValue = null, float? duration = null)
+            {
+                var identifier = prefixNs + "." + control + "." + name;
+                instance.callbackItems_bool[identifier] = callback;
+                return new ItemAction()
+                {
+                    type = "callback",
+                    parameter = identifier,
+                    control = "toggle",
+                    duration = duration,
+                    value = value,
+                    default_value = defaultValue,
+                };
+            }
+
+            // Creates a button with two states: enabled and disabled.
+            public ItemAction BuildToggleItem(string name, Action<bool> callback)
+                => BuildBoolItem(name, callback, "toggle", value: true, defaultValue: false);
+            // Creates a button that temporarily switch its value, then back to default_value
+            public ItemAction BuildImpulseItem(string name, Action<bool> callback, float duration = 1f, object? value = null, object? defaultValue = null)
+                => BuildBoolItem(name, callback, "impulse", value: value, defaultValue: defaultValue, duration: duration);
+
+            // Creates a radial widget for picking values between a min and max.
+            public ItemAction BuildRadialItem(string name, Action<double> callback,
+                float? minValue = null, float? maxValue = null, float? defaultValue = null)
+            {
+                var identifier = prefixNs + ".radial." + name;
+                instance.callbackItems_double[identifier] = callback;
+                return new ItemAction() {
+                    type = "callback",
+                    parameter = identifier,
+                    control = "radial",
+                    min_value = minValue,
+                    max_value = maxValue,
+                    default_value = defaultValue,
+                };
+            }
+
+            private ItemAction Build2DItem(string name, Action<double, double> callback, string control,
+                float? minValueX = null, float? maxValueX = null, float? defaultValueX = null,
+                float? minValueY = null, float? maxValueY = null, float? defaultValueY = null)
+            {
+                var identifier = prefixNs + "." + control + "." + name;
+                instance.callbackItems_double_double[identifier] = callback;
+                return new ItemAction() {
+                    type = "callback",
+                    parameter = identifier,
+                    control = control,
+                    min_value_x = minValueX,
+                    max_value_x = maxValueX,
+                    default_value_x = defaultValueX,
+                    min_value_y = minValueY,
+                    max_value_y = maxValueY,
+                    default_value_y = defaultValueY,
+                };
+            }
+
+            // Creates a 2D widget for picking two values simultaneously setting absolute coordinates, between min and max values.
+            public ItemAction BuildJoystick2D(string name, Action<double, double> callback,
+                float? minValueX = null, float? maxValueX = null, float? defaultValueX = null,
+                float? minValueY = null, float? maxValueY = null, float? defaultValueY = null)
+                => Build2DItem(name, callback, "joystick_2d",
+                        minValueX: minValueX, maxValueX: maxValueX, defaultValueX: defaultValueX,
+                        minValueY: minValueY, maxValueY: maxValueY, defaultValueY: defaultValueY
+                    );
+            // Creates a 2D widget for picking two values simultaneously moving in relative coordinates, between min and max values.
+            public ItemAction BuildInputVector2D(string name, Action<double, double> callback,
+                float? minValueX = null, float? maxValueX = null, float? defaultValueX = null,
+                float? minValueY = null, float? maxValueY = null, float? defaultValueY = null)
+                => Build2DItem(name, callback, "input_vector_2d",
+                        minValueX: minValueX, maxValueX: maxValueX, defaultValueX: defaultValueX,
+                        minValueY: minValueY, maxValueY: maxValueY, defaultValueY: defaultValueY
+                    );
+
+            // Create an ItemAction when triggered, will call you back so you can build your own menu dynamically
+            // Basically building dynamic menus from a mod
+            public ItemAction BuildCallbackMenu(string name, MenuBuilder menuBuilder)
+            {
+                var identifier = prefixNs + "." + name;
+                instance.dynamic_menus[identifier] = menuBuilder;
+                return new ItemAction()
+                {
+                    type = "dynamic menu",
+                    menu = identifier,
+                };
             }
 
             // if you want to expose your MelonPreference into a menu, build them with this.
             // it may have to build a hierarchy of menu so add an item pointing to: settings/YourNameMod
-            // TODO: implement other types, only boolean for now
+            // TODO: implement other types because for now it's only boolean
             // TODO: add listener so we can update menu items state automatically (enabled, visually etc)
             public Menus BuildMelonPrefsMenus(List<MelonPreferences_Entry> melonPrefs)
             {
                 var m = new Menus();
-                var items = m.GetWithDefault("settings"+ HierarchySep + prefix_ns, () => new());
+                var items = m.GetWithDefault(Path(prefixNs, "settings"));
 
                 foreach (var e_ in melonPrefs)
                 {
@@ -91,114 +242,20 @@ namespace ActionMenu
 
                 return m;
             }
-
-            public static void ApplyMenuPatch(Menus menus, MenusPatch patch)
-            {
-                if (patch.remove_items != null)
-                {
-                    foreach (var x in patch.remove_items)
-                    {
-                        if (!menus.TryGetValue(x.Key, out var items))
-                            continue;
-                        var toRemove = x.Value;
-                        items.RemoveAll(item => item.name != null && toRemove.Contains(item.name));
-                    }
-                }
-
-                if (patch.add_items != null)
-                {
-                    foreach (var x in patch.add_items)
-                    {
-                        var items = menus.GetWithDefault(x.Key, () => new());
-                        foreach (var item in x.Value)
-                            items.Add(item);
-                    }
-                }
-
-                if (patch.overwrites != null)
-                    foreach (var x in patch.overwrites)
-                        menus[x.Key] = x.Value;
-            }
-
-            // Create an ItemAction when triggered, will call your function
-            // Basically for button/widget item for callback in your mod
-            public ItemAction BuildButtonItem(string name, Action callback)
-            {
-                var identifier = prefix_ns + ".call." + name;
-                instance.callbackItems[identifier] = callback;
-                return new ItemAction()
-                {
-                    type = "callback",
-                    parameter = identifier,
-                };
-            }
-
-            private ItemAction BuildBoolItem(string name, Action<bool> callback, string control)
-            {
-                var identifier = prefix_ns + "."+ control +"." + name;
-                instance.callbackItems_bool[identifier] = callback;
-                return new ItemAction()
-                {
-                    type = "callback",
-                    parameter = identifier,
-                    control = "toggle",
-                };
-            }
-            public ItemAction BuildToggleItem(string name, Action<bool> callback)
-                => BuildBoolItem(name, callback, "toggle");
-            public ItemAction BuildImpulseItem(string name, Action<bool> callback)
-                => BuildBoolItem(name, callback, "impulse");
-
-            public ItemAction BuildRadialItem(string name, Action<double> callback)
-            {
-                var identifier = prefix_ns + ".radial." + name;
-                instance.callbackItems_double[identifier] = callback;
-                return new ItemAction() {
-                    type = "callback",
-                    parameter = identifier,
-                    control = "radial",
-                };
-            }
-
-            private ItemAction Build2DItem(string name, Action<double, double> callback, string control)
-            {
-                var identifier = prefix_ns + "."+ control +"." + name;
-                instance.callbackItems_double_double[identifier] = callback;
-                return new ItemAction() {
-                    type = "callback",
-                    parameter = identifier,
-                    control = control,
-                };
-            }
-            public ItemAction BuildJoystick2D(string name, Action<double, double> callback)
-                => Build2DItem(name, callback, "joystick_2d");
-            public ItemAction BuildInputVector2D(string name, Action<double, double> callback)
-                => Build2DItem(name, callback, "input_vector_2d");
-
-            // Create an ItemAction when triggered, will call you back so you can build your own menu dynamically
-            // Basically building dynamic menus from a mod
-            public ItemAction BuildCallbackMenu(string name, MenuBuilder menuBuilder)
-            {
-                var identifier = prefix_ns + "." + name;
-                instance.dynamic_menus[identifier] = menuBuilder;
-                return new ItemAction()
-                {
-                    type = "dynamic menu",
-                    menu = identifier,
-                };
-            }
         }
 
         // for avatar menu we interpret names with / as folders to make a hierarchy, ex: Head/Hair/Length
         // we'll build menus and submenus necessary to allow it automatically
+        public static readonly string MainMenu = "main";
         public static readonly char HierarchySep = '/';
+        public static readonly string SubmenuNameForMods = "mods";
         public static readonly string AvatarMenuPrefix = "avatar";
         public static readonly string couiPath = @"ChilloutVR_Data\StreamingAssets\Cohtml\UIResources\ActionMenu";
         public static readonly string couiUrl = "coui://UIResources/ActionMenu";
         public static readonly string[] couiFiles = new string[]
         {
             "index.html", "index.js", "index.css", "actionmenu.json",
-            "icon_actionmenu.svg", "icon_menu.svg", "icon_back.svg", "icon_avatar_emotes.svg"
+            "icon_actionmenu.svg", "icon_menu.svg", "icon_back.svg", "icon_avatar_emotes.svg", "icon_melon.svg"
         };
 
 
@@ -225,11 +282,13 @@ namespace ActionMenu
         private Dictionary<string, Action<double, double>> callbackItems_double_double = new();
         private Dictionary<string, MenuBuilder> dynamic_menus = new();
 
+        public static string Path(params string[] components) => string.Join(HierarchySep.ToString(), components);
+
         public override void OnApplicationStart()
         {
             logger = LoggerInstance;
             instance = this;
-            ourLib = new();
+            ourLib = new OurLib();
 
             melonPrefs = MelonPreferences.CreateCategory("ActionMenu", "Action Menu");
             flickSelection = melonPrefs.CreateEntry("flick_selection", false, "Flick selection");
@@ -382,7 +441,7 @@ namespace ActionMenu
             v.IsTransparent = true;
             v.Width = 500;
             v.Height = 500;
-            v.Page = couiUrl +"/index.html";
+            v.Page = couiUrl + "/index.html";
 
             // ready set go
             v.enabled = true;
@@ -521,6 +580,8 @@ namespace ActionMenu
         }
         private void OnUpdateInput(bool buttonDown, bool buttonUp)
         {
+            if (cohtmlView == null || menuManager == null) return; // not yet ready
+
             var now = Time.time;
             var im = CVRInputManager.Instance;
             var amOpen = cohtmlView?.enabled == true;
@@ -655,7 +716,7 @@ namespace ActionMenu
                 var item = new MenuItem { name = name };
                 AvatarParamToItem(ref item, s, menuPrefix, m);
 
-                var aitems = m.GetWithDefault(parents, () => new());
+                var aitems = m.GetWithDefault(parents);
                 aitems.Add(item);
 
                 // register the hierarchy upward
@@ -674,7 +735,7 @@ namespace ActionMenu
                 var parent = x.parent;
                 var child = x.child;
                 var i = child.LastIndexOf(HierarchySep);
-                var childName = (i >= 0) ? x.child.Substring(i+1) : child;
+                var childName = (i >= 0) ? x.child.Substring(i + 1) : child;
 
                 var item = new MenuItem
                 {
@@ -685,15 +746,15 @@ namespace ActionMenu
                         menu = child,
                     },
                 };
-                m.GetWithDefault(parent, () => new()).Add(item);
+                m.GetWithDefault(parent).Add(item);
             }
 
             // add avatar emotes
             var emoteNames = PlayerSetup.Instance.GetEmoteNames();
             if (emoteNames.Length > 0)
             {
-                var parents = menuPrefix + HierarchySep + "emotes";
-                var aitems = m.GetWithDefault(parents, () => new());
+                var parents = Path(menuPrefix, "emotes");
+                var aitems = m.GetWithDefault(parents);
                 var i = 1;
                 emoteNames.Do(name =>
                 {
@@ -714,7 +775,7 @@ namespace ActionMenu
                     ++i;
                 });
 
-                m.GetWithDefault(menuPrefix, () => new()).Add(new MenuItem()
+                m.GetWithDefault(menuPrefix).Add(new MenuItem()
                 {
                     name = "Emotes",
                     icon = "icon_avatar_emotes.svg",
@@ -735,7 +796,7 @@ namespace ActionMenu
                     logger.Msg($"loading avatar overrides for {avatarGuid}: {avatarOverridesFile}");
                     var txt = File.ReadAllText(avatarOverridesFile);
                     var patch = JsonConvert.DeserializeObject<MenusPatch>(txt);
-                    Lib.ApplyMenuPatch(m, patch);
+                    patch.ApplyToMenu(m);
                 }
                 catch (Exception ex)
                 {
@@ -764,7 +825,7 @@ namespace ActionMenu
                     break;
 
                 case SettingsType.GameObjectDropdown:
-                    var submenuName = menuPrefix + HierarchySep + s.name;
+                    var submenuName = Path(menuPrefix, s.name);
                     // if parameter name has suffix Impulse, adapt control type
                     var isImpulse = s.machineName.EndsWith("Impulse");
 
@@ -888,7 +949,7 @@ namespace ActionMenu
                 {
                     var txt = File.ReadAllText(fpath);
                     var patch = JsonConvert.DeserializeObject<MenusPatch>(txt);
-                    Lib.ApplyMenuPatch(config.menus, patch);
+                    patch.ApplyToMenu(config.menus);
                 }
                 catch (Exception ex)
                 {
@@ -897,6 +958,17 @@ namespace ActionMenu
             });
 
             API.InvokeOnGlobalMenuLoaded(config.menus);
+
+            // add item to link to all mods menu if any is present
+            if (config.menus.GetWithDefault(SubmenuNameForMods).Count > 0)
+            {
+                config.menus.GetWithDefault(MainMenu).Add(new MenuItem()
+                {
+                    name = "Mods",
+                    icon = "icon-melon.svg",
+                    action = new ItemAction() { type = "menu", menu = SubmenuNameForMods },
+                });
+            }
 
             var settings = new MenuSettings
             {
@@ -907,9 +979,18 @@ namespace ActionMenu
 
             var configTxt = JsonSerialize(config);
             var settingsTxt = JsonSerialize(settings);
-            view.TriggerEvent<string, string>("LoadActionMenu", configTxt, settingsTxt);
-            cohtmlReadyState = 2;
-            cohtmlView.enabled = false; // hide it by default
+            if (cohtmlReadyState > 0) {
+                view.TriggerEvent<string, string>("LoadActionMenu", configTxt, settingsTxt);
+                cohtmlReadyState = 2;
+                cohtmlView.enabled = false; // hide it by default
+            }
+        }
+
+        internal struct MenuSettings
+        {
+            public bool in_vr;
+            public bool flick_selection;
+            public bool boring_back_button;
         }
 
         private static string JsonSerialize(object value) => JsonConvert.SerializeObject(value, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
@@ -918,10 +999,11 @@ namespace ActionMenu
         {
             if (cohtmlView == null)
             {
-                logger.Msg($"Reload view is null!");
+                logger.Warning($"Reload view is null!");
                 return;
             }
             cohtmlReadyState = 0;
+            OnAvatarAdvancedSettings(PlayerSetup.Instance);
             cohtmlView.View.Reload(); // TODO: reloading is broken, this fix?
 
             logger.Msg($"view reloaded {cohtmlView} {cohtmlView.View}");
@@ -939,10 +1021,10 @@ namespace ActionMenu
             switch (e_)
             {
                 case MelonPreferences_Entry<bool> e: {
-                    if (float.TryParse(value, out float valueInt))
-                        e.Value = valueInt != 0;
-                    break;
-                }
+                        if (float.TryParse(value, out float valueInt))
+                            e.Value = valueInt != 0;
+                        break;
+                    }
                 // TODO: implement other types
 
                 default:
@@ -1002,7 +1084,7 @@ namespace ActionMenu
                 return;
             }
 
-            try { f(x ,y); }
+            try { f(x, y); }
             catch (Exception e) { logger.Error($"failure in callback {identifier}: {e}"); }
         }
 
@@ -1033,6 +1115,11 @@ namespace ActionMenu
             if (Input.GetKeyDown(KeyCode.F3)) Reload(); // reload
 
             if (menuTransform != null) UpdatePositionToVrAnchor();
+        }
+
+        internal class OurLib : Lib
+        {
+            override protected void RegisterOnLoaded() { } // we don't need it ourself
         }
     }
 }

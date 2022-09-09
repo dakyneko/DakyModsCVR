@@ -82,6 +82,17 @@ namespace Daky
             return v;
         }
 
+        public static V GetWithDefault<U,V>(this Dictionary<U,V> d, U key) where V : new()
+        {
+            V v;
+            if (d.TryGetValue(key, out v))
+                return v;
+
+            v = new V();
+            d.Add(key, v);
+            return v;
+        }
+
         public static T TryOrDefault<T>(Func<T> f)
         {
             try

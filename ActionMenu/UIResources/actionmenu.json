@@ -85,7 +85,7 @@
                 "icon": "icon_actionmenu.svg",
                 "action": {
                     "type": "menu",
-                    "menu": "settings/ActionMenu"
+                    "menu": "ActionMenu/settings"
                 }
             }
         ],
