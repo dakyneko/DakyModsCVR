@@ -17,6 +17,7 @@ namespace ActionMenu
         public string? name;
         public string? icon;
         public ItemAction action;
+        public bool? enabled;
     } 
     public struct ItemAction
     {

@@ -698,6 +698,7 @@ namespace ActionMenu
             var avatarGuid = PlayerSetup.Instance?._avatarDescriptor?.avatarSettings?._avatarGuid ?? "default";
             var menuPrefix = AvatarMenuPrefix;
             var m = avatarMenus = new();
+            var animator = PlayerSetup.Instance?._animator;
             HashSet<(string parent, string child)> hierarchy_pairs = new();
 
             // Build menus from the avatar parameters, focus on items directly (leaves in the hierarchy)
@@ -714,7 +715,7 @@ namespace ActionMenu
                 logger.Msg($"OnAvatarAdvancedSettings parameter {name} <- {parents}: {s.type}");
 
                 var item = new MenuItem { name = name };
-                AvatarParamToItem(ref item, s, menuPrefix, m);
+                AvatarParamToItem(ref item, s, animator, menuPrefix, m);
 
                 var aitems = m.GetWithDefault(parents);
                 aitems.Add(item);
@@ -808,13 +809,14 @@ namespace ActionMenu
         }
 
         // TODO: could make part of this public for other mods' use
-        private static void AvatarParamToItem(ref MenuItem item, CVRAdvancedSettingsEntry s,
+        private static void AvatarParamToItem(ref MenuItem item, CVRAdvancedSettingsEntry s, Animator animator,
             string menuPrefix, Menus m)
         {
             // build the items in the menu
             switch (s.type)
             {
-                case SettingsType.GameObjectToggle:
+                case SettingsType.GameObjectToggle: {
+                    item.enabled = animator?.GetBool(s.machineName) ?? s.toggleSettings?.defaultValue ?? false;
                     item.action = new ItemAction
                     {
                         type = "avatar parameter",
@@ -823,11 +825,14 @@ namespace ActionMenu
                         value = 1f,
                     };
                     break;
+                }
 
-                case SettingsType.GameObjectDropdown:
+                case SettingsType.GameObjectDropdown: {
                     var submenuName = Path(menuPrefix, s.name);
                     // if parameter name has suffix Impulse, adapt control type
                     var isImpulse = s.machineName.EndsWith("Impulse");
+                    var dd = s.dropDownSettings;
+                    var selectedValue = animator?.GetInteger(s.machineName) ?? dd?.defaultValue;
 
                     item.action = new ItemAction
                     {
@@ -835,9 +840,10 @@ namespace ActionMenu
                         menu = submenuName,
                     };
 
-                    List<MenuItem> sitems = s.dropDownSettings.options.Select((o, index) => new MenuItem
+                    List<MenuItem> sitems = dd.options.Select((o, index) => new MenuItem
                     {
                         name = o.name,
+                        enabled = index == selectedValue,
                         action = new ItemAction
                         {
                             type = "avatar parameter",
@@ -850,35 +856,41 @@ namespace ActionMenu
 
                     m.Add(submenuName, sitems);
                     break;
+                }
 
-                case SettingsType.Slider:
-                    var sslider = s.sliderSettings;
+                case SettingsType.Slider: {
+                    var defaultValue = animator?.GetFloat(s.machineName) ?? s.sliderSettings?.defaultValue;
                     item.action = new ItemAction
                     {
                         type = "avatar parameter",
                         parameter = s.machineName,
                         control = "radial",
-                        default_value = sslider.defaultValue,
+                        default_value = defaultValue,
                         min_value = 0.0f,
                         max_value = 1.0f,
                     };
                     break;
+                }
 
-                case SettingsType.InputSingle:
+                case SettingsType.InputSingle: {
+                    var defaultValue = animator?.GetFloat(s.machineName) ?? s.inputSingleSettings?.defaultValue;
                     item.action = new ItemAction
                     {
                         type = "avatar parameter",
                         parameter = s.machineName,
                         control = "radial",
-                        default_value = s.inputSingleSettings.defaultValue,
+                        default_value = defaultValue,
                         // TODO: we're guessing here, we should allow to override somewhere
                         min_value = 0.0f,
                         max_value = 1.0f,
                     };
                     break;
+                }
 
-                case SettingsType.Joystick2D:
+                case SettingsType.Joystick2D: {
                     var sjoy = s.joystick2DSetting;
+                    var defaultValueX = animator?.GetFloat(s.machineName + "-x") ?? sjoy.defaultValue.x;
+                    var defaultValueY = animator?.GetFloat(s.machineName + "-y") ?? sjoy.defaultValue.y;
                     item.action = new ItemAction
                     {
                         type = "avatar parameter",
@@ -886,14 +898,15 @@ namespace ActionMenu
                         control = "joystick_2d",
                         min_value_x = 0.0f, // TODO: cvr seems to ignore min/max defined in unity, sad :(
                         max_value_x = 1.0f,
-                        default_value_x = sjoy.defaultValue.x,
+                        default_value_x = defaultValueX,
                         min_value_y = 0.0f,
                         max_value_y = 1.0f,
-                        default_value_y = sjoy.defaultValue.y,
+                        default_value_y = defaultValueY,
                     };
                     break;
+                }
 
-                case SettingsType.InputVector2:
+                case SettingsType.InputVector2: {
                     var svec = s.inputVector2Settings;
                     item.action = new ItemAction
                     {
@@ -908,10 +921,12 @@ namespace ActionMenu
                         default_value_y = svec.defaultValue.y,
                     };
                     break;
+                }
 
                 case SettingsType.MaterialColor:
                 case SettingsType.Joystick3D:
                 case SettingsType.InputVector3:
+                    logger.Msg($"Avatar parameter {s.name} ignored, its type {s.type} is not supported yet");
                     break; // TODO: unsupported
             };
         }

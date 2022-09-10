@@ -212,7 +212,6 @@ function handle_click_main() {
 				}
 
 				case 'radial': {
-					// TODO: restore value from cvr?
 					control_type_radial(item, action,
 						v => appcall("AppChangeAnimatorParam", action.parameter, v));
 					break;
@@ -274,7 +273,7 @@ function control_type_radial(item, action, set_value) {
 	widget_radial.start(item, start_value, (v) => {
 		const denormalized = v * delta + min_value;
 		set_value(denormalized);
-		
+		action.default_value = v; // kinda cheating but works
 	});
 	wait_joystick_recenter = true;
 }
@@ -296,6 +295,8 @@ function control_type_2d(item, action, set_values) {
 			const denormalized_x = x * delta_x + min_value_x;
 			const denormalized_y = y * delta_y + min_value_y;
 			set_values(denormalized_x, denormalized_y);
+			action.default_value_x = denormalized_x; // kinda cheating but works
+			action.default_value_y = denormalized_y;
 		});
 	}
 	else if (action.control == 'input_vector_2d') {
@@ -303,7 +304,8 @@ function control_type_2d(item, action, set_values) {
 		let last_value_x = start_value_x;
 		let last_value_y = start_value_y;
 
-		widget_j2d.start(item, start_value_x, start_value_y, (x, y) => {
+		// always start in the middle because it works in relative coords
+		widget_j2d.start(item, 0.5, 0.5, (x, y) => {
 			// reconvert from 0,1 to -1,+1 and scale
 			const denormalized_x = clamp(min_value_x, max_value_x,
 				last_value_x + delta_scale * (2*x - 1) * delta_x);
@@ -312,6 +314,8 @@ function control_type_2d(item, action, set_values) {
 			set_values(denormalized_x, denormalized_y);
 			last_value_x = denormalized_x;
 			last_value_y = denormalized_y;
+			action.default_value_x = last_value_x;
+			action.default_value_y = last_value_y;
 		});
 	}
 	wait_joystick_recenter = true;
@@ -571,7 +575,7 @@ const widget_radial = (function() {
 
 			const value = angle / pi2;
 			set_value(value); // output between 0 and 1
-			$value.innerHTML = Math.floor(value * 100) + "%";
+			$value.innerHTML = value_label(value);
 		}
 		// else: deadzone = no update
 	}
@@ -580,6 +584,8 @@ const widget_radial = (function() {
 		const clip_path = compute_radial_mask(angle);
 		$arc.style.clipPath = `polygon(${clip_path})`;
 	}
+
+	const value_label = value => Math.floor(value * 100) + "%";
 
 	const start = (item, start_value, set_value) => { // takes normalized value (0 to 1)
 		$w.style.display = 'block';
@@ -590,7 +596,7 @@ const widget_radial = (function() {
 
 		const handle_direction = (x, y, dist) => handle_direction_radial(set_value, x, y, dist);
 		widget_radial_set(pi2 * start_value);
-		$value.innerHTML = Math.floor(start_value * 100) + "%";
+		$value.innerHTML = value_label(start_value);
 		active_widget = {
 			handle_direction: handle_direction,
 			handle_click: handle_click_radial,
@@ -621,9 +627,7 @@ const widget_j2d = (function() {
 			? pi2 - 0.001
 			: (pi - 2 * Math.atan(x / ( y + dist )));
 
-
-		$joystick.style.left = 100*(0.5 + maxdist * x) + '%';
-		$joystick.style.top  = 100*(0.5 + maxdist * y) + '%';
+		values_to_joystick(x, y);
 
 		const triangles = $triangles.childNodes.length;
 		Array.prototype.forEach.call($triangles.childNodes, ($t, i) => {
@@ -640,13 +644,18 @@ const widget_j2d = (function() {
 		set_value(0.5 * (1 + x), 0.5 * (1 + y)); // convert range -1,+1 to 0,1
 	}
 
+	const values_to_joystick = (x, y) => { // expecting values -1,+1
+		$joystick.style.left = 100*(0.5 + maxdist * x) + '%';
+		$joystick.style.top  = 100*(0.5 + maxdist * y) + '%';
+	};
+
 	const handle_click_joystick_2d = () => {
 		$w.style.display = 'none';
 
 		back_from_widget();
 	}
 
-	const start = (item, start_value_x, start_value_y, set_value) => {
+	const start = (item, start_value_x, start_value_y, set_value) => { // takes normalized values x,y both (0 to 1)
 		$w.style.display = 'block';
 
 		$triangles.innerHTML = "";
@@ -672,7 +681,8 @@ const widget_j2d = (function() {
 			handle_click: handle_click_joystick_2d,
 		};
 
-		$joystick.style.left = $joystick.style.top = '50%'; // start in middle
+		// for joystick start position: convert normalized -> denormalized
+		values_to_joystick(start_value_x * 2 - 1, start_value_y * 2 - 1);
 		trigger_animation($inside, "animated-menu");
 	}
 
