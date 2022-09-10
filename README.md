@@ -13,11 +13,12 @@ Then download the .dll mods you want [from here in the release section](https://
 
 # Mods
 
-![screenshot](dakymods1.jpg?raw=true "Camera Instants and Remote")
+![Screenshot](actionmenu_demo.jpg) ![Screenshot](dakymods1.jpg?raw=true "Camera Instants and Remote")
 
-## NoIntro
+## Action Menu
+Add a new popup menu to quickly control your avatar and game settings with just a few tap of your joystick. It's a remake of the one in VRChat but for CVR with CoHTML.
 
-Always skip Chillout intro when game starts, roughly take 10 seconds.
+Totally customizable and moddable. [See this](ActionMenu/README.md) for more information. A mod example is found under `ActionMenuExampleMod/`.
 
 ## Lag Free Screenshots
 Add many features and prevent lag when you take screenshots. Pick the resolution up to 16K and the format: JPG, PNG or WebP (and the compression quality); Portrait pictures are automatically rotated like your smartphone does. Optionally you can embed metadata EXIF/ITxT like world info and player list.
@@ -45,6 +46,10 @@ Add new buttons and settings for the camera. So far:
 - Lock your camera (no more unintended grab)
 - Real alpha transparency (unlike the green 'mask')
 - New settings: near/far plane, hide world
+
+## NoIntro
+
+Always skip Chillout intro when game starts, roughly take 10 seconds.
 
 ## Building
 To build yourself:

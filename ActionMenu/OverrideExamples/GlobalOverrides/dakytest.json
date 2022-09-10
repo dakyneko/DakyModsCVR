@@ -1,0 +1,37 @@
+{
+    "remove_items": {
+        "settings": [
+            "Recalibrate"
+        ]
+    },
+    "add_items": {
+        "settings": [
+            {
+                "name": "Goes reeeeeee",
+                "icon": "icon_jetpack.png",
+                "action": {
+                    "type": "system call",
+                    "event": "AppToggleFLightMode",
+                    "toggle": true
+                }
+            },
+            {
+                "name": "Shit I'm sideways",
+                "icon": "icon_recalibrate.png",
+                "action": {
+                    "type": "system call",
+                    "event": "AppRecalibrate"
+                }
+            },
+            {
+                "name": "Let's get aids",
+                "icon": "icon_seated.png",
+                "action": {
+                    "type": "system call",
+                    "event": "AppToggleSeatedPlay",
+                    "toggle": true
+                }
+            }
+        ]
+    }
+}

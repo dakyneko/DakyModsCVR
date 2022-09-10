@@ -1,0 +1,197 @@
+{
+    "add_items": {
+        "avatar": [
+            {
+                "name": "Test input vec 2D",
+                "action": {
+                    "type": "avatar parameter",
+                    "parameter": "testjoystick2d",
+                    "control": "input_vector_2d",
+                    "default_value_x": 0,
+                    "min_value_x": 0,
+                    "max_value_x": 0.999,
+                    "default_value_y": 0,
+                    "min_value_y": 0,
+                    "max_value_y": 0.999
+                }
+            }
+        ]
+    },
+    "overwrites": {
+        "avatar/Emoji": [
+            {
+                "name": "Fox",
+                "icon": "icon_emoji_fox.png",
+                "action": {
+                    "type": "avatar parameter",
+                    "control": "impulse",
+                    "parameter": "EmojiImpulse",
+                    "value": 1,
+                    "exclusive_option": false
+                }
+            },
+            {
+                "name": "No evil ears",
+                "icon": "icon_emoji_noevilears.png",
+                "action": {
+                    "type": "avatar parameter",
+                    "control": "impulse",
+                    "parameter": "EmojiImpulse",
+                    "value": 3,
+                    "exclusive_option": false
+                }
+            },
+            {
+                "name": "Cat",
+                "icon": "icon_emoji_cat.png",
+                "action": {
+                    "type": "avatar parameter",
+                    "control": "impulse",
+                    "parameter": "EmojiImpulse",
+                    "value": 7,
+                    "exclusive_option": false
+                }
+            },
+            {
+                "name": "Paws",
+                "icon": "icon_emoji_paws.png",
+                "action": {
+                    "type": "avatar parameter",
+                    "control": "impulse",
+                    "parameter": "EmojiImpulse",
+                    "value": 8,
+                    "exclusive_option": false
+                }
+            },
+            {
+                "name": "More",
+                "action": {
+                    "type": "menu",
+                    "menu": "avatar/Emoji/noicon"
+                }
+            }
+        ],
+        "avatar/Emoji/noicon": [
+            {
+                "name": "Panda",
+                "action": {
+                    "type": "avatar parameter",
+                    "control": "impulse",
+                    "parameter": "EmojiImpulse",
+                    "value": 2,
+                    "exclusive_option": false
+                }
+            },
+            {
+                "name": "No evil eyes",
+                "action": {
+                    "type": "avatar parameter",
+                    "control": "impulse",
+                    "parameter": "EmojiImpulse",
+                    "value": 4,
+                    "exclusive_option": false
+                }
+            },
+            {
+                "name": "No evil mouth",
+                "action": {
+                    "type": "avatar parameter",
+                    "control": "impulse",
+                    "parameter": "EmojiImpulse",
+                    "value": 5,
+                    "exclusive_option": false
+                }
+            },
+            {
+                "name": "Swiss",
+                "action": {
+                    "type": "avatar parameter",
+                    "control": "impulse",
+                    "parameter": "EmojiImpulse",
+                    "value": 6,
+                    "exclusive_option": false
+                }
+            },
+            {
+                "name": "Sweating",
+                "action": {
+                    "type": "avatar parameter",
+                    "control": "impulse",
+                    "parameter": "EmojiImpulse",
+                    "value": 9,
+                    "exclusive_option": false
+                }
+            },
+            {
+                "name": "Rofl",
+                "action": {
+                    "type": "avatar parameter",
+                    "control": "impulse",
+                    "parameter": "EmojiImpulse",
+                    "value": 10,
+                    "exclusive_option": false
+                }
+            },
+            {
+                "name": "Mazda",
+                "action": {
+                    "type": "avatar parameter",
+                    "control": "impulse",
+                    "parameter": "EmojiImpulse",
+                    "value": 11,
+                    "exclusive_option": false
+                }
+            },
+            {
+                "name": "Mute",
+                "action": {
+                    "type": "avatar parameter",
+                    "control": "impulse",
+                    "parameter": "EmojiImpulse",
+                    "value": 12,
+                    "exclusive_option": false
+                }
+            },
+            {
+                "name": "Eyes",
+                "action": {
+                    "type": "avatar parameter",
+                    "control": "impulse",
+                    "parameter": "EmojiImpulse",
+                    "value": 13,
+                    "exclusive_option": false
+                }
+            },
+            {
+                "name": "18+",
+                "action": {
+                    "type": "avatar parameter",
+                    "control": "impulse",
+                    "parameter": "EmojiImpulse",
+                    "value": 14,
+                    "exclusive_option": false
+                }
+            },
+            {
+                "name": "Cat shock",
+                "action": {
+                    "type": "avatar parameter",
+                    "control": "impulse",
+                    "parameter": "EmojiImpulse",
+                    "value": 15,
+                    "exclusive_option": false
+                }
+            },
+            {
+                "name": "Think",
+                "action": {
+                    "type": "avatar parameter",
+                    "control": "impulse",
+                    "parameter": "EmojiImpulse",
+                    "value": 16,
+                    "exclusive_option": false
+                }
+            }
+        ]
+    }
+}
