@@ -29,22 +29,14 @@ namespace ActionMenuExample
             {
                 return new List<MenuItem>()
                 {
-                    new MenuItem()
-                    {
-                        name = "Super button",
-                        action = BuildButtonItem("rawr", () => MelonLogger.Msg($"Big rawr")),
-                    },
-                    new MenuItem()
-                    {
-                        name = "Toggle the rawr",
-                        action = BuildToggleItem("rawr", (v) => MelonLogger.Msg($"toggle RAWR: {v}")),
-                    },
-                    new MenuItem()
-                    {
-                        name = "Radial rawr",
-                        action = BuildRadialItem("rawr", (v) => MelonLogger.Msg($"Radial RAWR: {v}"),
-                            minValue: -1, maxValue: 1),
-                    },
+                    new MenuItem("Super button",
+                        BuildButtonItem("rawr", () => MelonLogger.Msg($"Big rawr"))),
+
+                    new MenuItem("Toggle the rawr",
+                        BuildToggleItem("rawr", (v) => MelonLogger.Msg($"toggle RAWR: {v}"))),
+
+                    new MenuItem("Radial rawr",
+                        BuildRadialItem("rawr", (v) => MelonLogger.Msg($"Radial RAWR: {v}"), minValue: -1, maxValue: 1)),
                 };
             }
         }

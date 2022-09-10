@@ -18,6 +18,22 @@ namespace ActionMenu
         public string? icon;
         public ItemAction action;
         public bool? enabled;
+
+        public MenuItem(string name_, ItemAction action_)
+        {
+            name = name_;
+            icon = null;
+            action = action_;
+            enabled = null;
+        }
+
+        public MenuItem(string name_, string icon_, ItemAction action_)
+        {
+            name = name_;
+            icon = icon_;
+            action = action_;
+            enabled = null;
+        }
     } 
     public struct ItemAction
     {
