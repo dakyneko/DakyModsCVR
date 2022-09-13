@@ -1,6 +1,17 @@
 # Action Menu
 
-Made from scratch. Documentation is coming soon.
+Made from scratch. The UI itself is based on CoHTML with vanilla Javascript, HTML and CSS. Dynamic menus and modding is done in C#. Documentation is coming soon.
+
+## Avatar parameters
+
+The avatar submenu is automatically generated from the avatar CVR "Advanced Settings". If you're the owner of the avatar there are two things you can do to help the Action Menu to look nice:
+
+ - You can use slashes `/` in the "Name" of parameters to make submenu. For example let's say you have two parameters `Clothing/Dress/Long` and `Clothing/Dress/Short`. That means the hierarchy of menu will be: Avatar > Clothing > Dress and there will be Long and Short.
+ - You can append "Impulse" in the "Name" of your parameter to make it a "Button" type, meaning it will set its value for a few seconds only. Useful to trigger things.
+
+ If you aren't the owner of the avatar you can still customize through JSON overrides, see below.
+
+# Customization
 
 There are two ways to customize it.
 
