@@ -524,13 +524,14 @@ function selection_sector_set(sectors) {
 }
 
 function compute_radial_mask(angle) { // angle in radians
-	const quadrant = Math.floor(2 * angle / pi) % 4; // TODO: at 100% = NaN = the full circle disappear like it's 0%
+	const quadrant = Math.floor(2 * angle / pi) % 4;
 	const x = 50 * (1 + Math.sin(angle)); // coordinates are computed in %
 	const y = 50 * (1 + Math.cos(pi - angle));
 	// we're computing a polygon mask to only show the visible arc of a circle
 	let points = [];
 	if (quadrant <= 1) {
-		points = [ [50,0], [50,50], [x, y], [100, y], [100, 0] ];
+		// 0.001 is necessary due to a graphical bug when y=0
+		points = [ [50,0], [50,50], [x, y], [100, y+0.001], [100, 0] ];
 	}
 	// depending on angle we have to add more points to fit all sections of the circle
 	else if (quadrant <= 2) {
@@ -565,9 +566,10 @@ const widget_radial = (function() {
 		// TODO: add mechanism to disallow jumping from -1 to +1 at angle 0, protection
 
 		if (dist >= deadzone) {
-			const angle = y <= -1 // protection for division by 0
-				? pi2 - 0.001
-				: (pi - 2 * Math.atan(x / ( y + dist )));
+			const divisor =  y + dist;
+			const angle = Math.abs(divisor) <= 0.0001 // protection for division by 0
+				? 0.0
+				: (pi - 2 * Math.atan(x / divisor));
 
 			widget_radial_set(angle);
 			$indicator.style.left = 100 * (0.5 + maxdist * Math.sin(angle)) + '%';
