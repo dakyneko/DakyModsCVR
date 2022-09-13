@@ -255,7 +255,8 @@ namespace ActionMenu
         public static readonly string[] couiFiles = new string[]
         {
             "index.html", "index.js", "index.css", "actionmenu.json",
-            "icon_actionmenu.svg", "icon_menu.svg", "icon_back.svg", "icon_avatar_emotes.svg", "icon_melon.svg"
+            "icon_actionmenu.svg", "icon_menu.svg", "icon_back.svg", "icon_avatar_emotes.svg", "icon_melon.svg",
+            "icon_avatar_settings_profile.svg",
         };
 
 
@@ -784,6 +785,40 @@ namespace ActionMenu
                 });
             }
             // TODO: add cvr avatar ToggleState?
+
+            // add avatar advanced settings profiles
+            var profilesNames = PlayerSetup.Instance.getCurrentAvatarSettingsProfiles().ToList();
+            if (profilesNames.Count > 0)
+            {
+                profilesNames.Add("default"); // there is an implicit default in cvr
+                var parents = Path(menuPrefix, "profiles");
+                var aitems = m.GetWithDefault(parents);
+                profilesNames.Do(name =>
+                {
+                    logger.Msg($"OnAvatarAdvancedSettings profiles {name} <- {parents}");
+                    var item = new MenuItem
+                    {
+                        name = name,
+                        action = new ItemAction
+                        {
+                            type = "system call",
+                            event_ = "AppChangeAvatarProfile",
+                            // TODO: the avatar items should reload all the parameters values
+                            event_arguments = new string[] { name },
+                            exclusive_option = true,
+                            toggle = true,
+                        },
+                    };
+                    aitems.Add(item);
+                });
+
+                m.GetWithDefault(menuPrefix).Add(new MenuItem()
+                {
+                    name = "Profiles",
+                    icon = "icon_avatar_settings_profile.svg",
+                    action = new() { type = "menu", menu = parents },
+                });
+            }
 
             // let mods modify the avatar menu
             API.InvokeOnAvatarMenuLoaded(avatarGuid, m);
