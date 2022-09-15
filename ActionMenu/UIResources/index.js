@@ -177,14 +177,14 @@ function handle_click_main() {
 
 				case 'radial': {
 					control_type_radial(item, action,
-						v => engine.call("ItemCallback_double", action.parameter, v));
+						v => engine.call("ItemCallback_float", action.parameter, v));
 					break;
 				}
 
 				case 'joystick_2d':
 				case 'input_vector_2d': {
 					control_type_2d(item, action,
-						(x, y) => engine.call("ItemCallback_double_double", action.parameter, x, y));
+						(x, y) => engine.call("ItemCallback_float_float", action.parameter, x, y));
 					break;
 				}
 

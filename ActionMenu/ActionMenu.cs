@@ -143,11 +143,11 @@ namespace ActionMenu
                 => BuildBoolItem(name, callback, "impulse", value: value, defaultValue: defaultValue, duration: duration);
 
             // Creates a radial widget for picking values between a min and max.
-            public ItemAction BuildRadialItem(string name, Action<double> callback,
+            public ItemAction BuildRadialItem(string name, Action<float> callback,
                 float? minValue = null, float? maxValue = null, float? defaultValue = null)
             {
                 var identifier = prefixNs + ".radial." + name;
-                instance.callbackItems_double[identifier] = callback;
+                instance.callbackItems_float[identifier] = callback;
                 return new ItemAction() {
                     type = "callback",
                     parameter = identifier,
@@ -158,12 +158,12 @@ namespace ActionMenu
                 };
             }
 
-            private ItemAction Build2DItem(string name, Action<double, double> callback, string control,
+            private ItemAction Build2DItem(string name, Action<float, float> callback, string control,
                 float? minValueX = null, float? maxValueX = null, float? defaultValueX = null,
                 float? minValueY = null, float? maxValueY = null, float? defaultValueY = null)
             {
                 var identifier = prefixNs + "." + control + "." + name;
-                instance.callbackItems_double_double[identifier] = callback;
+                instance.callbackItems_float_float[identifier] = callback;
                 return new ItemAction() {
                     type = "callback",
                     parameter = identifier,
@@ -178,7 +178,7 @@ namespace ActionMenu
             }
 
             // Creates a 2D widget for picking two values simultaneously setting absolute coordinates, between min and max values.
-            public ItemAction BuildJoystick2D(string name, Action<double, double> callback,
+            public ItemAction BuildJoystick2D(string name, Action<float, float> callback,
                 float? minValueX = null, float? maxValueX = null, float? defaultValueX = null,
                 float? minValueY = null, float? maxValueY = null, float? defaultValueY = null)
                 => Build2DItem(name, callback, "joystick_2d",
@@ -186,7 +186,7 @@ namespace ActionMenu
                         minValueY: minValueY, maxValueY: maxValueY, defaultValueY: defaultValueY
                     );
             // Creates a 2D widget for picking two values simultaneously moving in relative coordinates, between min and max values.
-            public ItemAction BuildInputVector2D(string name, Action<double, double> callback,
+            public ItemAction BuildInputVector2D(string name, Action<float, float> callback,
                 float? minValueX = null, float? maxValueX = null, float? defaultValueX = null,
                 float? minValueY = null, float? maxValueY = null, float? defaultValueY = null)
                 => Build2DItem(name, callback, "input_vector_2d",
@@ -279,8 +279,8 @@ namespace ActionMenu
         // unique identifier -> function or menu
         private Dictionary<string, Action> callbackItems = new();
         private Dictionary<string, Action<bool>> callbackItems_bool = new();
-        private Dictionary<string, Action<double>> callbackItems_double = new();
-        private Dictionary<string, Action<double, double>> callbackItems_double_double = new();
+        private Dictionary<string, Action<float>> callbackItems_float = new();
+        private Dictionary<string, Action<float, float>> callbackItems_float_float = new();
         private Dictionary<string, MenuBuilder> dynamic_menus = new();
 
         public static string Path(params string[] components) => string.Join(HierarchySep.ToString(), components);
@@ -386,8 +386,8 @@ namespace ActionMenu
             view.BindCall("SetMelonPreference", new Action<string, string>(OnSetMelonPreference));
             view.BindCall("ItemCallback", new Action<string>(OnItemCallback));
             view.BindCall("ItemCallback_bool", new Action<string, bool>(OnItemCallback_bool));
-            view.BindCall("ItemCallback_double", new Action<string, double>(OnItemCallback_double));
-            view.BindCall("ItemCallback_double_double", new Action<string, double, double>(OnItemCallback_double_double));
+            view.BindCall("ItemCallback_float", new Action<string, float>(OnItemCallback_float));
+            view.BindCall("ItemCallback_float_float", new Action<string, float, float>(OnItemCallback_float_float));
             view.BindCall("RequestDynamicMenu", new Action<string>(OnRequestDynamicMenu));
 
             // TODO: adjust effect
@@ -1112,10 +1112,10 @@ namespace ActionMenu
             catch (Exception e) { logger.Error($"failure in callback {identifier}: {e}"); }
         }
 
-        private void OnItemCallback_double(string identifier, double value)
+        private void OnItemCallback_float(string identifier, float value)
         {
-            Action<double> f;
-            if (!callbackItems_double.TryGetValue(identifier, out f) || f == null)
+            Action<float> f;
+            if (!callbackItems_float.TryGetValue(identifier, out f) || f == null)
             {
                 logger.Error($"didn't find callback {identifier}");
                 return;
@@ -1125,10 +1125,10 @@ namespace ActionMenu
             catch (Exception e) { logger.Error($"failure in callback {identifier}: {e}"); }
         }
 
-        private void OnItemCallback_double_double(string identifier, double x, double y)
+        private void OnItemCallback_float_float(string identifier, float x, float y)
         {
-            Action<double, double> f;
-            if (!callbackItems_double_double.TryGetValue(identifier, out f) || f == null)
+            Action<float, float> f;
+            if (!callbackItems_float_float.TryGetValue(identifier, out f) || f == null)
             {
                 logger.Error($"didn't find callback {identifier}");
                 return;
