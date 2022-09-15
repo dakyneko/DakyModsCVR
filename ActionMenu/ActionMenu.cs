@@ -693,46 +693,44 @@ namespace ActionMenu
             melonPrefsMenus = ourLib.BuildMelonPrefsMenus(melonPrefs.Entries);
         }
 
-        private static Menus? avatarMenus;
-        private static void OnAvatarAdvancedSettings(PlayerSetup __instance)
+        // Build all menu hierarchy found in names (hierarchy separator character)
+        // Example if there are items: Clothing/Dress/Long and Clothing/Dress/Short then the items themselves will be moved into new nested menus Clothing > Dress
+        public static Menus ReifyHierarchyInNames(Menus menus)
         {
-            var avatarGuid = PlayerSetup.Instance?._avatarDescriptor?.avatarSettings?._avatarGuid ?? "default";
-            var menuPrefix = AvatarMenuPrefix;
-            var m = avatarMenus = new();
-            var animator = PlayerSetup.Instance?._animator;
-            HashSet<(string parent, string child)> hierarchy_pairs = new();
+            var m = new Menus(); // we'll rebuild the menu from scratch, ensuring it's clean
+            var hierarchyPairs = new HashSet<(string parent, string child)>();
 
-            // Build menus from the avatar parameters, focus on items directly (leaves in the hierarchy)
-            logger.Msg($"OnAvatarAdvancedSettings {__instance._avatarDescriptor.avatarSettings.settings.Count} items");
-            foreach (var s in __instance._avatarDescriptor.avatarSettings.settings)
+            foreach (var x in menus)
             {
-                var name = s.name;
-                var parents = menuPrefix;
-                var i = s.name.LastIndexOf(HierarchySep);
-                if (i >= 0) { // is in a folder
-                    name = s.name.Substring(i + 1);
-                    parents += HierarchySep + s.name.Substring(0, i);
-                }
-                logger.Msg($"OnAvatarAdvancedSettings parameter {name} <- {parents}: {s.type}");
+                foreach (var item in x.Value)
+                {
+                    // split basename from parents, like uri or paths
+                    var name = item.name;
+                    var parents = x.Key;
+                    var i = item.name.LastIndexOf(HierarchySep);
+                    if (i >= 0) { // is in a folder
+                        name = item.name.Substring(i + 1);
+                        parents += HierarchySep + item.name.Substring(0, i);
+                    }
 
-                var item = new MenuItem { name = name };
-                AvatarParamToItem(ref item, s, animator, menuPrefix, m);
+                    var item2 = item;
+                    item2.name = name;
+                    var aitems = m.GetWithDefault(parents);
+                    aitems.Add(item2);
 
-                var aitems = m.GetWithDefault(parents);
-                aitems.Add(item);
-
-                // register the hierarchy upward
-                var hierarchy = parents.Split(HierarchySep);
-                var child = menuPrefix;
-                for (var j = 1; j < hierarchy.Length; ++j) {
-                    var parent = child;
-                    child = parent + HierarchySep + hierarchy[j];
-                    hierarchy_pairs.Add((parent, child));
+                    // register the hierarchy upward
+                    var hierarchy = parents.Split(HierarchySep);
+                    var child = x.Key;
+                    for (var j = 1; j < hierarchy.Length; ++j) {
+                        var parent = child;
+                        child = parent + HierarchySep + hierarchy[j];
+                        hierarchyPairs.Add((parent, child));
+                    }
                 }
             }
 
-            // now build the rest, non-leaves up to the root menu (hierarchy of menus)
-            foreach (var x in hierarchy_pairs)
+            // now build the hierarchy, non-leaves up to the root menu (hierarchy of menus)
+            foreach (var x in hierarchyPairs)
             {
                 var parent = x.parent;
                 var child = x.child;
@@ -751,8 +749,39 @@ namespace ActionMenu
                 m.GetWithDefault(parent).Add(item);
             }
 
+            return m;
+        }
+
+        public static Menus AvatarAdvancedSettingsToMenus(List<CVRAdvancedSettingsEntry> advSettings, Animator animator, string menuPrefix)
+        {
+            var m = new Menus();
+            var hierarchyPairs = new HashSet<(string parent, string child)>();
+
+            // Build menus from the avatar parameters, focus on items directly (leaves in the hierarchy)
+            logger.Msg($"OnAvatarAdvancedSettings {advSettings.Count} items");
+            foreach (var s in advSettings)
+            {
+                var item = AvatarParamToItem(s, animator, menuPrefix, m);
+                item.name = s.name;
+                logger.Msg($"OnAvatarAdvancedSettings parameter {item.name}: {s.type}");
+
+                var aitems = m.GetWithDefault(menuPrefix);
+                aitems.Add(item);
+            }
+
+            return ReifyHierarchyInNames(m);
+        }
+
+        private static Menus? avatarMenus;
+        private static void OnAvatarAdvancedSettings(PlayerSetup __instance)
+        {
+            var animator = __instance._animator;
+            var advSettings = __instance._avatarDescriptor.avatarSettings.settings;
+            var menuPrefix = AvatarMenuPrefix;
+            var m = avatarMenus = AvatarAdvancedSettingsToMenus(advSettings, animator, menuPrefix);
+
             // add avatar emotes
-            var emoteNames = PlayerSetup.Instance.GetEmoteNames();
+            var emoteNames = __instance.GetEmoteNames();
             if (emoteNames.Length > 0)
             {
                 var parents = Path(menuPrefix, "emotes");
@@ -787,7 +816,7 @@ namespace ActionMenu
             // TODO: add cvr avatar ToggleState?
 
             // add avatar advanced settings profiles
-            var profilesNames = PlayerSetup.Instance.getCurrentAvatarSettingsProfiles().ToList();
+            var profilesNames = __instance.getCurrentAvatarSettingsProfiles().ToList();
             if (profilesNames.Count > 0)
             {
                 profilesNames.Add("default"); // there is an implicit default in cvr
@@ -821,6 +850,7 @@ namespace ActionMenu
             }
 
             // let mods modify the avatar menu
+            var avatarGuid = __instance?._avatarDescriptor?.avatarSettings?._avatarGuid ?? "default";
             API.InvokeOnAvatarMenuLoaded(avatarGuid, m);
 
             // avatar menu override from json file
@@ -843,10 +873,12 @@ namespace ActionMenu
             instance.OnActionMenuReady(); // reload
         }
 
-        // TODO: could make part of this public for other mods' use
-        private static void AvatarParamToItem(ref MenuItem item, CVRAdvancedSettingsEntry s, Animator animator,
+        public static MenuItem AvatarParamToItem(CVRAdvancedSettingsEntry s, Animator animator,
+            // used in case of nested menus like drop down
             string menuPrefix, Menus m)
         {
+            var item = new MenuItem();
+
             // build the items in the menu
             switch (s.type)
             {
@@ -964,6 +996,8 @@ namespace ActionMenu
                     logger.Msg($"Avatar parameter {s.name} ignored, its type {s.type} is not supported yet");
                     break; // TODO: unsupported
             };
+
+            return item;
         }
 
         private void OnActionMenuReady()
