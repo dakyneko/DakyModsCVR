@@ -556,6 +556,8 @@ const widget_radial = (function() {
 	const $value = $w.getElementsByClassName("value")[0];
 	const $inside = $w.getElementsByClassName("inside")[0];
 
+	let last_angle = 0;
+
 	const handle_click_radial = () => {
 		$w.style.display = 'none';
 
@@ -563,13 +565,21 @@ const widget_radial = (function() {
 	}
 
 	const handle_direction_radial = (set_value, x, y, dist) => {
-		// TODO: add mechanism to disallow jumping from -1 to +1 at angle 0, protection
-
 		if (dist >= deadzone) {
 			const divisor =  y + dist;
-			const angle = Math.abs(divisor) <= 0.0001 // protection for division by 0
+			let angle = Math.abs(divisor) <= 0.0001 // protection for division by 0
 				? 0.0
 				: (pi - 2 * Math.atan(x / divisor));
+
+			// protect from unintended big change 0<>100%
+			if (Math.abs(last_angle - angle) > pi) {
+				// freeze only close to 0 or 360°
+				if (angle <= pi/2)
+					angle = pi2 - 0.001;
+				else if (angle >= 3*pi/2)
+					angle = 0;
+			}
+			last_angle = angle;
 
 			widget_radial_set(angle);
 			$indicator.style.left = 100 * (0.5 + maxdist * Math.sin(angle)) + '%';
@@ -597,7 +607,9 @@ const widget_radial = (function() {
 		$center.appendChild($item);
 
 		const handle_direction = (x, y, dist) => handle_direction_radial(set_value, x, y, dist);
-		widget_radial_set(pi2 * start_value);
+		const angle = pi2 * start_value
+		widget_radial_set(angle);
+		last_angle = angle;
 		$value.innerHTML = value_label(start_value);
 		active_widget = {
 			handle_direction: handle_direction,
