@@ -293,12 +293,17 @@ namespace ActionMenu
             ourLib = new OurLib();
 
             melonPrefs = MelonPreferences.CreateCategory("ActionMenu", "Action Menu");
-            flickSelection = melonPrefs.CreateEntry("flick_selection", false, "Flick selection");
-            boringBackButton = melonPrefs.CreateEntry("boring_back_button", false, "Boring back button");
-            dontInstallResources = melonPrefs.CreateEntry("dont_install_resources", false, "Don't install nor overwrite the resource files (useful for dev Action Menu)");
-            quickMenuLongPress = melonPrefs.CreateEntry("quickmenu_long_press", false, "Makes the ActionMenu appear with a short press; QuickMenu with long");
+            flickSelection = melonPrefs.CreateEntry("flick_selection", false, "Flick select",
+                description: "Trigger items by just selecting one and recentering selection (no need for trigger)");
+            boringBackButton = melonPrefs.CreateEntry("boring_back_button", false, "Eccentric 'Back'",
+                description: "Show the Back button like other items (not in the middle), as the last element in all menus");
+            dontInstallResources = melonPrefs.CreateEntry("dont_install_resources", false, "Dev mode",
+                description: "Don't install nor overwrite the resource files (useful for developping the Action Menu)");
+            quickMenuLongPress = melonPrefs.CreateEntry("quickmenu_long_press", false, "Long press for QM",
+                description: "Makes the ActionMenu appear with a short press and QuickMenu with long");
             // TODO: implement
-            splitAvatarOvercrowdedMenu = melonPrefs.CreateEntry("split_overcrowded_avatar_menu", false, "Split avatar menu in multiple pages when it's too crowded");
+            //splitAvatarOvercrowdedMenu = melonPrefs.CreateEntry("split_overcrowded_avatar_menu", false, "No crowded menus",
+            //    description: "Split avatar menu in multiple pages when it's too crowded");
 
             melonPrefsMap = new();
             foreach (var e in melonPrefs.Entries)
@@ -327,7 +332,7 @@ namespace ActionMenu
                 prefix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateMovementSystem))));
 
 
-            // handle directory stuff
+            // cohtml reads files so let's install all that stuff, it's easier for everybody
             if (dontInstallResources.Value)
             {
                 logger.Msg($"We won't install resource files as requested. Beware of updates though.");
