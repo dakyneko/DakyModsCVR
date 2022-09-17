@@ -708,10 +708,10 @@ namespace ActionMenu
                     // split basename from parents, like uri or paths
                     var name = item.name;
                     var parents = x.Key;
-                    var i = item.name.LastIndexOf(HierarchySep);
+                    var i = name.LastIndexOf(HierarchySep);
                     if (i >= 0) { // is in a folder
-                        name = item.name.Substring(i + 1);
                         parents += HierarchySep + item.name.Substring(0, i);
+                        name = name.Substring(i + 1);
                     }
 
                     var item2 = item;
@@ -721,7 +721,7 @@ namespace ActionMenu
 
                     // register the hierarchy upward
                     var hierarchy = parents.Split(HierarchySep);
-                    var child = x.Key;
+                    var child = hierarchy[0];
                     for (var j = 1; j < hierarchy.Length; ++j) {
                         var parent = child;
                         child = parent + HierarchySep + hierarchy[j];
