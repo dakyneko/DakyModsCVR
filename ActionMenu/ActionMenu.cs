@@ -301,7 +301,6 @@ namespace ActionMenu
                 description: "Don't install nor overwrite the resource files (useful for developping the Action Menu)");
             quickMenuLongPress = melonPrefs.CreateEntry("quickmenu_long_press", false, "Long press for QM",
                 description: "Makes the ActionMenu appear with a short press and QuickMenu with long");
-            // TODO: implement
             splitAvatarOvercrowdedMenu = melonPrefs.CreateEntry("split_overcrowded_avatar_menu", false, "No crowded menus",
                 description: "Split avatar menu in multiple pages when it's too crowded");
 
@@ -431,7 +430,6 @@ namespace ActionMenu
             var animator = cwv.GetComponent<Animator>().runtimeAnimatorController;
 
             var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            //hideFlags = HideFlags.HideAndDontSave; // TODO: needed?
             go.SetActive(false);
             go.name = "ActionMenu";
             go.layer = LayerMask.NameToLayer("UI");
@@ -693,7 +691,7 @@ namespace ActionMenu
             if (cohtmlReadyState < 1) return;
             Transform rotationPivot = PlayerSetup.Instance._movementSystem.rotationPivot;
             menuTransform.eulerAngles = rotationPivot.eulerAngles;
-            menuTransform.position = rotationPivot.position + rotationPivot.forward * 1f; // TODO: scale factor needed?
+            menuTransform.position = rotationPivot.position + rotationPivot.forward * 1f;
         }
 
         private void UpdatePositionToVrAnchor()
@@ -773,18 +771,23 @@ namespace ActionMenu
         public static Menus AvatarAdvancedSettingsToMenus(List<CVRAdvancedSettingsEntry> advSettings, Animator animator, string menuPrefix)
         {
             var m = new Menus();
-            var hierarchyPairs = new HashSet<(string parent, string child)>();
 
             // Build menus from the avatar parameters, focus on items directly (leaves in the hierarchy)
             logger.Msg($"OnAvatarAdvancedSettings {advSettings.Count} items");
             foreach (var s in advSettings)
             {
-                var item = AvatarParamToItem(s, animator, menuPrefix, m);
-                item.name = s.name;
-                logger.Msg($"OnAvatarAdvancedSettings parameter {item.name}: {s.type}");
+                switch (AvatarParamToItem(s, animator, menuPrefix, m))
+                {
+                    case null:
+                        continue;
 
-                var aitems = m.GetWithDefault(menuPrefix);
-                aitems.Add(item);
+                    case MenuItem item:
+                        item.name = s.name;
+                        logger.Msg($"OnAvatarAdvancedSettings parameter {item.name}: {s.type}");
+                        var aitems = m.GetWithDefault(menuPrefix);
+                        aitems.Add(item);
+                        break;
+                }
             }
 
             return ReifyHierarchyInNames(m);
@@ -933,7 +936,7 @@ namespace ActionMenu
             instance.OnActionMenuReady(); // reload
         }
 
-        public static MenuItem AvatarParamToItem(CVRAdvancedSettingsEntry s, Animator animator,
+        public static MenuItem? AvatarParamToItem(CVRAdvancedSettingsEntry s, Animator animator,
             // used in case of nested menus like drop down
             string menuPrefix, Menus m)
         {
@@ -1054,7 +1057,7 @@ namespace ActionMenu
                 case SettingsType.Joystick3D:
                 case SettingsType.InputVector3:
                     logger.Msg($"Avatar parameter {s.name} ignored, its type {s.type} is not supported yet");
-                    break; // TODO: unsupported
+                    return null; // TODO: unsupported
             };
 
             return item;
