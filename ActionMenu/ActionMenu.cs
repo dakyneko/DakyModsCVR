@@ -55,7 +55,7 @@ namespace ActionMenu
             virtual protected string modName => prefixNs; // by default your class name
             virtual protected string? modIcon => null; // can accept: data:image/jpeg;base64
             virtual protected string entry => "main"; // the name of your mod main menu
-            virtual protected string modMenuPath(params string[] components)
+            virtual protected string ModMenuPath(params string[] components)
                 => prefixNs + HierarchySep + string.Join(HierarchySep.ToString(), components);
 
             // Mods can create a menu very easily by filling up some items here.
@@ -85,18 +85,20 @@ namespace ActionMenu
                     var items = x.Value.Select(item =>
                     {
                         if (item.action.type == "menu")
-                            item.action.menu = modMenuPath(item.action.menu);
+                            item.action.menu = ModMenuPath(item.action.menu);
                         return item;
                     });
-                    menus.GetWithDefault(modMenuPath(x.Key)).AddRange(items);
+                    menus.GetWithDefault(ModMenuPath(x.Key)).AddRange(items);
                 }
-                menus.GetWithDefault(SubmenuNameForMods).Add(new MenuItem()
+                ModsMainMenu(menus).Add(new MenuItem()
                 {
                     name = modName,
                     icon = modIcon,
-                    action = new ItemAction() { type = "menu", menu = modMenuPath(entry) },
+                    action = new ItemAction() { type = "menu", menu = ModMenuPath(entry) },
                 });
             }
+
+            public static List<MenuItem> ModsMainMenu(Menus menus) => menus.GetWithDefault(SubmenuNameForMods);
 
             // override this to manipulate avatar menus after they're built
             virtual protected void OnAvatarMenuLoaded(string avatarGuid, Menus menus)
@@ -262,8 +264,8 @@ namespace ActionMenu
 
 
         // Private implementation
-        private static MelonLogger.Instance logger;
         private static ActionMenuMod instance;
+        private static MelonLogger.Instance logger;
         private static Transform menuTransform;
         private static CohtmlView cohtmlView;
         private static Collider menuCollider;
@@ -534,6 +536,11 @@ namespace ActionMenu
         {
             public Vector2 joystick;
             public float trigger;
+        }
+
+        public static void Toggle(bool show)
+        {
+            instance.ToggleMenu(show);
         }
 
         public void ToggleMenu(bool show)
