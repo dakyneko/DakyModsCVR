@@ -302,8 +302,8 @@ namespace ActionMenu
             quickMenuLongPress = melonPrefs.CreateEntry("quickmenu_long_press", false, "Long press for QM",
                 description: "Makes the ActionMenu appear with a short press and QuickMenu with long");
             // TODO: implement
-            //splitAvatarOvercrowdedMenu = melonPrefs.CreateEntry("split_overcrowded_avatar_menu", false, "No crowded menus",
-            //    description: "Split avatar menu in multiple pages when it's too crowded");
+            splitAvatarOvercrowdedMenu = melonPrefs.CreateEntry("split_overcrowded_avatar_menu", false, "No crowded menus",
+                description: "Split avatar menu in multiple pages when it's too crowded");
 
             melonPrefsMap = new();
             foreach (var e in melonPrefs.Entries)
@@ -790,6 +790,45 @@ namespace ActionMenu
             return ReifyHierarchyInNames(m);
         }
 
+        public static Menus SplitOverCrowdedMenus(Menus m, uint overcrowdedMenuValue = 7)
+        {
+            var pagePrefix = "page-";
+            var keys = m.Keys.OrderBy(n => -n.Length).ToArray(); // process bottom-up (deepest first)
+            foreach (var parents in keys)
+            {
+                var items = m[parents];
+                if (items.Count <= overcrowdedMenuValue) continue;
+
+                // first create new submenu for each page with the crowded items
+                var page = 1;
+                var pageItems = 0;
+                foreach (var item in items)
+                {
+                    if (pageItems >= overcrowdedMenuValue)
+                    {
+                        ++page;
+                        pageItems = 0;
+                    }
+
+                    m.GetWithDefault(Path(parents, pagePrefix + page)).Add(item);
+                    ++pageItems;
+                };
+
+                // now create links to the submenu in the parent
+                items.Clear();
+                for (var i = 1; i <= page; ++i)
+                {
+                    items.Add(new MenuItem()
+                    {
+                        name = $"Page {i}",
+                        action = new ItemAction { type = "menu", menu = Path(parents, pagePrefix + i) },
+                    });
+                }
+            }
+
+            return m;
+        }
+
         private static Menus? avatarMenus;
         private static void OnAvatarAdvancedSettings(PlayerSetup __instance)
         {
@@ -797,6 +836,9 @@ namespace ActionMenu
             var advSettings = __instance._avatarDescriptor.avatarSettings.settings;
             var menuPrefix = AvatarMenuPrefix;
             var m = avatarMenus = AvatarAdvancedSettingsToMenus(advSettings, animator, menuPrefix);
+
+            if (instance.splitAvatarOvercrowdedMenu.Value)
+                m = SplitOverCrowdedMenus(m);
 
             // add avatar emotes
             var emoteNames = __instance.GetEmoteNames();
