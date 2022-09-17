@@ -108,7 +108,7 @@ namespace ActionMenu
 
             // Create an ItemAction when triggered, will call your function
             // Basically for button/widget item for callback in your mod
-            public ItemAction BuildButtonItem(string name, Action callback)
+            public ItemAction BuildButtonItem(string name, Action callback, bool exclusiveOption = false)
             {
                 var identifier = prefixNs + ".call." + name;
                 instance.callbackItems[identifier] = callback;
@@ -116,6 +116,7 @@ namespace ActionMenu
                 {
                     type = "callback",
                     parameter = identifier,
+                    exclusive_option = exclusiveOption,
                 };
             }
 

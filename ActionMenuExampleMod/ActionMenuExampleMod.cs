@@ -36,7 +36,10 @@ namespace ActionMenuExample
                         BuildToggleItem("rawr", (v) => MelonLogger.Msg($"toggle RAWR: {v}"))),
 
                     new MenuItem("Radial rawr",
-                        BuildRadialItem("rawr", (v) => MelonLogger.Msg($"Radial RAWR: {v}"), minValue: -1, maxValue: 1)),
+                        BuildRadialItem("rawr", (v) => MelonLogger.Msg($"slider of RAWR loudness: {v}"), minValue: -1, maxValue: 1)),
+
+                    new MenuItem("Moving rawr in 2D",
+                        BuildJoystick2D("rawr", (x, y) => MelonLogger.Msg($"2D RAWR position: {x}, {y}"))),
                 };
             }
         }
