@@ -19,7 +19,7 @@
         <EmbeddedResource Include="UIResources\icon_menu.svg" />
         <EmbeddedResource Include="UIResources\icon_back.svg" />
         <EmbeddedResource Include="UIResources\icon_avatar_emotes.svg" />
-        <EmbeddedResource Include="UIResources\icon-melon.svg" />
+        <EmbeddedResource Include="UIResources\icon_melon.svg" />
         <EmbeddedResource Include="UIResources\icon_avatar_settings_profile.svg" />
     </ItemGroup>
 </Project>

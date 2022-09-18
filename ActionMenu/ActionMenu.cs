@@ -1112,7 +1112,7 @@ namespace ActionMenu
                 config.menus.GetWithDefault(MainMenu).Add(new MenuItem()
                 {
                     name = "Mods",
-                    icon = "icon-melon.svg",
+                    icon = "icon_melon.svg",
                     action = new ItemAction() { type = "menu", menu = SubmenuNameForMods },
                 });
             }
