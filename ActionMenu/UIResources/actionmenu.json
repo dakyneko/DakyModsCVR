@@ -1,160 +1,197 @@
 {
-    "menus": {
-        "main": [
+    "menus":{
+        "main":[
             {
-                "name": "Settings",
-                "icon": "../CVRTest/gfx/nav-settings.svg",
-                "action": {
-                    "type": "menu",
-                    "menu": "settings"
+                "name":"Settings",
+                "icon":"../CVRTest/gfx/nav-settings.svg",
+                "action":{
+                    "type":"menu",
+                    "menu":"settings"
                 }
             },
             {
-                "name": "Avatar",
-                "icon": "../CVRTest/gfx/advanced-avatar-settings.svg",
-                "action": {
-                    "type": "menu",
-                    "menu": "avatar"
+                "name":"Avatar",
+                "icon":"../CVRTest/gfx/advanced-avatar-settings.svg",
+                "action":{
+                    "type":"menu",
+                    "menu":"avatar"
                 }
             },
             {
-                "name": "Respawn",
-                "icon": "../CVRTest/gfx/respawn.svg",
-                "action": {
-                    "type": "system call",
-                    "event": "AppRespawn"
+                "name":"Respawn",
+                "icon":"../CVRTest/gfx/respawn.svg",
+                "action":{
+                    "type":"system call",
+                    "event":"AppRespawn"
                 }
             },
             {
-                "name": "Camera",
-                "icon": "../CVRTest/gfx/camera-on.svg",
-                "action": {
-                    "type": "system call",
-                    "event": "AppToggleCamera",
-                    "toggle": true
+                "name":"Camera",
+                "icon":"../CVRTest/gfx/camera-on.svg",
+                "action":{
+                    "type":"system call",
+                    "event":"AppToggleCamera",
+                    "toggle":true
                 }
             },
             {
-                "name": "Mic",
-                "icon": "../CVRTest/gfx/unmute.svg",
-                "action": {
-                    "type": "system call",
-                    "event": "AppToggleMute",
-                    "toggle": true
+                "name":"Mic",
+                "icon":"../CVRTest/gfx/unmute.svg",
+                "action":{
+                    "type":"system call",
+                    "event":"AppToggleMute",
+                    "toggle":true
                 }
             }
         ],
-        "settings": [
+        "settings":[
             {
-                "name": "Fly",
-                "icon": "../CVRTest/gfx/jetpack.svg",
-                "action": {
-                    "type": "system call",
-                    "event": "AppToggleFLightMode",
-                    "toggle": true
+                "name":"Fly",
+                "icon":"../CVRTest/gfx/jetpack.svg",
+                "action":{
+                    "type":"system call",
+                    "event":"AppToggleFLightMode",
+                    "toggle":true
                 }
             },
             {
-                "name": "Recalibrate",
-                "icon": "../CVRTest/gfx/recalibrate.svg",
-                "action": {
-                    "type": "system call",
-                    "event": "AppRecalibrate"
+                "name":"Recalibrate",
+                "icon":"../CVRTest/gfx/recalibrate.svg",
+                "action":{
+                    "type":"system call",
+                    "event":"AppRecalibrate"
                 }
             },
             {
-                "name": "Seated",
-                "icon": "../CVRTest/gfx/seated-play.svg",
-                "action": {
-                    "type": "system call",
-                    "event": "AppToggleSeatedPlay",
-                    "toggle": true
+                "name":"Seated",
+                "icon":"../CVRTest/gfx/seated-play.svg",
+                "action":{
+                    "type":"system call",
+                    "event":"AppToggleSeatedPlay",
+                    "toggle":true
                 }
             },
             {
-                "name": "Main-menu",
-                "icon": "icon_menu.svg",
-                "action": {
-                    "type": "system call",
-                    "event": "ShowMainMenuPage",
-                    "event_arguments": [ "settings" ]
+                "name":"Media",
+                "icon":"../CVRTest/gfx/btn-media-playpause.svg",
+                "action":{
+                    "type":"menu",
+                    "menu":"mediacontrols"
                 }
             },
             {
-                "name": "Action Menu",
-                "icon": "icon_actionmenu.svg",
-                "action": {
-                    "type": "menu",
-                    "menu": "ActionMenu/settings"
+                "name":"Main Menu",
+                "icon":"icon_menu.svg",
+                "action":{
+                    "type":"system call",
+                    "event":"ShowMainMenuPage",
+                    "event_arguments":[ "settings" ]
+                }
+            },
+            {
+                "name":"Action Menu",
+                "icon":"icon_actionmenu.svg",
+                "action":{
+                    "type":"menu",
+                    "menu":"ActionMenu/settings"
                 }
             }
         ],
-        "avatar": [
+        "avatar":[
             {
-                "name": "Emotes",
-                "icon": "icon_avatar_emotes.svg",
-                "action": {
-                    "type": "menu",
-                    "menu": "avatar/emotes"
+                "name":"Emotes",
+                "icon":"icon_avatar_emotes.svg",
+                "action":{
+                    "type":"menu",
+                    "menu":"avatar/emotes"
                 }
             },
             {
-                "name": "Spray",
-                "action": {
-                    "type": "avatar parameter",
-                    "parameter": "Spray",
-                    "control": "toggle",
-                    "value": 1
+                "name":"Spray",
+                "action":{
+                    "type":"avatar parameter",
+                    "parameter":"Spray",
+                    "control":"toggle",
+                    "value":1
                 }
             },
             {
-                "name": "Emoji Fox",
-                "icon": "icon_emoji_fox.png",
-                "action": {
-                    "type": "avatar parameter",
-                    "parameter": "Emoji",
-                    "control": "impulse",
-                    "value": 1,
-                    "duration": 0.5
+                "name":"Emoji Fox",
+                "icon":"icon_emoji_fox.png",
+                "action":{
+                    "type":"avatar parameter",
+                    "parameter":"Emoji",
+                    "control":"impulse",
+                    "value":1,
+                    "duration":0.5
                 }
             },
             {
-                "icon": "icon_avatar_ears.png",
-                "action": {
-                    "type": "avatar parameter",
-                    "parameter": "GestureRightWeight",
-                    "control": "radial",
-                    "default_value": -0.5,
-                    "min_value": -1,
-                    "max_value": 1
+                "icon":"icon_avatar_ears.png",
+                "action":{
+                    "type":"avatar parameter",
+                    "parameter":"GestureRightWeight",
+                    "control":"radial",
+                    "default_value":-0.5,
+                    "min_value":-1,
+                    "max_value":1
                 }
             },
             {
-                "name": "Joystick 2D",
-                "action": {
-                    "type": "avatar parameter",
-                    "parameter": "testjoystick2d",
-                    "control": "joystick_2d",
-                    "default_value_x": 0,
-                    "min_value_x": 0,
-                    "max_value_x": 0.999,
-                    "default_value_y": 0,
-                    "min_value_y": 0,
-                    "max_value_y": 0.999
+                "name":"Joystick 2D",
+                "action":{
+                    "type":"avatar parameter",
+                    "parameter":"testjoystick2d",
+                    "control":"joystick_2d",
+                    "default_value_x":0,
+                    "min_value_x":0,
+                    "max_value_x":0.999,
+                    "default_value_y":0,
+                    "min_value_y":0,
+                    "max_value_y":0.999
                 }
             },
             {
-                "name": "Input 2D",
-                "action": {
-                    "type": "avatar parameter",
-                    "parameter": "testjoystick2d",
-                    "control": "input_vector_2d",
-                    "default_value_x": 0,
-                    "min_value_x": 0,
-                    "max_value_x": 0.999,
-                    "default_value_y": 0,
-                    "min_value_y": 0,
-                    "max_value_y": 0.999
+                "name":"Input 2D",
+                "action":{
+                    "type":"avatar parameter",
+                    "parameter":"testjoystick2d",
+                    "control":"input_vector_2d",
+                    "default_value_x":0,
+                    "min_value_x":0,
+                    "max_value_x":0.999,
+                    "default_value_y":0,
+                    "min_value_y":0,
+                    "max_value_y":0.999
+                }
+            }
+        ],
+        "mediacontrols":[
+            {
+                "name":"Previous",
+                "icon":"../CVRTest/gfx/btn-media-prev.svg",
+                "action":{
+                    "type":"system call",
+                    "event":"AppMediaControl",
+                    "event_arguments":[ "prev" ]
+                }
+            },
+            {
+                "name":"Play/Pause",
+                "icon":"../CVRTest/gfx/btn-media-pause.svg",
+                "action":{
+                    "type":"system call",
+                    "event":"AppMediaControl",
+                    "event_arguments":[ "play" ]
+                }
+            },
+            {
+                "name":"Forward",
+                "icon":"../CVRTest/gfx/btn-media-next.svg",
+                "action":{
+                    "type":"system call",
+                    "event":"AppMediaControl",
+                    "event_arguments":[ "fwd" ]
                 }
             }
         ]
