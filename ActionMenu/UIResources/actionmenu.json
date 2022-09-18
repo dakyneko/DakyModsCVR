@@ -18,20 +18,20 @@
                 }
             },
             {
-                "name":"Camera",
-                "icon":"../CVRTest/gfx/camera-on.svg",
-                "action":{
-                    "type":"system call",
-                    "event":"AppToggleCamera",
-                    "toggle":true
-                }
-            },
-            {
                 "name":"Mic",
                 "icon":"../CVRTest/gfx/unmute.svg",
                 "action":{
                     "type":"system call",
                     "event":"AppToggleMute",
+                    "toggle":true
+                }
+            },
+            {
+                "name":"Camera",
+                "icon":"../CVRTest/gfx/camera-on.svg",
+                "action":{
+                    "type":"system call",
+                    "event":"AppToggleCamera",
                     "toggle":true
                 }
             },
