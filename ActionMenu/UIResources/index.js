@@ -98,7 +98,7 @@ function handle_click() {
 }
 
 const virtual_back_item = {
-	"name": "back",
+	"name": "Back",
 	"icon": "icon_back.svg",
 	"action": {"type": "back"},
 }
@@ -573,7 +573,7 @@ const widget_radial = (function() {
 
 			// protect from unintended big change 0<>100%
 			if (Math.abs(last_angle - angle) > pi) {
-				// freeze only close to 0 or 360°
+				// freeze only close to 0 or 360Â°
 				if (angle <= pi/2)
 					angle = pi2 - 0.001;
 				else if (angle >= 3*pi/2)
