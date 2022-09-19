@@ -328,9 +328,13 @@ namespace ActionMenu
 
 
             // FIXME: this stops the avatar animator from moving too, but not ideal, cannot fly anymore or rotate head
+            //HarmonyInstance.Patch(
+            //    SymbolExtensions.GetMethodInfo(() => default(MovementSystem).Update()),
+            //    prefix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateMovementSystem))));
+
             HarmonyInstance.Patch(
-                SymbolExtensions.GetMethodInfo(() => default(MovementSystem).Update()),
-                prefix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateMovementSystem))));
+                SymbolExtensions.GetMethodInfo(() => default(CVRInputManager).Update()),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateInputWhileMenu))));
 
             // close action menu when main menu opens
             HarmonyInstance.Patch(
@@ -382,10 +386,58 @@ namespace ActionMenu
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRFlyToggle))));
         }
 
-        private static bool OnUpdateMovementSystem(ABI_RC.Core.Player.CVR_MovementSystem __instance)
+        //private static bool OnUpdateMovementSystem(ABI_RC.Core.Player.CVR_MovementSystem __instance)
+        //{
+        //    if (!MetaPort.Instance.isUsingVr) return true;
+        //    return cohtmlView?.enabled != true; // TODO: animation still run, prevent emotes
+        //}
+
+        private static Vector2 inputJoystick = Vector2.zero;
+        private static int inputTrigger;
+
+        private static void HandleDesktopInput(ref int ___interactRightValue, ref Vector2 ___lookVector, ref Vector2 ___rawLookVector, ref Vector3 ___movementVector)
         {
-            if (!MetaPort.Instance.isUsingVr) return true;
-            return cohtmlView?.enabled != true; // TODO: animation still run, prevent emotes
+            //kindof works with gamepad now, but joystick doesn't snap back to center
+            inputJoystick += ___rawLookVector / 10;
+            inputJoystick = Vector2.ClampMagnitude(inputJoystick, 1f);
+            ___lookVector = Vector2.zero;
+            inputTrigger = ___interactRightValue;
+        }
+
+        private static void HandleVRInput(ref int ___interactRightValue, ref int ___interactLeftValue, ref Vector2 ___lookVector, ref Vector2 ___rawLookVector, ref float ___floatDirection, ref Vector3 ___movementVector)
+        {
+            // TODO: add support for right hand too
+
+            var oneHandedControls = true;
+
+            if (true) // left hand
+            {
+                // y is 0 and irrelevant | lookVector.y is 0 unless ControlEnableRightsStickDigitalDeadZones is false, but floatDirection is the same result
+                inputJoystick = new Vector2(___movementVector.x, ___movementVector.z);
+                ___movementVector = oneHandedControls ? new Vector3(___lookVector.x * Math.Abs(___floatDirection) * 0.5f, 0, ___floatDirection) : Vector3.zero;
+                inputTrigger = ___interactLeftValue;
+            }
+            else // right hand
+            {
+                inputJoystick = ___rawLookVector;
+                ___lookVector = oneHandedControls ? new Vector3(___movementVector.x * Math.Abs(___movementVector.z) * 0.5f, 0, ___movementVector.z) : Vector3.zero;
+                inputTrigger = ___interactRightValue;
+            }
+        }
+
+        private static void OnUpdateInputWhileMenu(ref int ___interactRightValue, ref int ___interactLeftValue, ref Vector2 ___lookVector, ref Vector2 ___rawLookVector, ref float ___floatDirection, ref Vector3 ___movementVector)
+        {
+            if (cohtmlView?.enabled != true) return;
+
+            // desktop input
+            if (!MetaPort.Instance.isUsingVr)
+            {
+                HandleDesktopInput(ref ___interactRightValue, ref ___lookVector, ref ___rawLookVector, ref ___movementVector);
+            }
+            else // vr input
+            {
+                HandleVRInput(ref ___interactRightValue, ref ___interactLeftValue, ref ___lookVector, ref ___rawLookVector, ref ___floatDirection, ref ___movementVector);
+            }
         }
 
         private static void OnMainMenuToggle(ViewManager __instance, bool show)
@@ -567,9 +619,9 @@ namespace ActionMenu
             else
             {
                 moveSys.disableCameraControl = show;
-                CVRInputManager.Instance.inputEnabled = !show;
-                RootLogic.Instance.ToggleMouse(show);
-                menuManager.desktopControllerRay.enabled = !show;
+                //CVRInputManager.Instance.inputEnabled = !show;
+                //RootLogic.Instance.ToggleMouse(show);
+                //menuManager.desktopControllerRay.enabled = !show;
             }
         }
 
@@ -648,20 +700,10 @@ namespace ActionMenu
 
             if (cohtmlView?.enabled != true || cohtmlView?.View == null) return;
 
-            var joystick = Vector2.zero;
-            var trigger = 0f;
             if (menuManager._desktopMouseMode && !MetaPort.Instance.isUsingVr) // Desktop mode
             {
                 if (menuManager._camera == null)
                     menuManager._camera = PlayerSetup.Instance.desktopCamera.GetComponent<Camera>();
-
-                RaycastHit hitInfo;
-                if (menuCollider.Raycast(menuManager._camera.ScreenPointToRay(Input.mousePosition), out hitInfo, 1000f))
-                {
-                    var coord = hitInfo.textureCoord;
-                    joystick = new Vector2(coord.x * 2 - 1, coord.y * 2 - 1);
-                }
-                trigger = Input.GetMouseButtonDown(0) ? 1 : 0; // do we need button up anyway?
                 UpdatePositionToDesktopAnchor();
             }
             else
@@ -670,17 +712,13 @@ namespace ActionMenu
                 {
                     UpdatePositionToVrAnchor();
                 }
-
-                var movVect = menuManager._inputManager.movementVector;
-                joystick = new Vector2(movVect.x, movVect.z); // y is 0 and irrelevant
-                trigger = menuManager._inputManager.interactLeftValue; // TODO: auto detect side
             }
 
             if (cohtmlReadyState < 2) return;
             var view = cohtmlView.View;
             var data = new InputData {
-                joystick = joystick,
-                trigger = trigger,
+                joystick = inputJoystick,
+                trigger = inputTrigger,
             };
             view.TriggerEvent<string>("InputData", JsonUtility.ToJson(data));
         }
