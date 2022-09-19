@@ -238,6 +238,7 @@
 .icon {
     width: 75px;
     max-height: 75px;
+    border-radius: 25%;
 }
 
 .full-size {

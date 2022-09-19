@@ -1,9 +1,10 @@
 using ActionMenu;
 using MelonLoader;
-using System.Collections.Generic;
 using System.Linq;
 using ABI_RC.Core.InteractionSystem;
 using ABI_RC.Core.EventSystem;
+using ABI_RC.Core.Player;
+using ABI_RC.Core.UI;
 
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
@@ -37,10 +38,28 @@ namespace ActionMenuAvatarsList
                     action = BuildCallbackMenu("avatars", () => ViewManager.Instance._avatars.Select(avatar => new MenuItem()
                     {
                         name = avatar.AvatarName,
+                        icon = avatar.AvatarImageUrl,
                         action = BuildButtonItem("avatar_" + avatar.AvatarName, () =>
                         {
                             AssetManagement.Instance.LoadLocalAvatar(avatar.AvatarId);
                             ActionMenuMod.Toggle(false);
+                        }),
+                    }).ToList()),
+                });
+
+                ModsMainMenu(menus).Add(new MenuItem()
+                {
+                    name = "Props list", // TODO: separate mod?
+                    icon = modIcon,
+                    action = BuildCallbackMenu("props", () => ViewManager.Instance._spawneables.Select(s => new MenuItem()
+                    {
+                        name = s.SpawnableName,
+                        icon = s.SpawnableImageUrl,
+                        action = BuildButtonItem("spawnable_" + s.SpawnableName, () =>
+                        {
+                            PlayerSetup.Instance.propGuidForSpawn = s.SpawnableId;
+                            ActionMenuMod.Toggle(false);
+                            CohtmlHud.Instance.SelectPropToSpawn(s.SpawnableImageUrl, s.SpawnableName, "Prop selected for spawning");
                         }),
                     }).ToList()),
                 });
