@@ -1273,7 +1273,7 @@ namespace ActionMenu
         {
             if (Input.GetKeyDown(KeyCode.F3)) Reload(); // reload
 
-            if (menuTransform != null) UpdatePositionToVrAnchor();
+            if (menuTransform != null) UpdatePositionToAnchor();
         }
 
         internal class OurLib : Lib
