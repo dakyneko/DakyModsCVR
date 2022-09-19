@@ -72,6 +72,25 @@
                 }
             },
             {
+                "name": "HUD",
+                "enabled": true,
+                "action": {
+                    "type": "game settings toggle",
+                    "parameter": "GeneralShowHud",
+                    "toggle": true
+                }
+            },
+            {
+                "name": "Audio master",
+                "action": {
+                    "type": "game settings int",
+                    "parameter": "AudioMaster",
+                    "default_value": 100,
+                    "min_value": 0,
+                    "max_value": 100
+                }
+            },
+            {
                 "name": "Main-menu",
                 "icon": "icon_menu.svg",
                 "action": {

@@ -257,7 +257,7 @@ namespace ActionMenu
         public static readonly string couiUrl = "coui://UIResources/ActionMenu";
         public static readonly string[] couiFiles = new string[]
         {
-            "index.html", "index.js", "index.css", "actionmenu.json",
+            "index.html", "index.js", "index.css", "actionmenu.json", "Montserrat-Regular.ttf",
             "icon_actionmenu.svg", "icon_menu.svg", "icon_back.svg", "icon_avatar_emotes.svg", "icon_melon.svg",
             "icon_avatar_settings_profile.svg",
         };
@@ -326,7 +326,7 @@ namespace ActionMenu
                 typeof(InputModuleMouseKeyboard).GetMethod(nameof(InputModuleMouseKeyboard.UpdateImportantInput), BindFlags.Public | BindFlags.Instance),
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateInputDesktop))));
 
-
+            // immobilize when the action menu is open
             // FIXME: this stops the avatar animator from moving too, but not ideal, cannot fly anymore or rotate head
             HarmonyInstance.Patch(
                 SymbolExtensions.GetMethodInfo(() => default(MovementSystem).Update()),
@@ -401,6 +401,7 @@ namespace ActionMenu
             logger.Msg($"MenuManagerRegisterEvents called {view}");
             view.RegisterForEvent("ActionMenuReady", new Action(OnActionMenuReady));
             view.BindCall("CVRAppCallSystemCall", new Action<string, string, string, string, string>(menuManager.HandleSystemCall));
+            view.BindCall("CVRAppCallSaveSetting", new Action<string, string>(MetaPort.Instance.settings.SetSetting));
             view.BindCall("SetMelonPreference", new Action<string, string>(OnSetMelonPreference));
             view.BindCall("ItemCallback", new Action<string>(OnItemCallback));
             view.BindCall("ItemCallback_bool", new Action<string, bool>(OnItemCallback_bool));

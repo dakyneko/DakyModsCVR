@@ -160,6 +160,19 @@ function handle_click_main() {
 			break;
 		}
 
+		case 'game settings toggle': {
+			engine.call("CVRAppCallSaveSetting", action.parameter, is_enabled ? "False" : "True");
+			action_toggle = true;
+			break;
+		}
+
+		case 'game settings int': {
+			// TODO: radial default value bugs, always 0?
+			control_type_radial(item, action,
+				v => engine.call("CVRAppCallSaveSetting", action.parameter, Math.round(v).toString()));
+			break;
+		}
+
 		case 'set melon preference': {
 			const new_value = item.enabled ? 0 : (action.value ?? 1);
 			engine.call("SetMelonPreference", action.parameter, String(new_value));

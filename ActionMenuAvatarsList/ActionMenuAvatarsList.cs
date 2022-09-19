@@ -22,19 +22,15 @@ namespace ActionMenuAvatarsList
         {
             protected override string modName => "Avatars List";
 
-            // TODO: add nice icon
-            //protected override string? modIcon => base.modIcon;
-
             // TODO: sort by most recent first + bonus if persistent on disk
             // TODO: cut at last 5 most used/recent and add a paginated More pages
-            // TODO: display avatar image async, gotta download and cache it somewhere?
 
             override protected void OnGlobalMenuLoaded(Menus menus)
             {
                 ModsMainMenu(menus).Add(new MenuItem()
                 {
                     name = modName,
-                    icon = modIcon,
+                    icon = "../CVRTest/gfx/nav-avatars.svg",
                     action = BuildCallbackMenu("avatars", () => ViewManager.Instance._avatars.Select(avatar => new MenuItem()
                     {
                         name = avatar.AvatarName,
@@ -50,7 +46,7 @@ namespace ActionMenuAvatarsList
                 ModsMainMenu(menus).Add(new MenuItem()
                 {
                     name = "Props list", // TODO: separate mod?
-                    icon = modIcon,
+                    icon = "../CVRTest/gfx/btn-props.svg",
                     action = BuildCallbackMenu("props", () => ViewManager.Instance._spawneables.Select(s => new MenuItem()
                     {
                         name = s.SpawnableName,

@@ -1,7 +1,14 @@
+@font-face {
+    /* GPL OFL font, yay!
+        https://www.1001freefonts.com/montserrat.font */
+    font-family: "Montserrat-Regular";
+    src: url("Montserrat-Regular.ttf");
+}
+
 * {
     margin: 0px;
     padding: 0px;
-    font-family: verdana,sans-serif;
+    font-family: Montserrat-Regular;
 }
 
 .themed-radial {
@@ -53,7 +60,6 @@
     text-align: center;
     color: white;
     font-size: 30px;
-    font-weight: bold;
     transform: translate(-50%, -50%);
     background-color: rgba(45, 45, 45, 0.5);
     border-radius: 20px;
@@ -230,7 +236,6 @@
 
 .label {
     font-size: 20px;
-    font-weight: bold;
     color: white;
     text-shadow: 3px 3px 6px black;
 }
