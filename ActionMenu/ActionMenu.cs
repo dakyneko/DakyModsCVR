@@ -760,6 +760,11 @@ namespace ActionMenu
                 var i = child.LastIndexOf(HierarchySep);
                 var childName = (i >= 0) ? x.child.Substring(i + 1) : child;
 
+                var aitems = m.GetWithDefault(parent);
+                // first check if the link to this menu was already created
+                // for ex: avatar drop down created by AvatarParamToItem already add a reference to its menu
+                if (aitems.Any(item => item.action.menu == child)) continue;
+
                 var item = new MenuItem
                 {
                     name = childName,
@@ -769,7 +774,7 @@ namespace ActionMenu
                         menu = child,
                     },
                 };
-                m.GetWithDefault(parent).Add(item);
+                aitems.Add(item);
             }
 
             return m;
