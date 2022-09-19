@@ -337,6 +337,26 @@ namespace ActionMenu
                 SymbolExtensions.GetMethodInfo(() => default(ViewManager).UiStateToggle(default)),
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnMainMenuToggle))));
 
+            // build avatar menu from parameters after avatar is loaded
+            HarmonyInstance.Patch(
+                SymbolExtensions.GetMethodInfo(() => default(PlayerSetup).initializeAdvancedAvatarSettings()),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnAvatarAdvancedSettings))));
+
+            // monitor game changes to update menu items state
+            HarmonyInstance.Patch(
+                SymbolExtensions.GetMethodInfo(() => default(CVRCamController).Toggle()),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRCameraToggle))));
+            HarmonyInstance.Patch(
+                SymbolExtensions.GetMethodInfo(() => ABI_RC.Core.Base.Audio.SetMicrophoneActive(default)),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRMicrophoneToggle))));
+            HarmonyInstance.Patch(
+                SymbolExtensions.GetMethodInfo(() => default(PlayerSetup).SwitchSeatedPlay(default)),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRSeatedToggle))));
+            HarmonyInstance.Patch(
+                SymbolExtensions.GetMethodInfo(() => default(MovementSystem).ToggleFlight()),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRFlyToggle))));
+
+
             // cohtml reads files so let's install all that stuff, it's easier for everybody
             if (dontInstallResources.Value)
             {
@@ -360,26 +380,6 @@ namespace ActionMenu
             }
             MelonCoroutines.Start(WaitCohtmlSpawned());
 
-
-            // build avatar menu from parameters after avatar is loaded
-            HarmonyInstance.Patch(
-                SymbolExtensions.GetMethodInfo(() => default(PlayerSetup).initializeAdvancedAvatarSettings()),
-                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnAvatarAdvancedSettings))));
-
-
-            // monitor game changes to update menu items state
-            HarmonyInstance.Patch(
-                SymbolExtensions.GetMethodInfo(() => default(CVRCamController).Toggle()),
-                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRCameraToggle))));
-            HarmonyInstance.Patch(
-                SymbolExtensions.GetMethodInfo(() => ABI_RC.Core.Base.Audio.SetMicrophoneActive(default)),
-                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRMicrophoneToggle))));
-            HarmonyInstance.Patch(
-                SymbolExtensions.GetMethodInfo(() => default(PlayerSetup).SwitchSeatedPlay(default)),
-                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRSeatedToggle))));
-            HarmonyInstance.Patch(
-                SymbolExtensions.GetMethodInfo(() => default(MovementSystem).ToggleFlight()),
-                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRFlyToggle))));
         }
 
         private static bool OnUpdateMovementSystem(ABI_RC.Core.Player.CVR_MovementSystem __instance)
