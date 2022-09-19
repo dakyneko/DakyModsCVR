@@ -648,12 +648,11 @@ namespace ActionMenu
                 if (menuManager._camera == null)
                     menuManager._camera = PlayerSetup.Instance.desktopCamera.GetComponent<Camera>();
 
-                RaycastHit hitInfo;
-                if (menuCollider.Raycast(menuManager._camera.ScreenPointToRay(Input.mousePosition), out hitInfo, 1000f))
-                {
-                    var coord = hitInfo.textureCoord;
-                    joystick = new Vector2(coord.x * 2 - 1, coord.y * 2 - 1);
-                }
+                var mousePos = Input.mousePosition;
+                mousePos.x -= Screen.width / 2;
+                mousePos.y -= Screen.height / 2;
+                joystick = Vector2.ClampMagnitude( new Vector2(mousePos.x, mousePos.y), 1f );
+
                 trigger = Input.GetMouseButtonDown(0) ? 1 : 0; // do we need button up anyway?
                 UpdatePositionToDesktopAnchor();
             }
