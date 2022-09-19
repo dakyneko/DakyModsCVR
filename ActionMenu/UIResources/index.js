@@ -60,13 +60,24 @@ function refresh_selection_sector(selected_sector) {
 	$sector.style.transform = `rotate(${rounded_angle}deg)`;
 }
 
-function handle_direction_main(x, y, dist) {
+function coords_to_angle(x, y, dist) { // x,y from -1 to +1
+	const divisor =  dist - y;
+	const angle = Math.abs(divisor) <= 0.0001 // protection for division by 0
+		? 0.0
+		: 2* Math.atan(x / divisor) + pi;
+	return angle; // in radians
+}
+
+function handle_direction_main(x, y, dist) { // x,y from -1 to +1
 	const old_selected_sector = selected_sector;
 
+	const $item = $items.childNodes[selected_sector];
 	if (dist >= deadzone) {
 		$sector.style.display = 'block';
-		const angle = 2 * (pi - Math.atan(x / ( y + dist )));
+		const angle = coords_to_angle(x, y, dist);
 		selected_sector = Math.round( angle * sectors / pi2 ) % sectors;
+		// cohtml doesn't detect css change on children, so we have to resort to this ugliness
+		if ($item) Array.prototype.forEach.call($item.childNodes, $el => $el.classList.add('hover'));
 		refresh_selection_sector(selected_sector);
 	}
 	else { // deadzone = no selection
@@ -81,10 +92,13 @@ function handle_direction_main(x, y, dist) {
 	$joystick.style.left = 100*(0.5 + maxdist * x) + '%';
 	$joystick.style.top  = 100*(0.5 + maxdist * y) + '%';
 
+	if ($item && old_selected_sector != selected_sector) {
+		Array.prototype.forEach.call($item.childNodes, $el => $el.classList.remove('hover'));
+	}
 
 	if (selected_sector != null && old_selected_sector != selected_sector) {
 		appcall("PlayCoreUiSound", "Hover");
-		appcall("vibrateHand", 0, 0.1, 10, 1); // delay, duration, frequency, amplitude
+		appcall("handVibrate", 0, 0.1, 10, 1); // delay, duration, frequency, amplitude
 	}
 }
 
@@ -566,10 +580,7 @@ const widget_radial = (function() {
 
 	const handle_direction_radial = (set_value, x, y, dist) => {
 		if (dist >= deadzone) {
-			const divisor =  y + dist;
-			let angle = Math.abs(divisor) <= 0.0001 // protection for division by 0
-				? 0.0
-				: (pi - 2 * Math.atan(x / divisor));
+			let angle = coords_to_angle(-x, -y, dist); // start at the top, right to left = inverted
 
 			// protect from unintended big change 0<>100%
 			if (Math.abs(last_angle - angle) > pi) {
