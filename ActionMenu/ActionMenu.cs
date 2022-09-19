@@ -785,7 +785,6 @@ namespace ActionMenu
             var m = new Menus();
 
             // Build menus from the avatar parameters, focus on items directly (leaves in the hierarchy)
-            logger.Msg($"OnAvatarAdvancedSettings {advSettings.Count} items");
             foreach (var s in advSettings)
             {
                 switch (AvatarParamToItem(s, animator, menuPrefix, m))
@@ -851,6 +850,8 @@ namespace ActionMenu
             var advSettings = __instance._avatarDescriptor.avatarSettings.settings;
             var menuPrefix = AvatarMenuPrefix;
             var m = avatarMenus = AvatarAdvancedSettingsToMenus(advSettings, animator, menuPrefix);
+
+            logger.Msg($"OnAvatarAdvancedSettings {advSettings.Count} items");
 
             if (instance.splitAvatarOvercrowdedMenu.Value)
                 m = SplitOverCrowdedMenus(m);
@@ -1154,7 +1155,12 @@ namespace ActionMenu
 
         private static string JsonSerialize(object value) => JsonConvert.SerializeObject(value, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
 
-        private void Reload()
+        private void ConfigReload()
+        {
+            OnAvatarAdvancedSettings(PlayerSetup.Instance);
+        }
+
+        private void FullReload()
         {
             if (cohtmlView == null)
             {
@@ -1163,8 +1169,17 @@ namespace ActionMenu
             }
             cohtmlReadyState = 0;
             OnAvatarAdvancedSettings(PlayerSetup.Instance);
-            cohtmlView.View.Reload(); // TODO: reloading is broken, this fix?
+            cohtmlView.View.Reload();
+            MelonCoroutines.Start(DelayedRestart(cohtmlView.enabled)); // yes it's a ugly hack but it works, right?
+            ToggleMenu(true);
+        }
 
+        private System.Collections.IEnumerator DelayedRestart(bool wasEnabled)
+        {
+            uint i = 42; // rolled a big dice, that's what came out, I swear
+            while (--i > 0)
+                yield return null;
+            ToggleMenu(wasEnabled);
             logger.Msg($"view reloaded {cohtmlView} {cohtmlView.View}");
         }
 
@@ -1271,9 +1286,14 @@ namespace ActionMenu
 
         public override void OnUpdate()
         {
-            if (Input.GetKeyDown(KeyCode.F3)) Reload(); // reload
+            if (Input.GetKeyDown(KeyCode.F3)) {
+                var shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+                if (shift) ConfigReload();
+                else FullReload();
+            }
 
-            if (menuTransform != null) UpdatePositionToVrAnchor();
+            if (menuTransform != null)
+                UpdatePositionToVrAnchor();
         }
 
         internal class OurLib : Lib
