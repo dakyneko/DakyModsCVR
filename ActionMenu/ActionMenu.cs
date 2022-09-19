@@ -356,6 +356,11 @@ namespace ActionMenu
                 SymbolExtensions.GetMethodInfo(() => default(MovementSystem).ToggleFlight()),
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRFlyToggle))));
 
+            // override the way resources are loaded in cohtml to inject files from memory directly
+            HarmonyInstance.Patch(
+                typeof(DefaultResourceHandler).GetMethod(nameof(DefaultResourceHandler.OnResourceRequest)),
+                prefix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCohtmlLoadResource))));
+
 
             // cohtml reads files so let's install all that stuff, it's easier for everybody
             if (dontInstallResources.Value)
@@ -1295,6 +1300,60 @@ namespace ActionMenu
 
             if (menuTransform != null)
                 UpdatePositionToVrAnchor();
+        }
+
+        private static bool OnCohtmlLoadResource(DefaultResourceHandler __instance,
+            cohtml.Net.IAsyncResourceRequest request, cohtml.Net.IAsyncResourceResponse response)
+        {
+            var requestData = new DefaultResourceHandler.ResourceRequestData(request, response);
+            var uri = requestData?.UriBuilder?.Uri?.OriginalString ?? "";
+            if (!uri.StartsWith("data:")) return true;
+
+            // url of type data:image/png;base64,iVBORw0KGgoAA…
+            // we split those 4 fields ourself, check and extract the image
+            var sepIndex = uri.IndexOf(';');
+            var sepLength = sepIndex - 5;
+            var sep2Index = uri.IndexOf(',');
+            var sep2Length = 6; // "base64"
+            if (sepIndex < 0 || sep2Index < 0 || uri.Substring(sepIndex + 1, sep2Length) != "base64")
+            {
+                logger.Warning($"Invalid inlined format");
+                return false;
+            }
+
+            var mimeType = uri.Substring(5, sepLength);
+            if (mimeType != "image/png" && mimeType != "image/jpeg")
+            {
+                logger.Warning($"Unsupported format {mimeType}");
+                return false;
+            }
+
+            var data = uri.Substring(sep2Index + 1);
+            data = data.Replace("%20", "+").Replace("%2F", "/").Replace("%3D", "="); // cohtml url encode :(
+
+            Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false); // according to doc: size doesn't matter
+            try
+            {
+                tex.LoadImage(Convert.FromBase64String(data));
+                tex.hideFlags = HideFlags.DontUnloadUnusedAsset; // TODO: necessary?
+            }
+            catch (Exception ex)
+            {
+                logger.Warning($"Error while loading image from data uri: {ex}");
+                return false;
+            }
+
+            // cohtml wizardry
+            var imgManager = cohtmlView.CohtmlUISystem.UserImagesManager;
+            var handle = imgManager.NextImageHandle;
+            var resp = imgManager.CreateUserImageData(tex, imageHandle: handle);
+            // another cohtml madness: needed to preserve alpha, doh :(
+            resp.AlphaPremultiplication = cohtml.Net.IAsyncResourceResponse.UserImageData.AlphaPremultiplicationMode.NonPremultiplied;
+            logger.Msg($"OnCohtmlLoadResource loaded in-memory {mimeType} image {tex.format} {resp.Width}x{resp.Height} ({data.Length} bytes)");
+            requestData?.Response?.ReceiveUserImage(resp);
+            __instance.RespondWithSuccess(requestData);
+
+            return false;
         }
 
         internal class OurLib : Lib

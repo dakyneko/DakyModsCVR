@@ -461,6 +461,9 @@ function build_$item(item, i) {
 	if (item.icon != null) {
 		const $icon = document.createElement('img');
 		$icon.src = item.icon;
+		if (item.icon.startsWith("data:")) // help cohtml with lazily-loaded images
+			$icon.width = $icon.height = 75;
+		// TODO: add event onload to resize when it's ready???
 		$icon.className = "icon";
 		$item.appendChild($icon);
 	}

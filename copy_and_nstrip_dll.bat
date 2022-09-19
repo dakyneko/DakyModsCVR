@@ -7,7 +7,7 @@ xcopy /f /y "%CVRPATH%\MelonLoader\MelonLoader.dll" "%0\..\ManagedLibs"
 xcopy /f /s /y "%CVRPATH%\ChilloutVR_Data\Managed" "%0\..\ManagedLibs"
 
 echo Nstrip convert all private/protected stuff to public, yay
-for %%x in (Assembly-CSharp.dll Assembly-CSharp-firstpass.dll UnityEngine.CoreModule.dll) do (
+for %%x in (Assembly-CSharp.dll Assembly-CSharp-firstpass.dll Cohtml.Runtime.dll) do (
     NStrip.exe -p -n "%CVRPATH%\ChilloutVR_Data\Managed\%%x" "%0\..\ManagedLibs\%%x"
 )
 echo We re done now
