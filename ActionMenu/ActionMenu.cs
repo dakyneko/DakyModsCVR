@@ -1292,7 +1292,7 @@ namespace ActionMenu
             }
 
             if (menuTransform != null)
-                UpdatePositionToVrAnchor();
+                UpdatePositionToAnchor();
         }
 
         private static bool OnCohtmlLoadResource(DefaultResourceHandler __instance,
