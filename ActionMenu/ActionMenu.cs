@@ -227,12 +227,12 @@ namespace ActionMenu
                             items.Add(new MenuItem()
                             {
                                 name = e.DisplayName,
+                                enabled = e.Value,
                                 action = new()
                                 {
                                     type = "set melon preference",
                                     parameter = e.Identifier,
                                     toggle = true,
-                                    default_value = e.Value,
                                 }
                             });
                             break;
@@ -1209,10 +1209,11 @@ namespace ActionMenu
 
                 default:
                     logger.Warning($"OnSetMelonPreference {identifier} unsupported type {e_.GetReflectedType()}");
-                    break;
+                    return;
             }
 
             BuildOurMelonPrefsMenus(); // value update = rebuild and send it back
+            FullReload();
         }
 
         private void OnItemCallback(string identifier)
