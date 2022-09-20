@@ -96,9 +96,9 @@ function handle_direction_main(x, y, dist) { // x,y from -1 to +1
 		Array.prototype.forEach.call($item.childNodes, $el => $el.classList.remove('hover'));
 	}
 
-	if (selected_sector != null && old_selected_sector != selected_sector) {
+	if (old_selected_sector != selected_sector) {
 		appcall("PlayCoreUiSound", "Hover");
-		appcall("handVibrate", 0, 0.1, 10, 1); // delay, duration, frequency, amplitude
+		appcall("handVibrateGlobal", 0, 0.1, 10, 0.5); // delay, duration, frequency, amplitude
 	}
 }
 

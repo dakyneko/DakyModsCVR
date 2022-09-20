@@ -14,7 +14,6 @@
 .themed-radial {
     background: radial-gradient(#443700, #443700 25%, #ded530 25.1%, #f68e00 28%, #3a1500);
     border-radius: 50%;
-    overflow: hidden;
 }
 
 .themed-border {
@@ -200,7 +199,6 @@
 #actionmenu .items .item {
     display: block;
     position: absolute;
-    width: 50%;
     transform: translate(-50%, -50%);
     text-align: center;
 }
