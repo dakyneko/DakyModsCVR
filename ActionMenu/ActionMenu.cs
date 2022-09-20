@@ -255,6 +255,7 @@ namespace ActionMenu
         public static readonly string AvatarMenuPrefix = "avatar";
         public static readonly string couiPath = @"ChilloutVR_Data\StreamingAssets\Cohtml\UIResources\ActionMenu";
         public static readonly string couiUrl = "coui://UIResources/ActionMenu";
+        public static readonly Vector2Int canvasSize = new Vector2Int(500, 500);
         public static readonly string[] couiFiles = new string[]
         {
             "index.html", "index.js", "index.css", "actionmenu.json", "Montserrat-Regular.ttf",
@@ -463,8 +464,8 @@ namespace ActionMenu
             v.CohtmlUISystem = cohtmlUISystem;
             v.AutoFocus = false;
             v.IsTransparent = true;
-            v.Width = 500;
-            v.Height = 500;
+            v.Width = canvasSize.x;
+            v.Height = canvasSize.y;
             v.Page = couiUrl + "/index.html";
 
             // ready set go
@@ -564,18 +565,11 @@ namespace ActionMenu
             if (show && menuCollider?.enabled == true)
                 UpdatePositionToAnchor();
 
-            if (vr)
-            {
-                //moveSys.SetImmobilized(show);
-                //moveSys.canMove = !show; // TODO: this isn't enough, body animator still move
-                //moveSys.canFly = !show;
-            }
-            else
+            if (!vr)
             {
                 moveSys.disableCameraControl = show;
                 CVRInputManager.Instance.inputEnabled = !show;
                 RootLogic.Instance.ToggleMouse(show);
-                menuManager.desktopControllerRay.enabled = !show;
             }
         }
 
@@ -661,10 +655,9 @@ namespace ActionMenu
                 if (menuManager._camera == null)
                     menuManager._camera = PlayerSetup.Instance.desktopCamera.GetComponent<Camera>();
 
-                var mousePos = Input.mousePosition;
-                mousePos.x -= Screen.width / 2;
-                mousePos.y -= Screen.height / 2;
-                joystick = Vector2.ClampMagnitude( new Vector2(mousePos.x, mousePos.y), 1f );
+                var halfScreen = 0.5f * new Vector2(Screen.width, Screen.height);
+                var mousePos = ((Vector2)Input.mousePosition - halfScreen) / canvasSize;
+                joystick = Vector2.ClampMagnitude(2f * mousePos, 1f);
 
                 trigger = Input.GetMouseButtonDown(0) ? 1 : 0; // do we need button up anyway?
                 UpdatePositionToDesktopAnchor();
