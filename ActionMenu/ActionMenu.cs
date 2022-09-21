@@ -27,7 +27,9 @@ namespace ActionMenu
     using MenuBuilder = Func<List<MenuItem>>;
     public class ActionMenuMod : MelonMod
     {
-        // Public library for all mods to use, you can extend this
+        /// <summary>
+        /// Public library for all mods to use, you can extend this
+        /// </summary>
         public class Lib
         {
             private ActionMenuMod instance;
@@ -75,11 +77,14 @@ namespace ActionMenu
                 };
             }
 
-            // Or even finer control, total control but it comes with responsability: pick unique names for your menus!
-            // Override this to manipulate/add menus after all other menus are built. Usually not required for simple mod menus.
+            /// <summary>
+            /// Or even finer control, total control but it comes with responsability: pick unique names for your menus!
+            /// Override this to manipulate/add menus after all other menus are built. Usually not required for simple mod menus.
+            /// </summary>
+            /// <param name="menus"></param>
             virtual protected void OnGlobalMenuLoaded(Menus menus)
             {
-                // the default behavior below makes modders' life easier and prevent collision between mods
+                // the default behavior below makes modders' life easier and prevents collision between mods
                 var m = BuildModMenu();
                 if (m.Keys.SequenceEqual(new string[] { entry }) && m.GetWithDefault(entry).Count == 0)
                     return; // if empty don't create anything
@@ -104,16 +109,30 @@ namespace ActionMenu
 
             public static List<MenuItem> ModsMainMenu(Menus menus) => menus.GetWithDefault(modsMenuName);
 
-            // override this to manipulate avatar menus after they're built
+            /// <summary>
+            /// override this to manipulate avatar menus after they're built
+            /// </summary>
+            /// <param name="avatarGuid"></param>
+            /// <param name="menus"></param>
             virtual protected void OnAvatarMenuLoaded(string avatarGuid, Menus menus)
             {
             }
 
-            // Nice way to edit menus by applying patches. This is to play nice with other mods as well.
+            /// <summary>
+            /// Nice way to edit menus by applying patches. This is to play nice with other mods as well.
+            /// </summary>
+            /// <param name="menus"></param>
+            /// <param name="patch"></param>
             public static void ApplyMenuPatch(Menus menus, MenusPatch patch) => patch.ApplyToMenu(menus);
 
-            // Create an ItemAction when triggered, will call your function
-            // Basically for button/widget item for callback in your mod
+            /// <summary>
+            /// Create an ItemAction when triggered, will call your function
+            /// Basically for button/widget item for callback in your mod
+            /// </summary>
+            /// <param name="name"></param>
+            /// <param name="callback"></param>
+            /// <param name="exclusiveOption"></param>
+            /// <returns></returns>
             public ItemAction BuildButtonItem(string name, Action callback, bool exclusiveOption = false)
             {
                 var identifier = prefixNs + ".call." + name;
@@ -142,14 +161,35 @@ namespace ActionMenu
                 };
             }
 
-            // Creates a button with two states: enabled and disabled.
+            /// <summary>
+            /// Creates a button with two states: enabled and disabled.
+            /// </summary>
+            /// <param name="name"></param>
+            /// <param name="callback"></param>
+            /// <returns></returns>
             public ItemAction BuildToggleItem(string name, Action<bool> callback)
                 => BuildBoolItem(name, callback, "toggle", value: true, defaultValue: false);
-            // Creates a button that temporarily switch its value, then back to default_value
+            /// <summary>
+            /// Creates a button that temporarily switch its value, then back to default_value
+            /// </summary>
+            /// <param name="name"></param>
+            /// <param name="callback"></param>
+            /// <param name="duration"></param>
+            /// <param name="value"></param>
+            /// <param name="defaultValue"></param>
+            /// <returns></returns>
             public ItemAction BuildImpulseItem(string name, Action<bool> callback, float duration = 1f, object? value = null, object? defaultValue = null)
                 => BuildBoolItem(name, callback, "impulse", value: value, defaultValue: defaultValue, duration: duration);
 
-            // Creates a radial widget for picking values between a min and max.
+            /// <summary>
+            /// Creates a radial widget for picking values between a min and max.
+            /// </summary>
+            /// <param name="name"></param>
+            /// <param name="callback"></param>
+            /// <param name="minValue"></param>
+            /// <param name="maxValue"></param>
+            /// <param name="defaultValue"></param>
+            /// <returns></returns>
             public ItemAction BuildRadialItem(string name, Action<float> callback,
                 float? minValue = null, float? maxValue = null, float? defaultValue = null)
             {
@@ -184,7 +224,18 @@ namespace ActionMenu
                 };
             }
 
-            // Creates a 2D widget for picking two values simultaneously setting absolute coordinates, between min and max values.
+            /// <summary>
+            /// Creates a 2D widget for picking two values simultaneously setting absolute coordinates, between min and max values.
+            /// </summary>
+            /// <param name="name"></param>
+            /// <param name="callback"></param>
+            /// <param name="minValueX"></param>
+            /// <param name="maxValueX"></param>
+            /// <param name="defaultValueX"></param>
+            /// <param name="minValueY"></param>
+            /// <param name="maxValueY"></param>
+            /// <param name="defaultValueY"></param>
+            /// <returns></returns>
             public ItemAction BuildJoystick2D(string name, Action<float, float> callback,
                 float? minValueX = null, float? maxValueX = null, float? defaultValueX = null,
                 float? minValueY = null, float? maxValueY = null, float? defaultValueY = null)
@@ -192,7 +243,18 @@ namespace ActionMenu
                         minValueX: minValueX, maxValueX: maxValueX, defaultValueX: defaultValueX,
                         minValueY: minValueY, maxValueY: maxValueY, defaultValueY: defaultValueY
                     );
-            // Creates a 2D widget for picking two values simultaneously moving in relative coordinates, between min and max values.
+            /// <summary>
+            /// Creates a 2D widget for picking two values simultaneously moving in relative coordinates, between min and max values.
+            /// </summary>
+            /// <param name="name"></param>
+            /// <param name="callback"></param>
+            /// <param name="minValueX"></param>
+            /// <param name="maxValueX"></param>
+            /// <param name="defaultValueX"></param>
+            /// <param name="minValueY"></param>
+            /// <param name="maxValueY"></param>
+            /// <param name="defaultValueY"></param>
+            /// <returns></returns>
             public ItemAction BuildInputVector2D(string name, Action<float, float> callback,
                 float? minValueX = null, float? maxValueX = null, float? defaultValueX = null,
                 float? minValueY = null, float? maxValueY = null, float? defaultValueY = null)
@@ -201,8 +263,13 @@ namespace ActionMenu
                         minValueY: minValueY, maxValueY: maxValueY, defaultValueY: defaultValueY
                     );
 
-            // Create an ItemAction when triggered, will call you back so you can build your own menu dynamically
-            // Basically building dynamic menus from a mod
+            /// <summary>
+            /// Create an ItemAction when triggered, will call you back so you can build your own menu dynamically
+            /// Basically building dynamic menus from a mod
+            /// </summary>
+            /// <param name="name"></param>
+            /// <param name="menuBuilder"></param>
+            /// <returns></returns>
             public ItemAction BuildCallbackMenu(string name, MenuBuilder menuBuilder)
             {
                 var identifier = prefixNs + "." + name;
@@ -214,9 +281,13 @@ namespace ActionMenu
                 };
             }
 
-            // if you want to expose your MelonPreference into a menu, build them with this.
-            // beware that it's still rudimentary: toggles are fine but floats are between 0 and 1, that's all
-            // to refer it, look below at the path, it has prefix, example: YourNameMod/settings
+            /// <summary>
+            /// if you want to expose your MelonPreference into a menu, build them with this.
+            /// beware that it's still rudimentary: toggles are fine but floats are between 0 and 1, that's all
+            /// to refer it, look below at the path, it has prefix, example: YourNameMod/settings
+            /// </summary>
+            /// <param name="melonPrefs"></param>
+            /// <returns></returns>
             public Menus BuildMelonPrefsMenus(List<MelonPreferences_Entry> melonPrefs)
             {
                 var m = new Menus();
