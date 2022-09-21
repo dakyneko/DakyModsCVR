@@ -12,11 +12,9 @@ The avatar submenu is automatically generated from the avatar CVR "Advanced Sett
 
 If you aren't the owner of the avatar you can still customize through JSON overrides, see below.
  
-### JSON Overrides
+### Avatar JSON Overrides
 
-Through json overrides. No code required. Just put your json file at the right place and it will be loaded.
-  - For Global overrides, check `OverrideExamples/GlobalOverrides/dakytest.json` for an example. It needs to be put into your CVR directory under `UserData\ActionMenu\GlobalOverrides\`. Any name is fine with extension .json of course.
-  - For Avatar overrides, check `OverrideExamples/AvatarOverrides/for_842eb3b7-6bd7-4cd0-a2d1-214863aca5a4.json` for an example. It needs to be put into your CVR directory under `UserData\ActionMenu\AvatarOverrides\`. The name is important, because it depends on your avatar id, it will only apply for that avatar. The format is `for_` followed by your avatar id and .json like the example.
+The Avatar Menu can be overriden via [JSON Overrides (link)](https://github.com/dakyneko/DakyModsCVR/tree/master/ActionMenu#json-overrides).
 
 ### Examples
 Menu Structure:
@@ -99,6 +97,12 @@ Menu Structure:
   Not Implemented, we are still evaluating how to approach this widget, contributions are welcome!
   The simplest, but jank way of implementing this would be via separate sliders for each axis, alternatively a 2D widget + slider could be considered.
 </details>
+
+## JSON Overrides
+
+Menu Elements can be modified through json overrides. No code required. Just put your json file at the right place and it will be loaded.
+  - For Global overrides, check `OverrideExamples/GlobalOverrides/dakytest.json` for an example. It needs to be put into your CVR directory under `UserData\ActionMenu\GlobalOverrides\`. Any name is fine with extension .json of course.
+  - For Avatar overrides, check `OverrideExamples/AvatarOverrides/for_842eb3b7-6bd7-4cd0-a2d1-214863aca5a4.json` for an example. It needs to be put into your CVR directory under `UserData\ActionMenu\AvatarOverrides\`. The name is important, because it depends on your avatar id, it will only apply for that avatar. The format is `for_` followed by your avatar id and .json like the example.
 
 ## Modding API (C#)
 
