@@ -45,6 +45,7 @@ namespace ActionMenu
                 RegisterOnLoaded();
             }
 
+            // auto-register your mod to create menus
             // if you don't need this, you can override it empty
             virtual protected void RegisterOnLoaded()
             {
@@ -53,15 +54,16 @@ namespace ActionMenu
             }
 
             virtual protected string modName => prefixNs; // by default your class name
-            virtual protected string? modIcon => null; // can accept: data:image/jpeg;base64
-            virtual protected string entry => "main"; // the name of your mod main menu
+            virtual protected string? modIcon => null; // accept: URLs, on-disk-path or inlined data:image/jpeg;base64…
+            virtual protected string entry => "main"; // the name of your mod main menu, don't change unless you know what you're doing
             virtual protected string ModMenuPath(params string[] components)
-                => prefixNs + HierarchySep + string.Join(HierarchySep.ToString(), components);
+                => prefixNs + hierarchySeparator + string.Join(hierarchySeparator.ToString(), components);
 
             // Mods can create a menu very easily by filling up some items here.
             virtual protected List<MenuItem> modMenuItems() => new();
 
-            // Or create many menus yourself for your mod. Your menus will have automatically the prefixNs prefix.
+            // Or if you need finer control, you will need to do more yourself
+            // Create many menus yourself for your mod. Your menus will have automatically the prefixNs prefix.
             virtual public Menus BuildModMenu()
             {
                 var xs = modMenuItems();
@@ -73,9 +75,11 @@ namespace ActionMenu
                 };
             }
 
-            // Override this to manipulate menus after all menus are built. Usually not required for simple mod menus.
+            // Or even finer control, total control but it comes with responsability: pick unique names for your menus!
+            // Override this to manipulate/add menus after all other menus are built. Usually not required for simple mod menus.
             virtual protected void OnGlobalMenuLoaded(Menus menus)
             {
+                // the default behavior below makes modders' life easier and prevent collision between mods
                 var m = BuildModMenu();
                 if (m.Keys.SequenceEqual(new string[] { entry }) && m.GetWithDefault(entry).Count == 0)
                     return; // if empty don't create anything
@@ -98,14 +102,14 @@ namespace ActionMenu
                 });
             }
 
-            public static List<MenuItem> ModsMainMenu(Menus menus) => menus.GetWithDefault(SubmenuNameForMods);
+            public static List<MenuItem> ModsMainMenu(Menus menus) => menus.GetWithDefault(modsMenuName);
 
             // override this to manipulate avatar menus after they're built
             virtual protected void OnAvatarMenuLoaded(string avatarGuid, Menus menus)
             {
             }
 
-            // Nice way to modify the Menus. This is to play nice with other mods as well.
+            // Nice way to edit menus by applying patches. This is to play nice with other mods as well.
             public static void ApplyMenuPatch(Menus menus, MenusPatch patch) => patch.ApplyToMenu(menus);
 
             // Create an ItemAction when triggered, will call your function
@@ -211,9 +215,8 @@ namespace ActionMenu
             }
 
             // if you want to expose your MelonPreference into a menu, build them with this.
-            // it may have to build a hierarchy of menu so add an item pointing to: settings/YourNameMod
-            // TODO: implement other types because for now it's only boolean
-            // TODO: add listener so we can update menu items state automatically (enabled, visually etc)
+            // beware that it's still rudimentary: toggles are fine but floats are between 0 and 1, that's all
+            // to refer it, look below at the path, it has prefix, example: YourNameMod/settings
             public Menus BuildMelonPrefsMenus(List<MelonPreferences_Entry> melonPrefs)
             {
                 var m = new Menus();
@@ -268,6 +271,7 @@ namespace ActionMenu
                             });
                             break;
 
+                        // TODO: add support for enum and other types
                         default:
                             logger.Warning($"BuildMelonPrefsMenus {e_.Identifier} unsupported type {e_.GetReflectedType()}");
                             break;
@@ -278,12 +282,11 @@ namespace ActionMenu
             }
         }
 
-        // for avatar menu we interpret names with / as folders to make a hierarchy, ex: Head/Hair/Length
-        // we'll build menus and submenus necessary to allow it automatically
-        public static readonly string MainMenu = "main";
-        public static readonly char HierarchySep = '/';
-        public static readonly string SubmenuNameForMods = "mods";
-        public static readonly string AvatarMenuPrefix = "avatar";
+        // various parameters for consistency everywhere
+        public static readonly string mainMenuName = "main";
+        public static readonly string modsMenuName = "mods";
+        public static readonly string avatarMenuName = "avatar";
+        public static readonly char hierarchySeparator = '/'; // mostly for ReifyHierarchyInNames (avatar menus)
         public static readonly string couiPath = @"ChilloutVR_Data\StreamingAssets\Cohtml\UIResources\ActionMenu";
         public static readonly string couiUrl = "coui://UIResources/ActionMenu";
         public static readonly Vector2Int canvasSize = new Vector2Int(500, 500);
@@ -296,8 +299,269 @@ namespace ActionMenu
             "icon_avatar_settings_profile.svg",
         };
 
+        // Show or hide the Action menu, use it cautiously
+        public static void Toggle(bool show) => instance.ToggleMenu(show);
+        // Build the path of hierarchy of submenu
+        public static string Path(params string[] components) => string.Join(hierarchySeparator.ToString(), components);
 
-        // Private implementation
+        // Build all menu hierarchy found in names (hierarchy separator character)
+        // Example if there are items: Clothing/Dress/Long and Clothing/Dress/Short then the items themselves will be moved into new nested menus Clothing > Dress
+        public static Menus ReifyHierarchyInNames(Menus menus)
+        {
+            var m = new Menus(); // we'll rebuild the menu from scratch, ensuring it's clean
+            var hierarchyPairs = new HashSet<(string parent, string child)>();
+
+            foreach (var x in menus)
+            {
+                foreach (var item in x.Value)
+                {
+                    // split basename from parents, like uri or paths
+                    var name = item.name;
+                    var parents = x.Key;
+                    var i = name.LastIndexOf(hierarchySeparator);
+                    if (i >= 0) { // is in a folder
+                        parents += hierarchySeparator + item.name.Substring(0, i);
+                        name = name.Substring(i + 1);
+                    }
+
+                    var item2 = item;
+                    item2.name = name;
+                    var aitems = m.GetWithDefault(parents);
+                    aitems.Add(item2);
+
+                    // register the hierarchy upward
+                    var hierarchy = parents.Split(hierarchySeparator);
+                    var child = hierarchy[0];
+                    for (var j = 1; j < hierarchy.Length; ++j) {
+                        var parent = child;
+                        child = parent + hierarchySeparator + hierarchy[j];
+                        hierarchyPairs.Add((parent, child));
+                    }
+                }
+            }
+
+            // now build the hierarchy, non-leaves up to the root menu (hierarchy of menus)
+            foreach (var x in hierarchyPairs)
+            {
+                var parent = x.parent;
+                var child = x.child;
+                var i = child.LastIndexOf(hierarchySeparator);
+                var childName = (i >= 0) ? x.child.Substring(i + 1) : child;
+
+                var aitems = m.GetWithDefault(parent);
+                // first check if the link to this menu was already created
+                // for ex: avatar drop down created by AvatarParamToItem already add a reference to its menu
+                if (aitems.Any(item => item.action.menu == child)) continue;
+
+                var item = new MenuItem
+                {
+                    name = childName,
+                    action = new ItemAction
+                    {
+                        type = "menu",
+                        menu = child,
+                    },
+                };
+                aitems.Add(item);
+            }
+
+            return m;
+        }
+
+        public static Menus AvatarAdvancedSettingsToMenus(List<CVRAdvancedSettingsEntry> advSettings, Animator animator, string menuPrefix)
+        {
+            var m = new Menus();
+
+            // Build menus from the avatar parameters, focus on items directly (leaves in the hierarchy)
+            foreach (var s in advSettings)
+            {
+                switch (AvatarParamToItem(s, animator, menuPrefix, m))
+                {
+                    case null:
+                        continue;
+
+                    case MenuItem item:
+                        item.name = s.name;
+                        logger.Msg($"OnAvatarAdvancedSettings parameter {item.name}: {s.type}");
+                        var aitems = m.GetWithDefault(menuPrefix);
+                        aitems.Add(item);
+                        break;
+                }
+            }
+
+            return ReifyHierarchyInNames(m);
+        }
+
+        public static Menus SplitOverCrowdedMenus(Menus m, uint overcrowdedMenuValue = 7)
+        {
+            var pagePrefix = "page-";
+            var keys = m.Keys.OrderBy(n => -n.Length).ToArray(); // process bottom-up (deepest first)
+            foreach (var parents in keys)
+            {
+                var items = m[parents];
+                if (items.Count <= overcrowdedMenuValue) continue;
+
+                // first create new submenu for each page with the crowded items
+                var page = 1;
+                var pageItems = 0;
+                foreach (var item in items)
+                {
+                    if (pageItems >= overcrowdedMenuValue)
+                    {
+                        ++page;
+                        pageItems = 0;
+                    }
+
+                    m.GetWithDefault(Path(parents, pagePrefix + page)).Add(item);
+                    ++pageItems;
+                };
+
+                // now create links to the submenu in the parent
+                items.Clear();
+                for (var i = 1; i <= page; ++i)
+                {
+                    items.Add(new MenuItem()
+                    {
+                        name = $"Page {i}",
+                        action = new ItemAction { type = "menu", menu = Path(parents, pagePrefix + i) },
+                    });
+                }
+            }
+
+            return m;
+        }
+
+        public static MenuItem? AvatarParamToItem(CVRAdvancedSettingsEntry s, Animator animator,
+            // Menus is used in case of nested menus like drop down
+            string menuPrefix, Menus m)
+        {
+            var item = new MenuItem();
+
+            // build the items in the menu
+            switch (s.type)
+            {
+                case SettingsType.GameObjectToggle: {
+                    item.enabled = animator?.GetBool(s.machineName) ?? s.toggleSettings?.defaultValue ?? false;
+                    item.action = new ItemAction
+                    {
+                        type = "avatar parameter",
+                        parameter = s.machineName,
+                        control = "toggle",
+                        value = 1f,
+                    };
+                    break;
+                }
+
+                case SettingsType.GameObjectDropdown: {
+                    var submenuName = Path(menuPrefix, s.name);
+                    // if parameter name has suffix Impulse, adapt control type
+                    var isImpulse = s.machineName.EndsWith("Impulse");
+                    var dd = s.dropDownSettings;
+                    var selectedValue = animator?.GetInteger(s.machineName) ?? dd?.defaultValue;
+
+                    item.action = new ItemAction
+                    {
+                        type = "menu",
+                        menu = submenuName,
+                    };
+
+                    List<MenuItem> sitems = dd.options.Select((o, index) => new MenuItem
+                    {
+                        name = o.name,
+                        enabled = index == selectedValue,
+                        action = new ItemAction
+                        {
+                            type = "avatar parameter",
+                            parameter = s.machineName,
+                            control = isImpulse ? "impulse" : "toggle",
+                            value = index,
+                            exclusive_option = !isImpulse,
+                        },
+                    }).ToList();
+
+                    m.Add(submenuName, sitems);
+                    break;
+                }
+
+                case SettingsType.Slider: {
+                    var defaultValue = animator?.GetFloat(s.machineName) ?? s.sliderSettings?.defaultValue;
+                    item.action = new ItemAction
+                    {
+                        type = "avatar parameter",
+                        parameter = s.machineName,
+                        control = "radial",
+                        default_value = defaultValue,
+                        min_value = 0.0f,
+                        max_value = 1.0f,
+                    };
+                    break;
+                }
+
+                case SettingsType.InputSingle: {
+                    var defaultValue = animator?.GetFloat(s.machineName) ?? s.inputSingleSettings?.defaultValue;
+                    item.action = new ItemAction
+                    {
+                        type = "avatar parameter",
+                        parameter = s.machineName,
+                        control = "radial",
+                        default_value = defaultValue,
+                        // TODO: we're guessing here, we should allow to override somewhere
+                        min_value = 0.0f,
+                        max_value = 1.0f,
+                    };
+                    break;
+                }
+
+                case SettingsType.Joystick2D: {
+                    var sjoy = s.joystick2DSetting;
+                    var defaultValueX = animator?.GetFloat(s.machineName + "-x") ?? sjoy.defaultValue.x;
+                    var defaultValueY = animator?.GetFloat(s.machineName + "-y") ?? sjoy.defaultValue.y;
+                    item.action = new ItemAction
+                    {
+                        type = "avatar parameter",
+                        parameter = s.machineName,
+                        control = "joystick_2d",
+                        min_value_x = 0.0f, // TODO: cvr seems to ignore min/max defined in unity, sad :(
+                        max_value_x = 1.0f,
+                        default_value_x = defaultValueX,
+                        min_value_y = 0.0f,
+                        max_value_y = 1.0f,
+                        default_value_y = defaultValueY,
+                    };
+                    break;
+                }
+
+                case SettingsType.InputVector2: {
+                    var svec = s.inputVector2Settings;
+                    item.action = new ItemAction
+                    {
+                        type = "avatar parameter",
+                        parameter = s.machineName,
+                        control = "input_vector_2d",
+                        min_value_x = 0.0f, // TODO: cvr has no min max values so we're left guessing here
+                        max_value_x = 1.0f,
+                        default_value_x = svec.defaultValue.x,
+                        min_value_y = 0.0f,
+                        max_value_y = 1.0f,
+                        default_value_y = svec.defaultValue.y,
+                    };
+                    break;
+                }
+
+                case SettingsType.MaterialColor:
+                case SettingsType.Joystick3D:
+                case SettingsType.InputVector3:
+                    logger.Msg($"Avatar parameter {s.name} ignored, its type {s.type} is not supported yet");
+                    return null; // TODO: unsupported
+            };
+
+            return item;
+        }
+
+
+        // ---------------------------
+        // WARNING: implementation follows, all stuff below are private and shouldn't be used if possible, please
+        // ---------------------------
         private static ActionMenuMod instance;
         private static MelonLogger.Instance logger;
         private static Transform menuTransform;
@@ -308,6 +572,7 @@ namespace ActionMenu
         private static int cohtmlReadyState = 0; // 0=stratup, 1=binding ready, 2=ActionMenuReady
         private static Lib ourLib;
 
+        // our melon prefs
         private MelonPreferences_Category melonPrefs;
         private Dictionary<string, MelonPreferences_Entry> melonPrefsMap;
         private MelonPreferences_Entry<bool> flickSelection, boringBackButton, dontInstallResources,
@@ -315,14 +580,12 @@ namespace ActionMenu
         private MelonPreferences_Entry<float> menuSize;
         private MelonPreferences_Entry<Vector2> menuPositionOffset;
 
-        // unique identifier -> function or menu
+        // for mod dynamic items and menus: unique identifier -> function or menu
         private Dictionary<string, Action> callbackItems = new();
         private Dictionary<string, Action<bool>> callbackItems_bool = new();
         private Dictionary<string, Action<float>> callbackItems_float = new();
         private Dictionary<string, Action<float, float>> callbackItems_float_float = new();
         private Dictionary<string, MenuBuilder> dynamic_menus = new();
-
-        public static string Path(params string[] components) => string.Join(HierarchySep.ToString(), components);
 
         public override void OnApplicationStart()
         {
@@ -605,12 +868,7 @@ namespace ActionMenu
             public float trigger;
         }
 
-        public static void Toggle(bool show)
-        {
-            instance.ToggleMenu(show);
-        }
-
-        public void ToggleMenu(bool show)
+        private void ToggleMenu(bool show)
         {
             logger.Msg($"ToggleMenu show={show} , cohtmlView.enabled={cohtmlView.enabled} collider={menuCollider?.enabled} vr={MetaPort.Instance.isUsingVr}");
             if (cohtmlView == null || cohtmlView.View == null) return;
@@ -778,139 +1036,13 @@ namespace ActionMenu
             melonPrefsMenus = ourLib.BuildMelonPrefsMenus(melonPrefs.Entries);
         }
 
-        // Build all menu hierarchy found in names (hierarchy separator character)
-        // Example if there are items: Clothing/Dress/Long and Clothing/Dress/Short then the items themselves will be moved into new nested menus Clothing > Dress
-        public static Menus ReifyHierarchyInNames(Menus menus)
-        {
-            var m = new Menus(); // we'll rebuild the menu from scratch, ensuring it's clean
-            var hierarchyPairs = new HashSet<(string parent, string child)>();
-
-            foreach (var x in menus)
-            {
-                foreach (var item in x.Value)
-                {
-                    // split basename from parents, like uri or paths
-                    var name = item.name;
-                    var parents = x.Key;
-                    var i = name.LastIndexOf(HierarchySep);
-                    if (i >= 0) { // is in a folder
-                        parents += HierarchySep + item.name.Substring(0, i);
-                        name = name.Substring(i + 1);
-                    }
-
-                    var item2 = item;
-                    item2.name = name;
-                    var aitems = m.GetWithDefault(parents);
-                    aitems.Add(item2);
-
-                    // register the hierarchy upward
-                    var hierarchy = parents.Split(HierarchySep);
-                    var child = hierarchy[0];
-                    for (var j = 1; j < hierarchy.Length; ++j) {
-                        var parent = child;
-                        child = parent + HierarchySep + hierarchy[j];
-                        hierarchyPairs.Add((parent, child));
-                    }
-                }
-            }
-
-            // now build the hierarchy, non-leaves up to the root menu (hierarchy of menus)
-            foreach (var x in hierarchyPairs)
-            {
-                var parent = x.parent;
-                var child = x.child;
-                var i = child.LastIndexOf(HierarchySep);
-                var childName = (i >= 0) ? x.child.Substring(i + 1) : child;
-
-                var aitems = m.GetWithDefault(parent);
-                // first check if the link to this menu was already created
-                // for ex: avatar drop down created by AvatarParamToItem already add a reference to its menu
-                if (aitems.Any(item => item.action.menu == child)) continue;
-
-                var item = new MenuItem
-                {
-                    name = childName,
-                    action = new ItemAction
-                    {
-                        type = "menu",
-                        menu = child,
-                    },
-                };
-                aitems.Add(item);
-            }
-
-            return m;
-        }
-
-        public static Menus AvatarAdvancedSettingsToMenus(List<CVRAdvancedSettingsEntry> advSettings, Animator animator, string menuPrefix)
-        {
-            var m = new Menus();
-
-            // Build menus from the avatar parameters, focus on items directly (leaves in the hierarchy)
-            foreach (var s in advSettings)
-            {
-                switch (AvatarParamToItem(s, animator, menuPrefix, m))
-                {
-                    case null:
-                        continue;
-
-                    case MenuItem item:
-                        item.name = s.name;
-                        logger.Msg($"OnAvatarAdvancedSettings parameter {item.name}: {s.type}");
-                        var aitems = m.GetWithDefault(menuPrefix);
-                        aitems.Add(item);
-                        break;
-                }
-            }
-
-            return ReifyHierarchyInNames(m);
-        }
-
-        public static Menus SplitOverCrowdedMenus(Menus m, uint overcrowdedMenuValue = 7)
-        {
-            var pagePrefix = "page-";
-            var keys = m.Keys.OrderBy(n => -n.Length).ToArray(); // process bottom-up (deepest first)
-            foreach (var parents in keys)
-            {
-                var items = m[parents];
-                if (items.Count <= overcrowdedMenuValue) continue;
-
-                // first create new submenu for each page with the crowded items
-                var page = 1;
-                var pageItems = 0;
-                foreach (var item in items)
-                {
-                    if (pageItems >= overcrowdedMenuValue)
-                    {
-                        ++page;
-                        pageItems = 0;
-                    }
-
-                    m.GetWithDefault(Path(parents, pagePrefix + page)).Add(item);
-                    ++pageItems;
-                };
-
-                // now create links to the submenu in the parent
-                items.Clear();
-                for (var i = 1; i <= page; ++i)
-                {
-                    items.Add(new MenuItem()
-                    {
-                        name = $"Page {i}",
-                        action = new ItemAction { type = "menu", menu = Path(parents, pagePrefix + i) },
-                    });
-                }
-            }
-
-            return m;
-        }
 
         private static Menus? avatarMenus;
         private static void OnAvatarAdvancedSettings(PlayerSetup __instance)
         {
             var animator = __instance._animator;
             var advSettings = __instance._avatarDescriptor.avatarSettings.settings;
-            var menuPrefix = AvatarMenuPrefix;
+            var menuPrefix = avatarMenuName;
             var m = avatarMenus = AvatarAdvancedSettingsToMenus(advSettings, animator, menuPrefix);
 
             logger.Msg($"OnAvatarAdvancedSettings {advSettings.Count} items");
@@ -1011,133 +1143,6 @@ namespace ActionMenu
             instance.OnActionMenuReady(); // reload
         }
 
-        public static MenuItem? AvatarParamToItem(CVRAdvancedSettingsEntry s, Animator animator,
-            // used in case of nested menus like drop down
-            string menuPrefix, Menus m)
-        {
-            var item = new MenuItem();
-
-            // build the items in the menu
-            switch (s.type)
-            {
-                case SettingsType.GameObjectToggle: {
-                    item.enabled = animator?.GetBool(s.machineName) ?? s.toggleSettings?.defaultValue ?? false;
-                    item.action = new ItemAction
-                    {
-                        type = "avatar parameter",
-                        parameter = s.machineName,
-                        control = "toggle",
-                        value = 1f,
-                    };
-                    break;
-                }
-
-                case SettingsType.GameObjectDropdown: {
-                    var submenuName = Path(menuPrefix, s.name);
-                    // if parameter name has suffix Impulse, adapt control type
-                    var isImpulse = s.machineName.EndsWith("Impulse");
-                    var dd = s.dropDownSettings;
-                    var selectedValue = animator?.GetInteger(s.machineName) ?? dd?.defaultValue;
-
-                    item.action = new ItemAction
-                    {
-                        type = "menu",
-                        menu = submenuName,
-                    };
-
-                    List<MenuItem> sitems = dd.options.Select((o, index) => new MenuItem
-                    {
-                        name = o.name,
-                        enabled = index == selectedValue,
-                        action = new ItemAction
-                        {
-                            type = "avatar parameter",
-                            parameter = s.machineName,
-                            control = isImpulse ? "impulse" : "toggle",
-                            value = index,
-                            exclusive_option = !isImpulse,
-                        },
-                    }).ToList();
-
-                    m.Add(submenuName, sitems);
-                    break;
-                }
-
-                case SettingsType.Slider: {
-                    var defaultValue = animator?.GetFloat(s.machineName) ?? s.sliderSettings?.defaultValue;
-                    item.action = new ItemAction
-                    {
-                        type = "avatar parameter",
-                        parameter = s.machineName,
-                        control = "radial",
-                        default_value = defaultValue,
-                        min_value = 0.0f,
-                        max_value = 1.0f,
-                    };
-                    break;
-                }
-
-                case SettingsType.InputSingle: {
-                    var defaultValue = animator?.GetFloat(s.machineName) ?? s.inputSingleSettings?.defaultValue;
-                    item.action = new ItemAction
-                    {
-                        type = "avatar parameter",
-                        parameter = s.machineName,
-                        control = "radial",
-                        default_value = defaultValue,
-                        // TODO: we're guessing here, we should allow to override somewhere
-                        min_value = 0.0f,
-                        max_value = 1.0f,
-                    };
-                    break;
-                }
-
-                case SettingsType.Joystick2D: {
-                    var sjoy = s.joystick2DSetting;
-                    var defaultValueX = animator?.GetFloat(s.machineName + "-x") ?? sjoy.defaultValue.x;
-                    var defaultValueY = animator?.GetFloat(s.machineName + "-y") ?? sjoy.defaultValue.y;
-                    item.action = new ItemAction
-                    {
-                        type = "avatar parameter",
-                        parameter = s.machineName,
-                        control = "joystick_2d",
-                        min_value_x = 0.0f, // TODO: cvr seems to ignore min/max defined in unity, sad :(
-                        max_value_x = 1.0f,
-                        default_value_x = defaultValueX,
-                        min_value_y = 0.0f,
-                        max_value_y = 1.0f,
-                        default_value_y = defaultValueY,
-                    };
-                    break;
-                }
-
-                case SettingsType.InputVector2: {
-                    var svec = s.inputVector2Settings;
-                    item.action = new ItemAction
-                    {
-                        type = "avatar parameter",
-                        parameter = s.machineName,
-                        control = "input_vector_2d",
-                        min_value_x = 0.0f, // TODO: cvr has no min max values so we're left guessing here
-                        max_value_x = 1.0f,
-                        default_value_x = svec.defaultValue.x,
-                        min_value_y = 0.0f,
-                        max_value_y = 1.0f,
-                        default_value_y = svec.defaultValue.y,
-                    };
-                    break;
-                }
-
-                case SettingsType.MaterialColor:
-                case SettingsType.Joystick3D:
-                case SettingsType.InputVector3:
-                    logger.Msg($"Avatar parameter {s.name} ignored, its type {s.type} is not supported yet");
-                    return null; // TODO: unsupported
-            };
-
-            return item;
-        }
-
         private void OnActionMenuReady()
         {
             var view = cohtmlView.View;
@@ -1182,13 +1187,13 @@ namespace ActionMenu
             API.InvokeOnGlobalMenuLoaded(config.menus);
 
             // add item to link to all mods menu if any is present
-            if (config.menus.GetWithDefault(SubmenuNameForMods).Count > 0)
+            if (config.menus.GetWithDefault(modsMenuName).Count > 0)
             {
-                config.menus.GetWithDefault(MainMenu).Add(new MenuItem()
+                config.menus.GetWithDefault(mainMenuName).Add(new MenuItem()
                 {
                     name = "Mods",
                     icon = "icon_melon.svg",
-                    action = new ItemAction() { type = "menu", menu = SubmenuNameForMods },
+                    action = new ItemAction() { type = "menu", menu = modsMenuName },
                 });
             }
 
