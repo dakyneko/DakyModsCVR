@@ -262,6 +262,7 @@ namespace ActionMenu
             "icon_avatar_settings_profile.svg",
         };
 
+        public static SteamVR_Action_Boolean? actionMenuButton;
 
         // Private implementation
         private static ActionMenuMod instance;
@@ -317,19 +318,21 @@ namespace ActionMenu
                 melonPrefsMap.Add(e.Identifier, e);
             BuildOurMelonPrefsMenus();
 
-            // override the quickmenu button behavior, long press means action menu
+            // use our own steamvr bind for the action menu (also allows us to get left/right hand)
             HarmonyInstance.Patch(
                 typeof(InputModuleSteamVR).GetMethod(nameof(InputModuleSteamVR.UpdateInput), BindFlags.Public | BindFlags.Instance),
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateInputSteamVR))));
-            HarmonyInstance.Patch(
-                typeof(InputModuleSteamVR).GetMethod(nameof(InputModuleSteamVR.UpdateImportantInput), BindFlags.Public | BindFlags.Instance),
-                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateInputSteamVR))));
+
+            //not sure why we call twice... UpdateInput is always called, the result doesnt matter as we are just appending to it with a postfix
+            //HarmonyInstance.Patch(
+            //    typeof(InputModuleSteamVR).GetMethod(nameof(InputModuleSteamVR.UpdateImportantInput), BindFlags.Public | BindFlags.Instance),
+            //    postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateInputSteamVR))));
             HarmonyInstance.Patch(
                 typeof(InputModuleMouseKeyboard).GetMethod(nameof(InputModuleMouseKeyboard.UpdateInput), BindFlags.Public | BindFlags.Instance),
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateInputDesktop))));
-            HarmonyInstance.Patch(
-                typeof(InputModuleMouseKeyboard).GetMethod(nameof(InputModuleMouseKeyboard.UpdateImportantInput), BindFlags.Public | BindFlags.Instance),
-                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateInputDesktop))));
+            //HarmonyInstance.Patch(
+            //    typeof(InputModuleMouseKeyboard).GetMethod(nameof(InputModuleMouseKeyboard.UpdateImportantInput), BindFlags.Public | BindFlags.Instance),
+            //    postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateInputDesktop))));
 
             // handle our own input
             HarmonyInstance.Patch(
@@ -428,6 +431,7 @@ namespace ActionMenu
             view.BindCall("ItemCallback_float_float", new Action<string, float, float>(OnItemCallback_float_float));
             view.BindCall("RequestDynamicMenu", new Action<string>(OnRequestDynamicMenu));
             view.RegisterForEvent("CenterJoystick", new Action(OnCenterJoystick));
+            view.RegisterForEvent("VibrateController", new Action(OnVibrateController));
 
             // TODO: adjust effect
             var material = menuTransform.GetComponent<MeshRenderer>().materials[0];
@@ -459,7 +463,7 @@ namespace ActionMenu
 
             var t = menuTransform = go.transform;
             t.SetParent(parent, false);
-            var scale = MetaPort.Instance.isUsingVr ? 0.2f : 0.5f;
+            var scale = MetaPort.Instance.isUsingVr ? 0.12f : 0.5f;
             t.localScale = new Vector3(scale, scale, scale);
 
             menuCollider = t.GetComponent<Collider>();
@@ -485,7 +489,10 @@ namespace ActionMenu
             // ready set go
             v.enabled = true;
             go.SetActive(true);
+
             UpdatePositionToAnchor();
+
+            actionMenuButton = SteamVR_Actions.alphaBlendInteractive_CustomActionBool1;
         }
 
         private static void OnCVRCameraToggle(CVRCamController __instance)
@@ -564,7 +571,7 @@ namespace ActionMenu
             instance.ToggleMenu(show);
         }
 
-        public void ToggleMenu(bool show)
+        public void ToggleMenu(bool show, bool hand = true)
         {
             logger.Msg($"ToggleMenu show={show} , cohtmlView.enabled={cohtmlView.enabled} collider={menuCollider?.enabled} vr={MetaPort.Instance.isUsingVr}");
             if (cohtmlView == null || cohtmlView.View == null) return;
@@ -579,17 +586,26 @@ namespace ActionMenu
             if (show && menuCollider?.enabled == true)
                 UpdatePositionToAnchor();
 
-            //moveSys.disableCameraControl = show;
+            ActionInputManager.useLeftHand = hand;
         }
 
         private static void OnUpdateInputSteamVR(InputModuleSteamVR __instance)
         {
             if (__instance.vrMenuButton == null) return; // cvr calls this even in desktop, doh
+            
+            bool amOpen = cohtmlView?.enabled == true;
 
-            instance.OnUpdateInput(
-                __instance.vrMenuButton.GetStateDown(SteamVR_Input_Sources.LeftHand),
-                __instance.vrMenuButton.GetStateUp(SteamVR_Input_Sources.LeftHand));
-            // TODO: add support for right hand too
+            bool left = actionMenuButton.GetStateUp(SteamVR_Input_Sources.LeftHand);
+            bool right = actionMenuButton.GetStateUp(SteamVR_Input_Sources.RightHand);
+
+            if (left)
+            {
+                instance.ToggleMenu(!amOpen, true);
+            }
+            if (right)
+            {
+                instance.ToggleMenu(!amOpen, false);
+            }
         }
 
         private static void OnUpdateInputDesktop(InputModuleMouseKeyboard __instance)
@@ -700,8 +716,14 @@ namespace ActionMenu
         {
             if (cohtmlReadyState < 1) return;
             // TODO: auto detect left or right anchor
-            var anch = menuManager._leftVrAnchor.transform;
-            menuTransform.position = anch.position;
+            //var anch = menuManager._leftVrAnchor.transform;
+
+            var camera = PlayerSetup.Instance.vrCameraRig;
+            var left = PlayerSetup.Instance.leftRay.transform;
+            var right = PlayerSetup.Instance.rightRay.transform;
+
+            var anch = ActionInputManager.useLeftHand ? left : right;
+            menuTransform.position = anch.position + anch.up * 0.08f + anch.forward * 0.1f;
             menuTransform.rotation = anch.rotation;
         }
 
@@ -1268,6 +1290,11 @@ namespace ActionMenu
         private void OnCenterJoystick()
         {
             ActionInputManager.inputJoystick = Vector2.zero;
+        }
+
+        private void OnVibrateController()
+        {
+            CVRInputManager.Instance.Vibrate(0f, 0.1f, 10f, 1f, ActionInputManager.useLeftHand);
         }
 
         public override void OnUpdate()

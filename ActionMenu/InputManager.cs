@@ -41,8 +41,6 @@ namespace ActionMenu
 
         internal static void HandleVRInput(ref Vector3 ___movementVector, ref Vector2 ___lookVector, ref float ___interactLeftValue, ref float ___interactRightValue)
         {
-            // TODO: add support for right hand too
-
             // get our own joystick input for reliability and simplicity (Valve.VR/SteamVRActions)
             vrMovementAction = SteamVR_Actions.alphaBlendInteractive_WalkAction;
             vrLookAction = SteamVR_Actions.alphaBlendInteractive_ControllerRotation;
@@ -65,7 +63,7 @@ namespace ActionMenu
 
                 //handling lookvector with leftstick is special as we need to make sure to respect user turnspeed, otherwise we are a bayblade
                 ___lookVector = useOneHandedControls ? leftStickVector * (float)MetaPort.Instance.settings.GetSettingInt("ControlTurnSpeed") / 100f : Vector3.zero;
-                ___movementVector = useOneHandedControls ? new Vector3(leftStickVector.x * Math.Abs(leftStickVector.y) * 0.5f, 0, leftStickVector.y) : Vector3.zero;
+                ___movementVector = useOneHandedControls ? new Vector3(leftStickVector.x * Math.Abs(leftStickVector.y) * 0.5f, 0, leftStickVector.y) : ___movementVector;
                 inputTrigger = ___interactRightValue;
             }
         }

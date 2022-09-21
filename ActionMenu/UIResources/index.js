@@ -106,7 +106,7 @@ function handle_direction_main(x, y, dist) { // x,y from -1 to +1
 
 	if (selected_sector != null && old_selected_sector != selected_sector) {
 		appcall("PlayCoreUiSound", "Hover");
-		appcall("handVibrate", 0, 0.1, 10, 1); // delay, duration, frequency, amplitude
+		engine.trigger('OnVibrateController');
 	}
 }
 
