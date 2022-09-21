@@ -174,9 +174,31 @@ function handle_click_main() {
 		}
 
 		case 'set melon preference': {
-			const new_value = item.enabled ? 0 : (action.value ?? 1);
-			engine.call("SetMelonPreference", action.parameter, String(new_value));
-			action_toggle = action?.toggle;
+			switch (action.control) {
+				case undefined:
+				case 'toggle': {
+					const new_value = item.enabled ? 0 : (action.value ?? 1);
+					engine.call("SetMelonPreference", action.parameter, String(new_value));
+					action_toggle = action?.toggle;
+					break;
+				}
+
+				case 'radial': {
+					control_type_radial(item, action,
+						v => engine.call("SetMelonPreference", action.parameter, String(v)));
+					break;
+				}
+
+				case 'joystick_2d':
+				case 'input_vector_2d': {
+					control_type_2d(item, action,
+						(x, y) => engine.call("SetMelonPreference", action.parameter, `${x},${y}`));
+					break;
+				}
+
+				default:
+					throw `unsupported control type: ${action.control}`;
+			}
 			break;
 		}
 

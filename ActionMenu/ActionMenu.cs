@@ -231,14 +231,45 @@ namespace ActionMenu
                                 action = new()
                                 {
                                     type = "set melon preference",
+                                    control = "toggle",
                                     parameter = e.Identifier,
                                     toggle = true,
                                 }
                             });
                             break;
 
+                        case MelonPreferences_Entry<float> e:
+                            items.Add(new MenuItem()
+                            {
+                                name = e.DisplayName,
+                                action = new()
+                                {
+                                    type = "set melon preference",
+                                    control = "radial",
+                                    parameter = e.Identifier,
+                                    default_value = e.Value,
+                                }
+                            });
+                            break;
+
+                        case MelonPreferences_Entry<Vector2> e:
+                            var v = e.Value;
+                            items.Add(new MenuItem()
+                            {
+                                name = e.DisplayName,
+                                action = new()
+                                {
+                                    type = "set melon preference",
+                                    control = "input_vector_2d",
+                                    parameter = e.Identifier,
+                                    default_value_x = v.x,
+                                    default_value_y = v.y,
+                                }
+                            });
+                            break;
+
                         default:
-                            logger.Warning($"OnSetMelonPreference {e_.Identifier} unsupported type {e_.GetReflectedType()}");
+                            logger.Warning($"BuildMelonPrefsMenus {e_.Identifier} unsupported type {e_.GetReflectedType()}");
                             break;
                     }
                 }
@@ -1193,8 +1224,21 @@ namespace ActionMenu
             switch (e_)
             {
                 case MelonPreferences_Entry<bool> e: {
-                        if (float.TryParse(value, out float valueInt))
-                            e.Value = valueInt != 0;
+                        if (float.TryParse(value, out float valueFloat))
+                            e.Value = valueFloat != 0;
+                        break;
+                    }
+
+                case MelonPreferences_Entry<float> e: {
+                        if (float.TryParse(value, out float valueFloat))
+                            e.Value = valueFloat;
+                        break;
+                    }
+
+                case MelonPreferences_Entry<Vector2> e: {
+                        var strs = value.Split(',');
+                        if (float.TryParse(strs[0], out float valueFloatX) && float.TryParse(strs[1], out float valueFloatY))
+                            e.Value = new Vector2(valueFloatX, valueFloatY);
                         break;
                     }
                 // TODO: implement other types
