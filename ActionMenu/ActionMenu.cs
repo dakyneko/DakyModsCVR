@@ -277,7 +277,7 @@ namespace ActionMenu
         private MelonPreferences_Category melonPrefs;
         private Dictionary<string, MelonPreferences_Entry> melonPrefsMap;
         private MelonPreferences_Entry<bool> flickSelection, boringBackButton, dontInstallResources,
-            splitAvatarOvercrowdedMenu, quickMenuLongPress;
+            splitAvatarOvercrowdedMenu, quickMenuLongPress, oneHandedControls, leftHanded;
 
         // unique identifier -> function or menu
         private Dictionary<string, Action> callbackItems = new();
@@ -305,12 +305,17 @@ namespace ActionMenu
                 description: "Makes the ActionMenu appear with a short press and QuickMenu with long");
             splitAvatarOvercrowdedMenu = melonPrefs.CreateEntry("split_overcrowded_avatar_menu", false, "No crowded menus",
                 description: "Split avatar menu in multiple pages when it's too crowded");
+            oneHandedControls = melonPrefs.CreateEntry("onehanded_controls", true, "One-handed controls",
+                description: "Use offhand to control movement when ActionMenu is open");
+            oneHandedControls.OnValueChangedUntyped += UpdateActionInputManagerSettings;
+            leftHanded = melonPrefs.CreateEntry("lefthanded", true, "leftHanded",
+            description: "leftHanded");
+            leftHanded.OnValueChangedUntyped += UpdateActionInputManagerSettings;
 
             melonPrefsMap = new();
             foreach (var e in melonPrefs.Entries)
                 melonPrefsMap.Add(e.Identifier, e);
             BuildOurMelonPrefsMenus();
-
 
             // override the quickmenu button behavior, long press means action menu
             HarmonyInstance.Patch(
@@ -326,12 +331,7 @@ namespace ActionMenu
                 typeof(InputModuleMouseKeyboard).GetMethod(nameof(InputModuleMouseKeyboard.UpdateImportantInput), BindFlags.Public | BindFlags.Instance),
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateInputDesktop))));
 
-
-            // FIXME: this stops the avatar animator from moving too, but not ideal, cannot fly anymore or rotate head
-            //HarmonyInstance.Patch(
-            //    SymbolExtensions.GetMethodInfo(() => default(MovementSystem).Update()),
-            //    prefix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateMovementSystem))));
-
+            // handle our own input
             HarmonyInstance.Patch(
                 SymbolExtensions.GetMethodInfo(() => default(CVRInputManager).Update()),
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateInputWhileMenu))));
@@ -384,59 +384,27 @@ namespace ActionMenu
             HarmonyInstance.Patch(
                 SymbolExtensions.GetMethodInfo(() => default(MovementSystem).ToggleFlight()),
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRFlyToggle))));
+
+            // camera render hook to update actionmenu position at end of frame
+            Camera.onPreRender += OnRender;
         }
-
-        //private static bool OnUpdateMovementSystem(ABI_RC.Core.Player.CVR_MovementSystem __instance)
-        //{
-        //    if (!MetaPort.Instance.isUsingVr) return true;
-        //    return cohtmlView?.enabled != true; // TODO: animation still run, prevent emotes
-        //}
-
-        private static Vector2 inputJoystick = Vector2.zero;
-        private static int inputTrigger;
-
-        private static void HandleDesktopInput(ref int ___interactRightValue, ref Vector2 ___lookVector, ref Vector2 ___rawLookVector, ref Vector3 ___movementVector)
+        public void UpdateActionInputManagerSettings()
         {
-            //kindof works with gamepad now, but joystick doesn't snap back to center
-            inputJoystick += ___rawLookVector / 10;
-            inputJoystick = Vector2.ClampMagnitude(inputJoystick, 1f);
-            ___lookVector = Vector2.zero;
-            inputTrigger = ___interactRightValue;
+            ActionInputManager.useOneHandedControls = oneHandedControls.Value;
+            ActionInputManager.useLeftHand = leftHanded.Value;
         }
 
-        private static void HandleVRInput(ref int ___interactRightValue, ref int ___interactLeftValue, ref Vector2 ___lookVector, ref Vector2 ___rawLookVector, ref float ___floatDirection, ref Vector3 ___movementVector)
-        {
-            // TODO: add support for right hand too
-
-            var oneHandedControls = true;
-
-            if (true) // left hand
-            {
-                // y is 0 and irrelevant | lookVector.y is 0 unless ControlEnableRightsStickDigitalDeadZones is false, but floatDirection is the same result
-                inputJoystick = new Vector2(___movementVector.x, ___movementVector.z);
-                ___movementVector = oneHandedControls ? new Vector3(___lookVector.x * Math.Abs(___floatDirection) * 0.5f, 0, ___floatDirection) : Vector3.zero;
-                inputTrigger = ___interactLeftValue;
-            }
-            else // right hand
-            {
-                inputJoystick = ___rawLookVector;
-                ___lookVector = oneHandedControls ? new Vector3(___movementVector.x * Math.Abs(___movementVector.z) * 0.5f, 0, ___movementVector.z) : Vector3.zero;
-                inputTrigger = ___interactRightValue;
-            }
-        }
-
-        private static void OnUpdateInputWhileMenu(ref int ___interactRightValue, ref int ___interactLeftValue, ref Vector2 ___lookVector, ref Vector2 ___rawLookVector, ref float ___floatDirection, ref Vector3 ___movementVector)
+        public static void OnUpdateInputWhileMenu(ref Vector3 ___movementVector, ref Vector2 ___lookVector, ref float ___interactLeftValue, ref float ___interactRightValue)
         {
             if (cohtmlView?.enabled != true) return;
 
-            // desktop input
             if (!MetaPort.Instance.isUsingVr)
             {
-                HandleDesktopInput(ref ___interactRightValue, ref ___lookVector, ref ___rawLookVector, ref ___movementVector);
+                ActionInputManager.HandleDesktopInput(ref ___lookVector, ref ___interactRightValue);
             }
-            else // vr input
+            else
             {
-                HandleVRInput(ref ___interactRightValue, ref ___interactLeftValue, ref ___lookVector, ref ___rawLookVector, ref ___floatDirection, ref ___movementVector);
+                ActionInputManager.HandleVRInput(ref ___movementVector, ref ___lookVector, ref ___interactLeftValue, ref ___interactRightValue);
             }
         }
 
@@ -459,6 +427,7 @@ namespace ActionMenu
             view.BindCall("ItemCallback_float", new Action<string, float>(OnItemCallback_float));
             view.BindCall("ItemCallback_float_float", new Action<string, float, float>(OnItemCallback_float_float));
             view.BindCall("RequestDynamicMenu", new Action<string>(OnRequestDynamicMenu));
+            view.RegisterForEvent("CenterJoystick", new Action(OnCenterJoystick));
 
             // TODO: adjust effect
             var material = menuTransform.GetComponent<MeshRenderer>().materials[0];
@@ -610,19 +579,7 @@ namespace ActionMenu
             if (show && menuCollider?.enabled == true)
                 UpdatePositionToAnchor();
 
-            if (vr)
-            {
-                //moveSys.SetImmobilized(show);
-                //moveSys.canMove = !show; // TODO: this isn't enough, body animator still move
-                //moveSys.canFly = !show;
-            }
-            else
-            {
-                moveSys.disableCameraControl = show;
-                //CVRInputManager.Instance.inputEnabled = !show;
-                //RootLogic.Instance.ToggleMouse(show);
-                //menuManager.desktopControllerRay.enabled = !show;
-            }
+            //moveSys.disableCameraControl = show;
         }
 
         private static void OnUpdateInputSteamVR(InputModuleSteamVR __instance)
@@ -700,25 +657,25 @@ namespace ActionMenu
 
             if (cohtmlView?.enabled != true || cohtmlView?.View == null) return;
 
-            if (menuManager._desktopMouseMode && !MetaPort.Instance.isUsingVr) // Desktop mode
-            {
-                if (menuManager._camera == null)
-                    menuManager._camera = PlayerSetup.Instance.desktopCamera.GetComponent<Camera>();
-                UpdatePositionToDesktopAnchor();
-            }
-            else
-            {
-                if (menuCollider.enabled)
-                {
-                    UpdatePositionToVrAnchor();
-                }
-            }
+            //if (menuManager._desktopMouseMode && !MetaPort.Instance.isUsingVr) // Desktop mode
+            //{
+            //    if (menuManager._camera == null)
+            //        menuManager._camera = PlayerSetup.Instance.desktopCamera.GetComponent<Camera>();
+            //    UpdatePositionToDesktopAnchor();
+            //}
+            //else
+            //{
+            //    if (menuCollider.enabled)
+            //    {
+            //        UpdatePositionToVrAnchor();
+            //    }
+            //}
 
             if (cohtmlReadyState < 2) return;
             var view = cohtmlView.View;
             var data = new InputData {
-                joystick = inputJoystick,
-                trigger = inputTrigger,
+                joystick = ActionInputManager.inputJoystick,
+                trigger = ActionInputManager.inputTrigger,
             };
             view.TriggerEvent<string>("InputData", JsonUtility.ToJson(data));
         }
@@ -736,7 +693,7 @@ namespace ActionMenu
             if (cohtmlReadyState < 1) return;
             Transform rotationPivot = PlayerSetup.Instance._movementSystem.rotationPivot;
             menuTransform.eulerAngles = rotationPivot.eulerAngles;
-            menuTransform.position = rotationPivot.position + rotationPivot.forward * 1f;
+            menuTransform.position = rotationPivot.position + rotationPivot.forward * 1f + rotationPivot.right * 0.75f + rotationPivot.up * -0.25f;
         }
 
         private void UpdatePositionToVrAnchor()
@@ -1307,11 +1264,21 @@ namespace ActionMenu
             }
         }
 
+        // called by actionmenu widgets if on desktop
+        private void OnCenterJoystick()
+        {
+            ActionInputManager.inputJoystick = Vector2.zero;
+        }
+
         public override void OnUpdate()
         {
             if (Input.GetKeyDown(KeyCode.F3)) Reload(); // reload
+        }
 
-            if (menuTransform != null) UpdatePositionToVrAnchor();
+        // update menu position at end of every frame to prevent tearing on fast movement
+        public void OnRender(Camera cam)
+        {
+            if (menuTransform != null) UpdatePositionToAnchor();
         }
 
         internal class OurLib : Lib

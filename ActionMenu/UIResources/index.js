@@ -1,7 +1,7 @@
 const totalwidth = 500; // full width of actionmenu in pixels
 const mid = 250; // half width in screen px
 const maxdist = 0.15; // 'inner' joystick zone, normalized
-const deadzone = 0.5; // normalized
+const deadzone = 0.8; // normalized
 const pi = Math.PI;
 const pi2 = 2 * Math.PI;
 const clamp = (min, max, v) => Math.min(max, Math.max(min, v));
@@ -28,11 +28,19 @@ var wait_joystick_recenter = false; // prevent users to select items by mistake 
 var was_in_deadzone = false;
 var update_to_items = {}; // items registry to sync game<>menu state
 
+// center desktop joystick or wait for vr joystick to manually center
+function center_joystick() {
+	if (settings.in_vr) {
+		wait_joystick_recenter = true;
+		return;
+	}
+	engine.trigger('CenterJoystick');
+}
 
 function handle_direction(x, y) { // values between -1 and +1
 	if (!quickmenu_active) return;
 
-	const dist = Math.sqrt(x*x + y*y);
+	const dist = Math.sqrt(x * x + y * y);
 	const is_in_deadzone = dist <= deadzone;
 
 	if (wait_joystick_recenter) {
@@ -61,10 +69,10 @@ function refresh_selection_sector(selected_sector) {
 }
 
 function coords_to_angle(x, y, dist) { // x,y from -1 to +1
-	const divisor =  dist - y;
+	const divisor = dist - y;
 	const angle = Math.abs(divisor) <= 0.0001 // protection for division by 0
 		? 0.0
-		: 2* Math.atan(x / divisor) + pi;
+		: 2 * Math.atan(x / divisor) + pi;
 	return angle; // in radians
 }
 
@@ -75,7 +83,7 @@ function handle_direction_main(x, y, dist) { // x,y from -1 to +1
 	if (dist >= deadzone) {
 		$sector.style.display = 'block';
 		const angle = coords_to_angle(x, y, dist);
-		selected_sector = Math.round( angle * sectors / pi2 ) % sectors;
+		selected_sector = Math.round(angle * sectors / pi2) % sectors;
 		// cohtml doesn't detect css change on children, so we have to resort to this ugliness
 		if ($item) Array.prototype.forEach.call($item.childNodes, $el => $el.classList.add('hover'));
 		refresh_selection_sector(selected_sector);
@@ -89,8 +97,8 @@ function handle_direction_main(x, y, dist) { // x,y from -1 to +1
 		selected_sector = null;
 	}
 
-	$joystick.style.left = 100*(0.5 + maxdist * x) + '%';
-	$joystick.style.top  = 100*(0.5 + maxdist * y) + '%';
+	$joystick.style.left = 100 * (0.5 + maxdist * x) + '%';
+	$joystick.style.top = 100 * (0.5 + maxdist * y) + '%';
 
 	if ($item && old_selected_sector != selected_sector) {
 		Array.prototype.forEach.call($item.childNodes, $el => $el.classList.remove('hover'));
@@ -114,13 +122,13 @@ function handle_click() {
 const virtual_back_item = {
 	"name": "Back",
 	"icon": "icon_back.svg",
-	"action": {"type": "back"},
+	"action": { "type": "back" },
 }
 
 function handle_click_main() {
 	const item = selected_sector != null
 		? menu[selected_sector]
-		: (settings.boring_back_button ? null : virtual_back_item );
+		: (settings.boring_back_button ? null : virtual_back_item);
 
 	if (item == null) return;
 	//console.log(['click selected_sector', selected_sector, item.name, item]);
@@ -184,7 +192,7 @@ function handle_click_main() {
 				case 'impulse': {
 					if (control_type_impulse(item, action,
 						v => engine.call("ItemCallback_bool", action.parameter, v))
-						)
+					)
 						return;
 					break;
 				}
@@ -220,7 +228,7 @@ function handle_click_main() {
 				case 'impulse': {
 					if (control_type_impulse(item, action,
 						v => appcall("AppChangeAnimatorParam", action.parameter, v))
-						)
+					)
 						return;
 					break;
 				}
@@ -289,7 +297,7 @@ function control_type_radial(item, action, set_value) {
 		set_value(denormalized);
 		action.default_value = v; // kinda cheating but works
 	});
-	wait_joystick_recenter = true;
+	center_joystick();
 }
 
 function control_type_2d(item, action, set_values) {
@@ -322,9 +330,9 @@ function control_type_2d(item, action, set_values) {
 		widget_j2d.start(item, 0.5, 0.5, (x, y) => {
 			// reconvert from 0,1 to -1,+1 and scale
 			const denormalized_x = clamp(min_value_x, max_value_x,
-				last_value_x + delta_scale * (2*x - 1) * delta_x);
+				last_value_x + delta_scale * (2 * x - 1) * delta_x);
 			const denormalized_y = clamp(min_value_y, max_value_y,
-				last_value_y + delta_scale * (2*y - 1) * delta_y);
+				last_value_y + delta_scale * (2 * y - 1) * delta_y);
 			set_values(denormalized_x, denormalized_y);
 			last_value_x = denormalized_x;
 			last_value_y = denormalized_y;
@@ -350,7 +358,7 @@ document.addEventListener('mousemove', (event) => {
 	if (settings.in_vr) return;
 	let x = (event.clientX - mid);
 	let y = (event.clientY - mid);
-	const dist = Math.sqrt(x*x + y*y);
+	const dist = Math.sqrt(x * x + y * y);
 
 	// normalized and clamped to distance 1
 	const distnorm = dist / totalwidth;
@@ -411,10 +419,10 @@ function show_item_enabled(sector, item) {
 }
 
 // WARN: this doesn't support Object in any of the values!
-const action_to_update_key = (action) => 
+const action_to_update_key = (action) =>
 	['type', 'event', 'event_arguments', 'parameter']
-	.map(k => String(action[k]))
-	.join('\0');
+		.map(k => String(action[k]))
+		.join('\0');
 
 function on_game_value_update(update) {
 	if (update_to_items.length == 0) return; // not init yet
@@ -427,11 +435,11 @@ function on_game_value_update(update) {
 		if (action.toggle)
 			item.enabled = (action.value ?? true) == update.value;
 		['default_value', 'default_value_x', 'default_value_y'] // TODO: support more?
-		.forEach(k => {
-			const v = update[k];
-			if (v != null)
-			action[k] = v;
-		});
+			.forEach(k => {
+				const v = update[k];
+				if (v != null)
+					action[k] = v;
+			});
 	});
 
 	// update current menu in case an item is currently visible
@@ -502,13 +510,13 @@ function load_menu(name) {
 		$separators.appendChild($sep);
 
 		// draw item
-		const label_angle = 0.5*pi + i * pi2 / sectors;
+		const label_angle = 0.5 * pi + i * pi2 / sectors;
 		const x = mid * (1 + 0.71 * Math.sin(label_angle));
 		const y = mid * (1 + 0.71 * Math.cos(label_angle));
 
 		const $item = build_$item(item, i);
-		$item.style.top  = x +'px';
-		$item.style.left = y +'px';
+		$item.style.top = x + 'px';
+		$item.style.left = y + 'px';
 		trigger_animation($item, "animated-item");
 		$items.appendChild($item);
 	});
@@ -516,7 +524,7 @@ function load_menu(name) {
 	// middle back button
 	if (!settings.boring_back_button && menu_name != "main") {
 		const $item = build_$item(virtual_back_item);
-		$item.style.left = $item.style.top = mid +'px';
+		$item.style.left = $item.style.top = mid + 'px';
 		$items.appendChild($item);
 	}
 
@@ -528,7 +536,7 @@ function trigger_animation($el, animation) {
 	$el.classList.add(animation);
 	$el.addEventListener('animationend', (event) => {
 		$el.classList.remove(animation);
-	}, {'once': true});
+	}, { 'once': true });
 }
 
 function selection_sector_set(sectors) {
@@ -545,14 +553,14 @@ function compute_radial_mask(angle) { // angle in radians
 	let points = [];
 	if (quadrant <= 1) {
 		// 0.001 is necessary due to a graphical bug when y=0
-		points = [ [50,0], [50,50], [x, y], [100, y+0.001], [100, 0] ];
+		points = [[50, 0], [50, 50], [x, y], [100, y + 0.001], [100, 0]];
 	}
 	// depending on angle we have to add more points to fit all sections of the circle
 	else if (quadrant <= 2) {
-		points = [ [50,0], [50,50], [x, y], [x, 100], [100, 100], [100, 0] ];
+		points = [[50, 0], [50, 50], [x, y], [x, 100], [100, 100], [100, 0]];
 	}
 	else {
-		points = [ [50,0], [50,50], [x, y], [0, y], [0, 100], [100, 100], [100, 0] ];
+		points = [[50, 0], [50, 50], [x, y], [0, y], [0, 100], [100, 100], [100, 0]];
 	}
 
 	// format as css clipPath string
@@ -562,7 +570,7 @@ function compute_radial_mask(angle) { // angle in radians
 
 /* radial widget */
 
-const widget_radial = (function() {
+const widget_radial = (function () {
 	const $w = document.getElementById("widget-radial");
 	const $arc = $w.getElementsByClassName("arc")[0];
 	const $indicator = $w.getElementsByClassName("indicator")[0];
@@ -585,21 +593,21 @@ const widget_radial = (function() {
 			// protect from unintended big change 0<>100%
 			if (Math.abs(last_angle - angle) > pi) {
 				// freeze only close to 0 or 360°
-				if (angle <= pi/2)
+				if (angle <= pi / 2)
 					angle = pi2 - 0.001;
-				else if (angle >= 3*pi/2)
+				else if (angle >= 3 * pi / 2)
 					angle = 0;
 			}
 			last_angle = angle;
 
 			widget_radial_set(angle);
-			$indicator.style.left = 100 * (0.5 + maxdist * Math.sin(angle)) + '%';
-			$indicator.style.top  = 100 * (0.5 + maxdist * Math.cos(pi - angle)) + '%';
 
 			const value = angle / pi2;
 			set_value(value); // output between 0 and 1
 			$value.innerHTML = value_label(value);
 		}
+		$indicator.style.left = 100 * (0.5 + maxdist * x) + '%';
+		$indicator.style.top = 100 * (0.5 + maxdist * y) + '%';
 		// else: deadzone = no update
 	}
 
@@ -640,7 +648,7 @@ const widget_radial = (function() {
 
 /* joystick 2D widget */
 
-const widget_j2d = (function() {
+const widget_j2d = (function () {
 	const $w = document.getElementById("widget-j2d");
 	const $joystick = $w.getElementsByClassName("joystick")[0];
 	const $center = $w.getElementsByClassName("center")[0];
@@ -650,28 +658,28 @@ const widget_j2d = (function() {
 	const handle_direction_joystick_2d = (set_value, x, y, dist) => {
 		const angle = y <= -1 // protection for division by 0
 			? pi2 - 0.001
-			: (pi - 2 * Math.atan(x / ( y + dist )));
+			: (pi - 2 * Math.atan(x / (y + dist)));
 
 		values_to_joystick(x, y);
 
 		const triangles = $triangles.childNodes.length;
 		Array.prototype.forEach.call($triangles.childNodes, ($t, i) => {
-			const angle =  i * pi2 / triangles;
+			const angle = i * pi2 / triangles;
 			const tx = Math.sin(angle);
 			const ty = Math.cos(angle);
 			const dot = x * tx + y * ty; // between -1 and +1
 
-			const size = 0.1*mid + 0.35*mid * Math.max( 0, dot );
-			$t.style.borderLeft = $t.style.borderRight = size +'px solid transparent';
-			$t.style.borderBottom = size +'px solid #dac024';
+			const size = 0.1 * mid + 0.35 * mid * Math.max(0, dot);
+			$t.style.borderLeft = $t.style.borderRight = size + 'px solid transparent';
+			$t.style.borderBottom = size + 'px solid #dac024';
 		});
 
 		set_value(0.5 * (1 + x), 0.5 * (1 + y)); // convert range -1,+1 to 0,1
 	}
 
 	const values_to_joystick = (x, y) => { // expecting values -1,+1
-		$joystick.style.left = 100*(0.5 + maxdist * x) + '%';
-		$joystick.style.top  = 100*(0.5 + maxdist * y) + '%';
+		$joystick.style.left = 100 * (0.5 + maxdist * x) + '%';
+		$joystick.style.top = 100 * (0.5 + maxdist * y) + '%';
 	};
 
 	const handle_click_joystick_2d = () => {
@@ -694,7 +702,7 @@ const widget_j2d = (function() {
 			const $t = document.createElement('div');
 			$t.className = "triangle";
 			const angle = i * pi2 / triangles;
-			$t.style.top  = 50 + 35 * Math.cos(angle) + '%';
+			$t.style.top = 50 + 35 * Math.cos(angle) + '%';
 			$t.style.left = 50 + 35 * Math.sin(angle) + '%';
 			$t.style.transform = `translate(-50%, -50%) rotate(${(pi - angle) * 180 / pi}deg)`;
 			$triangles.appendChild($t);
@@ -720,7 +728,7 @@ const widget_j2d = (function() {
 /* dispatchers */
 
 function load_action_menu(_menu, _settings) {
-    menus = _menu.menus;
+	menus = _menu.menus;
 	settings = _settings ?? {};
 	console.log('load_action_menu menus:', Object.keys(_menu.menus));
 	console.log('load_action_menu settings:', JSON.stringify(settings));
@@ -772,7 +780,7 @@ function load_action_menu(_menu, _settings) {
 	});
 })();
 
-(function() {
+(function () {
 	let last_trigger = false;
 
 	engine.on('InputData', (_content) => {
@@ -805,14 +813,14 @@ engine.on('GameValueUpdate', (_update) => {
 
 if (window.navigator.appVersion != undefined) { // browser only
 	fetch('actionmenu.json')
-	.then((data) =>  data.json())
-	.then((j) => {
-		load_action_menu(j, {
-			in_vr: false,
-			boring_back_button: false,
-			flick_selection: false,
+		.then((data) => data.json())
+		.then((j) => {
+			load_action_menu(j, {
+				in_vr: false,
+				boring_back_button: false,
+				flick_selection: false,
+			});
 		});
-	});
 	quickmenu_active = true;
 } else {
 	engine.trigger('ActionMenuReady');
