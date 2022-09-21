@@ -287,6 +287,8 @@ namespace ActionMenu
         public static readonly string couiPath = @"ChilloutVR_Data\StreamingAssets\Cohtml\UIResources\ActionMenu";
         public static readonly string couiUrl = "coui://UIResources/ActionMenu";
         public static readonly Vector2Int canvasSize = new Vector2Int(500, 500);
+        public static readonly float menuBaseSizeDesktop = 1f;
+        public static readonly float menuBaseSizeVr = 0.3f;
         public static readonly string[] couiFiles = new string[]
         {
             "index.html", "index.js", "index.css", "actionmenu.json", "Montserrat-Regular.ttf",
@@ -310,6 +312,8 @@ namespace ActionMenu
         private Dictionary<string, MelonPreferences_Entry> melonPrefsMap;
         private MelonPreferences_Entry<bool> flickSelection, boringBackButton, dontInstallResources,
             splitAvatarOvercrowdedMenu, quickMenuLongPress;
+        private MelonPreferences_Entry<float> menuSize;
+        private MelonPreferences_Entry<Vector2> menuPositionOffset;
 
         // unique identifier -> function or menu
         private Dictionary<string, Action> callbackItems = new();
@@ -329,19 +333,44 @@ namespace ActionMenu
             melonPrefs = MelonPreferences.CreateCategory("ActionMenu", "Action Menu");
             flickSelection = melonPrefs.CreateEntry("flick_selection", false, "Flick select",
                 description: "Trigger items by just selecting one and recentering selection (no need for trigger)");
+            quickMenuLongPress = melonPrefs.CreateEntry("quickmenu_long_press", false, "Long press for QM",
+                description: "Makes the ActionMenu appear with a short press and QuickMenu with long");
             boringBackButton = melonPrefs.CreateEntry("boring_back_button", false, "Eccentric 'Back'",
                 description: "Show the Back button like other items (not in the middle), as the last element in all menus");
             dontInstallResources = melonPrefs.CreateEntry("dont_install_resources", false, "Dev mode",
                 description: "Don't install nor overwrite the resource files (useful for developping the Action Menu)");
-            quickMenuLongPress = melonPrefs.CreateEntry("quickmenu_long_press", false, "Long press for QM",
-                description: "Makes the ActionMenu appear with a short press and QuickMenu with long");
             splitAvatarOvercrowdedMenu = melonPrefs.CreateEntry("split_overcrowded_avatar_menu", false, "No crowded menus",
                 description: "Split avatar menu in multiple pages when it's too crowded");
+            menuSize = melonPrefs.CreateEntry("menu_size", 0.5f, "Resize",
+                description: "Resize the menu bigger or small as you see fit");
+            menuPositionOffset = melonPrefs.CreateEntry("menu_position_offset", 0.5f * Vector2.one, "Reposition",
+                description: "Move the menu off-center by this offset (in ratio of the screen height)");
 
             melonPrefsMap = new();
             foreach (var e in melonPrefs.Entries)
                 melonPrefsMap.Add(e.Identifier, e);
             BuildOurMelonPrefsMenus();
+
+            // listen to change to our melon prefs so we can reload the action menu
+            // some like positionOffset already change on the fly, so we don't want to reload!
+            foreach (var e_ in melonPrefs.Entries)
+                switch (e_) {
+                    case MelonPreferences_Entry<bool> e: // all bool prefs impact the menu deeply = need reload
+                        e.OnValueChanged += (_, _) => {
+                            BuildOurMelonPrefsMenus(); // rebuild and send it back
+                            FullReload();
+                        };
+                        break;
+
+                    default:
+                        break; // nothing
+                }
+
+            // some need custom handling
+            menuSize.OnValueChanged += (_, v) => {
+                var baseScale = MetaPort.Instance.isUsingVr ? menuBaseSizeVr : menuBaseSizeDesktop;
+                menuTransform.localScale = baseScale * v * Vector3.one;
+            };
 
 
             // override the quickmenu button behavior, long press means action menu
@@ -476,8 +505,8 @@ namespace ActionMenu
 
             var t = menuTransform = go.transform;
             t.SetParent(parent, false);
-            var scale = MetaPort.Instance.isUsingVr ? 0.2f : 0.5f;
-            t.localScale = new Vector3(scale, scale, scale);
+            var scale = MetaPort.Instance.isUsingVr ? menuBaseSizeVr : menuBaseSizeDesktop;
+            t.localScale = scale * menuSize.Value * Vector3.one;
 
             menuCollider = t.GetComponent<Collider>();
 
@@ -688,7 +717,7 @@ namespace ActionMenu
 
                 var halfScreen = 0.5f * new Vector2(Screen.width, Screen.height);
                 var mousePos = ((Vector2)Input.mousePosition - halfScreen) / canvasSize;
-                joystick = Vector2.ClampMagnitude(2f * mousePos, 1f);
+                joystick = Vector2.ClampMagnitude(3f * mousePos, 1f);
 
                 trigger = Input.GetMouseButtonDown(0) ? 1 : 0; // do we need button up anyway?
                 UpdatePositionToDesktopAnchor();
@@ -726,8 +755,11 @@ namespace ActionMenu
         {
             if (cohtmlReadyState < 1) return;
             Transform rotationPivot = PlayerSetup.Instance._movementSystem.rotationPivot;
-            menuTransform.eulerAngles = rotationPivot.eulerAngles;
-            menuTransform.position = rotationPivot.position + rotationPivot.forward * 1f;
+            var offset = 0.75f * (menuPositionOffset.Value - 0.5f * Vector2.one); // first value can be tweaked
+            menuTransform.rotation = rotationPivot.rotation;
+            menuTransform.position = rotationPivot.position
+                // y is inverted
+                + rotationPivot.rotation * new Vector3(offset.x, -offset.y, 1);
         }
 
         private void UpdatePositionToVrAnchor()
@@ -735,8 +767,9 @@ namespace ActionMenu
             if (cohtmlReadyState < 1) return;
             // TODO: auto detect left or right anchor
             var anch = menuManager._leftVrAnchor.transform;
-            menuTransform.position = anch.position;
+            var offset = 0.75f * (menuPositionOffset.Value - 0.5f * Vector2.one); // first value can be tweaked
             menuTransform.rotation = anch.rotation;
+            menuTransform.position = anch.position + anch.rotation * new Vector3(offset.x, -offset.y, 0);
         }
 
         private Menus? melonPrefsMenus;
@@ -1247,9 +1280,6 @@ namespace ActionMenu
                     logger.Warning($"OnSetMelonPreference {identifier} unsupported type {e_.GetReflectedType()}");
                     return;
             }
-
-            BuildOurMelonPrefsMenus(); // value update = rebuild and send it back
-            FullReload();
         }
 
         private void OnItemCallback(string identifier)
