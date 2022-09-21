@@ -1,28 +1,34 @@
 # Action Menu
 
-Made from scratch. The UI itself is based on CoHTML with vanilla Javascript, HTML and CSS. Dynamic menus and modding is done in C#.   
+It's a remake from scratch of the one in VRChat but for CVR with CoHTML. Customization and mods in mind. The UI itself is rendered by CoHTML (built-in CVR) and written with vanilla Javascript, HTML and CSS. It is customizable without any code using JSON overrides and it is totally moddable with dynamic menus in C#.
 For Mod developers looking into expanding the Action Menu, see [Modding API (C#)](https://github.com/dakyneko/DakyModsCVR/tree/master/ActionMenu#modding-api-c)
 
 ## Usage
 
-The Action Menu can be opened
-- In Desktop by holding `Tab`. A Short press keybind is in consideration
-- In VR by holding the left menu button (quick menu), right hand support is planned.
+By default the Action Menu can be opened:
+- In Desktop by holding `Tab`.
+- In VR by holding the left menu button (the Quick Menu button),
 
-When/If we figure out [DynamicOpenVR](https://github.com/nicoco007/DynamicOpenVR) we might be able to add a binding for opening the ActionMenu, so that you can bind it to anything, long press or short press.
+There is an option to swap the short press for the Action Menu. Currently the menu is left-handed only but support for both hands may appear soon.
+
+Possibly in the future, custom bindings may be possible wit [DynamicOpenVR](https://github.com/nicoco007/DynamicOpenVR) if enough interest appears.
 
 ## Avatar parameters
 
 The avatar submenu is automatically generated from the avatar CVR "Advanced Settings". If you're the owner of the avatar there are two things you can do to help the Action Menu to look nice:
 
-- You can use slashes `/` in the "Name" of parameters to make submenu. For example let's say you have two parameters `Clothing/Dress/Long` and `Clothing/Dress/Short`. That means the hierarchy of menu will be: Avatar > Clothing > Dress and there will be Long and Short.
-- You can append "Impulse" in the "Name" of your parameter to make it a "Button" type, meaning it will set its value for a few seconds only. Useful to trigger things.
+- You can use slashes `/` in the parameter "Name" text field to make submenu. For example let's say you have two parameters `Clothing/Dress/Long` and `Clothing/Dress/Short`. That means the submenus will be: Avatar > Clothing > Dress which will contain two items: Long and Short.
+- You can append "Impulse" in the "Parameter" text field to make it a temporary trigger type. Meaning it will set its value for half a second only. Useful to trigger things.
 
 If you aren't the owner of the avatar you can still customize through JSON overrides, see below.
  
-### Avatar JSON Overrides
+## Avatar Overrides (JSON)
 
-The Avatar Menu can be overriden via [JSON Overrides (link)](https://github.com/dakyneko/DakyModsCVR/tree/master/ActionMenu#json-overrides).
+Even though the avatar menu is auto-generated, it can be patched with a json file afterward. By edited we mean adding menu items, remove some, replacing (eg: to add icons) / moving menus altogether (restructuring) once it's been generated on the fly. Changes are not persistent, menus are all built on the fly.
+
+I recommend you check the example in `OverrideExamples/AvatarOverrides/for_842eb3b7-6bd7-4cd0-a2d1-214863aca5a4.json` . The file needs to be put into your CVR directory under `UserData\ActionMenu\AvatarOverrides\`. The filename is important, because it depends on your avatar id, it will only apply for that avatar. The format is `for_` followed by your avatar id and .json like the example.
+
+Next is another illustrated example of an avatar with its parameter.
 
 ### Examples
 Menu Structure:
@@ -97,21 +103,18 @@ Menu Structure:
   <summary> [Not Implemented] Joystick3D </summary> 
 
   Not Implemented, we are still evaluating how to approach this widget, contributions are welcome!
-  The simplest, but jank way of implementing this would be via separate sliders for each axis, alternatively a 2D widget + slider could be considered.
 </details>
 <details>
   <summary> [Not Implemented] Vector3 </summary> 
 
   Not Implemented, we are still evaluating how to approach this widget, contributions are welcome!
-  The simplest, but jank way of implementing this would be via separate sliders for each axis, alternatively a 2D widget + slider could be considered.
 </details>
 
-## JSON Overrides
+## Global Overrides (JSON)
 
-Menu Elements can be modified through json overrides. No code required. Just put your json file at the right place and it will be loaded.
+Earlier we talked about avatar submenu and now we'll talk how to customize any menu, anywhere: the global override. Menu Elements can be modified through json overrides. No code required. Just put your json file at the right place and it will be loaded.
   - For Global overrides, check `OverrideExamples/GlobalOverrides/dakytest.json` for an example. It needs to be put into your CVR directory under `UserData\ActionMenu\GlobalOverrides\`. Any name is fine with extension .json of course.
-  - For Avatar overrides, check `OverrideExamples/AvatarOverrides/for_842eb3b7-6bd7-4cd0-a2d1-214863aca5a4.json` for an example. It needs to be put into your CVR directory under `UserData\ActionMenu\AvatarOverrides\`. The name is important, because it depends on your avatar id, it will only apply for that avatar. The format is `for_` followed by your avatar id and .json like the example.
 
 ## Modding API (C#)
 
-If you want to mod it. Take a look at `ActionMenuExampleMod/` at the root of this repository.
+If you want to mod it. Take a look at `ActionMenuExampleMod/` or `ActionMenuAvatarsList` at the root of the repository (folder above). Those are good start for most mods.
