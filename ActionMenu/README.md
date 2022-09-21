@@ -3,6 +3,14 @@
 Made from scratch. The UI itself is based on CoHTML with vanilla Javascript, HTML and CSS. Dynamic menus and modding is done in C#.   
 For Mod developers looking into expanding the Action Menu, see [Modding API (C#)](https://github.com/dakyneko/DakyModsCVR/tree/master/ActionMenu#modding-api-c)
 
+## Usage
+
+The Action Menu can be opened
+- In Desktop by holding `Tab`. A Short press keybind is in consideration
+- In VR by holding the left menu button (quick menu), right hand support is planned.
+
+When/If we figure out [DynamicOpenVR](https://github.com/nicoco007/DynamicOpenVR) we might be able to add a binding for opening the ActionMenu, so that you can bind it to anything, long press or short press.
+
 ## Avatar parameters
 
 The avatar submenu is automatically generated from the avatar CVR "Advanced Settings". If you're the owner of the avatar there are two things you can do to help the Action Menu to look nice:
