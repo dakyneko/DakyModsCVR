@@ -646,7 +646,7 @@ const widget_radial = (function() {
 		$arc.style.clipPath = `polygon(${clip_path})`;
 	}
 
-	const value_label = value => Math.floor(value * 100) + "%";
+	const value_label = value => Math.round(value * 100) + "%";
 
 	const start = (item, start_value, set_value) => { // takes normalized value (0 to 1)
 		$w.style.display = 'block';
