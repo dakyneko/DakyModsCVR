@@ -1087,8 +1087,7 @@ namespace ActionMenu
             var offset = 0.75f * (menuPositionOffset.Value - 0.5f * Vector2.one); // first value can be tweaked
             menuTransform.rotation = rotationPivot.rotation;
             menuTransform.position = rotationPivot.position
-                // y is inverted
-                + rotationPivot.rotation * new Vector3(offset.x, -offset.y, 1);
+                + rotationPivot.rotation * new Vector3(offset.x, offset.y, 1);
         }
 
         private void UpdatePositionToVrAnchor()
@@ -1098,7 +1097,8 @@ namespace ActionMenu
             var anch = menuManager._leftVrAnchor.transform;
             var offset = 0.75f * (menuPositionOffset.Value - 0.5f * Vector2.one); // first value can be tweaked
             menuTransform.rotation = anch.rotation;
-            menuTransform.position = anch.position + anch.rotation * new Vector3(offset.x, -offset.y, 0);
+            menuTransform.position = anch.position
+                + anch.rotation * new Vector3(offset.x, offset.y, 0);
         }
 
         private Menus? melonPrefsMenus;
