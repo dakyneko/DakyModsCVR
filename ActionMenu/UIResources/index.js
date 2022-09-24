@@ -333,7 +333,6 @@ function control_type_2d(item, action, set_values) {
 	const max_value_x = action.max_value_x ?? 1;
 	const delta_x = max_value_x - min_value_x;
 	const start_value_x = ((action.default_value_x ?? 0) - min_value_x) / delta_x;
-	// TODO: we should restore from the previously set value
 
 	const min_value_y = action.min_value_y ?? 0;
 	const max_value_y = action.max_value_y ?? 1;
