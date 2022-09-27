@@ -68,7 +68,6 @@ namespace ActionMenu
             // Create many menus yourself for your mod. Your menus will have automatically the prefixNs prefix.
             virtual public Menus BuildModMenu()
             {
-                var xs = modMenuItems();
                 return new()
                 {
                     // the main menu of the mod
@@ -90,14 +89,18 @@ namespace ActionMenu
                     return; // if empty don't create anything
 
                 // add all mod menus and take care of the prefixNs prefix
+                var menuPrefix = prefixNs + hierarchySeparator;
                 foreach (var x in m) {
                     var items = x.Value.Select(item =>
                     {
-                        if (item.action.type == "menu")
+                        // when refer to other menu, add prefix but only if it's missing
+                        if (item.action.type == "menu" && !item.action.menu.StartsWith(menuPrefix))
                             item.action.menu = ModMenuPath(item.action.menu);
                         return item;
                     });
-                    menus.GetWithDefault(ModMenuPath(x.Key)).AddRange(items);
+                    // we check if prefix is already added by chance, only add if missing
+                    var menuWithPrefix = !x.Key.StartsWith(menuPrefix) ? ModMenuPath(x.Key) : x.Key;
+                    menus.GetWithDefault(ModMenuPath(menuWithPrefix)).AddRange(items);
                 }
                 ModsMainMenu(menus).Add(new MenuItem()
                 {
