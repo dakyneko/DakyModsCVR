@@ -157,7 +157,8 @@ namespace ActionMenu
                 {
                     type = "callback",
                     parameter = identifier,
-                    control = "toggle",
+                    control = control,
+                    toggle = control == "toggle",
                     duration = duration,
                     value = value,
                     default_value = defaultValue,
