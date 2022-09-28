@@ -37,8 +37,8 @@ namespace ActionMenuAvatarsList
                         icon = avatar.AvatarImageUrl,
                         action = BuildButtonItem("avatar_" + avatar.AvatarName, () =>
                         {
-                            AssetManagement.Instance.LoadLocalAvatar(avatar.AvatarId);
                             ActionMenuMod.Toggle(false);
+                            AssetManagement.Instance.LoadLocalAvatar(avatar.AvatarId);
                         }),
                     }).ToList()),
                 });
@@ -53,9 +53,9 @@ namespace ActionMenuAvatarsList
                         icon = s.SpawnableImageUrl,
                         action = BuildButtonItem("spawnable_" + s.SpawnableName, () =>
                         {
-                            PlayerSetup.Instance.propGuidForSpawn = s.SpawnableId;
-                            ActionMenuMod.Toggle(false);
-                            CohtmlHud.Instance.SelectPropToSpawn(s.SpawnableImageUrl, s.SpawnableName, "Prop selected for spawning");
+                            // TODO: should add "wait recenter then close"
+                            //ActionMenuMod.Toggle(false);
+                            PlayerSetup.Instance.DropProp(s.SpawnableId);
                         }),
                     }).ToList()),
                 });
