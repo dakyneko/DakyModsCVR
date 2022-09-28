@@ -89,7 +89,7 @@ namespace ActionMenu
                     return; // if empty don't create anything
 
                 // add all mod menus and take care of the prefixNs prefix
-                var menuPrefix = prefixNs + hierarchySeparator;
+                var menuPrefix = ModMenuPath();
                 foreach (var x in m) {
                     var items = x.Value.Select(item =>
                     {
@@ -100,7 +100,7 @@ namespace ActionMenu
                     });
                     // we check if prefix is already added by chance, only add if missing
                     var menuWithPrefix = !x.Key.StartsWith(menuPrefix) ? ModMenuPath(x.Key) : x.Key;
-                    menus.GetWithDefault(ModMenuPath(menuWithPrefix)).AddRange(items);
+                    menus.GetWithDefault(menuWithPrefix).AddRange(items);
                 }
                 ModsMainMenu(menus).Add(new MenuItem()
                 {
