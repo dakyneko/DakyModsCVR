@@ -19,7 +19,7 @@ using SettingsType = ABI.CCK.Scripts.CVRAdvancedSettingsEntry.SettingsType;
 using BindFlags = System.Reflection.BindingFlags;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
-[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.0.1", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.0.2", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 
 namespace ActionMenu
 {
@@ -442,6 +442,10 @@ namespace ActionMenu
 
             return m;
         }
+
+        // Allows to update the state of any items having those item action
+        // especially useful for toggle where the state is changed externally, use this.
+        public static void UpdateItemState(ItemAction action) => instance.SendItemUpdate(action);
 
         public static Menus AvatarAdvancedSettingsToMenus(List<CVRAdvancedSettingsEntry> advSettings, Animator animator, string menuPrefix)
         {
@@ -872,68 +876,62 @@ namespace ActionMenu
             UpdatePositionToAnchor();
         }
 
+        private void SendItemUpdate(ItemAction action)
+        {
+            var u = new MenuItemValueUpdate() { action = action };
+            cohtmlView?.View?.TriggerEvent<string>("GameValueUpdate", JsonSerialize(u));
+        }
+
         private static void OnCVRCameraToggle(CVRCamController __instance)
         {
             if (cohtmlReadyState < 2) return; // not ready for events
             MelonLogger.Msg($"OnCVRCameraToggle {__instance}");
-            var u = new MenuItemValueUpdate()
+            var action = new ItemAction()
             {
-                action = new ItemAction()
-                {
-                    type = "system call",
-                    event_ = "AppToggleCamera",
-                    value = __instance?.cvrCamera?.activeSelf ?? false
-                },
+                type = "system call",
+                event_ = "AppToggleCamera",
+                value = __instance?.cvrCamera?.activeSelf ?? false
             };
-            cohtmlView.View.TriggerEvent<string>("GameValueUpdate", JsonSerialize(u));
+            instance.SendItemUpdate(action);
         }
 
         private static void OnCVRMicrophoneToggle(bool muted)
         {
             if (cohtmlReadyState < 2) return; // not ready for events
             MelonLogger.Msg($"OnCVRMicrophoneToggle {muted}");
-            var u = new MenuItemValueUpdate()
+            var action = new ItemAction()
             {
-                action = new ItemAction()
-                {
-                    type = "system call",
-                    event_ = "AppToggleMute",
-                    value = !muted,
-                },
+                type = "system call",
+                event_ = "AppToggleMute",
+                value = !muted,
             };
-            cohtmlView.View.TriggerEvent<string>("GameValueUpdate", JsonSerialize(u));
+            instance.SendItemUpdate(action);
         }
 
         private static void OnCVRSeatedToggle(PlayerSetup __instance)
         {
             if (cohtmlReadyState < 2) return; // not ready for events
             MelonLogger.Msg($"OnCVRSeatedToggle {__instance.seatedPlay}");
-            var u = new MenuItemValueUpdate()
+            var action = new ItemAction()
             {
-                action = new ItemAction()
-                {
-                    type = "system call",
-                    event_ = "AppToggleSeatedPlay",
-                    value = __instance.seatedPlay,
-                },
+                type = "system call",
+                event_ = "AppToggleSeatedPlay",
+                value = __instance.seatedPlay,
             };
-            cohtmlView.View.TriggerEvent<string>("GameValueUpdate", JsonSerialize(u));
+            instance.SendItemUpdate(action);
         }
 
         private static void OnCVRFlyToggle(MovementSystem __instance)
         {
             if (cohtmlReadyState < 2) return; // not ready for events
             MelonLogger.Msg($"OnCVRFlyToggle {__instance.flying}");
-            var u = new MenuItemValueUpdate()
+            var action = new ItemAction()
             {
-                action = new ItemAction()
-                {
-                    type = "system call",
-                    event_ = "AppToggleFLightMode",
-                    value = __instance.flying,
-                },
+                type = "system call",
+                event_ = "AppToggleFLightMode",
+                value = __instance.flying,
             };
-            cohtmlView.View.TriggerEvent<string>("GameValueUpdate", JsonSerialize(u));
+            instance.SendItemUpdate(action);
         }
 
         [Serializable]
