@@ -570,6 +570,11 @@ function trigger_animation($el, animation) {
 }
 
 function selection_sector_set(sectors) {
+	// if there's only a single sector we should show the whole circle
+	if (sectors === 1) {
+		$sector.style.clipPath = `circle(50% at 50% 50%)`;
+		return;
+	}
 	const angle = pi2 / sectors;
 	const clip_path = compute_radial_mask(angle);
 	$sector.style.clipPath = `polygon(${clip_path})`;
