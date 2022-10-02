@@ -446,7 +446,7 @@ function show_item_enabled(sector, item) {
 }
 
 // WARN: this doesn't support Object in any of the values!
-const action_to_update_key = (action) => 
+const action_to_update_key = (action) =>
 	['type', 'event', 'event_arguments', 'parameter']
 	.map(k => String(action[k]))
 	.join('\0');
@@ -775,6 +775,9 @@ function load_action_menu(_menu, _settings) {
 	// need an item registry to sync game<>menu update system
 	Object.values(menus).forEach(m => {
 		m.forEach(item => {
+			// initialize the enable property for toggles to their current value
+			if (item.action.toggle)
+				item.enabled = item.enabled ?? item.action.value;
 			const k = action_to_update_key(item.action);
 			const xs = update_to_items[k] = update_to_items[k] ?? [];
 			xs.push(item);
