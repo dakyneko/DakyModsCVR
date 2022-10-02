@@ -170,9 +170,10 @@ namespace ActionMenu
             /// </summary>
             /// <param name="name"></param>
             /// <param name="callback"></param>
+            /// <param name="startingValue"></param>
             /// <returns></returns>
-            public ItemAction BuildToggleItem(string name, Action<bool> callback)
-                => BuildBoolItem(name, callback, "toggle", value: true, defaultValue: false);
+            public ItemAction BuildToggleItem(string name, Action<bool> callback, bool startingValue = true)
+                => BuildBoolItem(name, callback, "toggle", value: startingValue, defaultValue: false);
             /// <summary>
             /// Creates a button that temporarily switch its value, then back to default_value
             /// </summary>
