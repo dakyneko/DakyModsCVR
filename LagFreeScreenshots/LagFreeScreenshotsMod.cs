@@ -24,7 +24,7 @@ using SchedulerSystem = ABI_RC.Core.IO.SchedulerSystem;
 using Events = ABI_RC.Systems.Camera.Events;
 using AudioEffects = ABI_RC.Core.AudioEffects;
 
-[assembly:MelonInfo(typeof(LagFreeScreenshotsMod), "Lag Free Screenshots", "2.1.0", "knah + Daky, Protected", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(LagFreeScreenshotsMod), "Lag Free Screenshots", "2.1.1", "Daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
 [assembly:MelonOptionalDependencies("libwebpwrapper")]
 
@@ -113,9 +113,6 @@ namespace LagFreeScreenshots
 
         private static void CVRPreImageTaken(PortableCamera __instance)
         {
-            // CVR pre-capture preparations: shutter future stop
-            SchedulerSystem.RemoveJob(new SchedulerSystem.Job(__instance.DisableShutterPlayer));
-
             // and raise event
             preImageTaken ??= (MulticastDelegate)typeof(PortableCamera).GetField(nameof(PortableCamera.PreImageTaken), RefFlags.Static | RefFlags.NonPublic).GetValue(null);
             preImageTaken?.GetInvocationList().Do(f => f.Method.Invoke(f.Target, new object[] { __instance, new Events.PreImageTakenEventArgs() }));
@@ -126,8 +123,8 @@ namespace LagFreeScreenshots
             // CVR post-capture shutter effect and raise event
             __instance._videoPlayer.enabled = true;
             __instance._videoPlayer.time = 0.0;
+            __instance._videoPlayer.isLooping = false;
             __instance._videoPlayer.Play();
-            SchedulerSystem.AddJob(new SchedulerSystem.Job(__instance.DisableShutterPlayer), 1f, 0.0f, 1);
             AudioEffects.InterfaceAudio.Play(AudioEffects.AudioClipField.CameraShutter);
 
             // and raise event
@@ -136,13 +133,13 @@ namespace LagFreeScreenshots
         }
 
         private static bool OnCapture(PortableCamera __instance) {
+            if (!ourEnabled.Value)
+                return true;
+
             var camera = __instance._camera;
             var resX = __instance.width;
             var resY = __instance.height;
             var hasAlpha = camera.backgroundColor.a < 1 && camera.clearFlags == CameraClearFlags.SolidColor;
-            
-            if (!ourEnabled.Value)
-                return true;
             
             ourMainThread = Thread.CurrentThread;
 
@@ -285,7 +282,9 @@ namespace LagFreeScreenshots
                 {
                     if (r.hasError)
                         logger.Warning("Readback request finished with error (start)");
-                    
+
+                    // TODO: those are private, we should use GetData with NativeArray
+                    // TODO: probably that the else below (fallback to unsupported gpu readback is never used anyway, could be removed?)
                     data = ToBytes(r.GetDataRaw(0), r.GetLayerDataSize());
                     MelonDebug.Msg($"Bytes readback took total {stopwatch.ElapsedMilliseconds}");
                 }));
