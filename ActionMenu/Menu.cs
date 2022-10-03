@@ -19,20 +19,20 @@ namespace ActionMenu
         public ItemAction action;
         public bool? enabled;
 
-        public MenuItem(string name_, ItemAction action_)
+        public MenuItem(string name, ItemAction action, bool? enabled = null)
         {
-            name = name_;
-            icon = null;
-            action = action_;
-            enabled = null;
+            this.name = name;
+            this.icon = null;
+            this.action = action;
+            this.enabled = enabled;
         }
 
-        public MenuItem(string name_, string icon_, ItemAction action_)
+        public MenuItem(string name, string icon, ItemAction action, bool? enabled = null)
         {
-            name = name_;
-            icon = icon_;
-            action = action_;
-            enabled = null;
+            this.name = name;
+            this.icon = icon;
+            this.action = action;
+            this.enabled = enabled;
         }
     } 
     public struct ItemAction

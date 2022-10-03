@@ -34,7 +34,8 @@ namespace ActionMenuExample
                         BuildButtonItem("rawr", () => MelonLogger.Msg($"Big rawr"))),
 
                     new MenuItem("Toggle the rawr",
-                        BuildToggleItem("rawr", (v) => MelonLogger.Msg($"toggle RAWR: {v}"))),
+                        BuildToggleItem("rawr", callback: (v) => MelonLogger.Msg($"toggle RAWR: {v}")),
+                        enabled: true),
 
                     new MenuItem("Radial rawr",
                         BuildRadialItem("rawr", (v) => MelonLogger.Msg($"slider of RAWR loudness: {v}"), minValue: -1, maxValue: 1)),

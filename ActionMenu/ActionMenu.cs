@@ -149,7 +149,7 @@ namespace ActionMenu
             }
 
             private ItemAction BuildBoolItem(string name, Action<bool> callback, string control,
-                object? value = null, object? defaultValue = null, float? duration = null)
+                object? value = null, float? duration = null)
             {
                 var identifier = prefixNs + "." + control + "." + name;
                 instance.callbackItems_bool[identifier] = callback;
@@ -158,10 +158,9 @@ namespace ActionMenu
                     type = "callback",
                     parameter = identifier,
                     control = control,
-                    toggle = control == "toggle",
+                    toggle = true,
                     duration = duration,
                     value = value,
-                    default_value = defaultValue,
                 };
             }
 
@@ -172,7 +171,7 @@ namespace ActionMenu
             /// <param name="callback"></param>
             /// <returns></returns>
             public ItemAction BuildToggleItem(string name, Action<bool> callback)
-                => BuildBoolItem(name, callback, "toggle", value: true, defaultValue: false);
+                => BuildBoolItem(name, callback, "toggle", value: true);
             /// <summary>
             /// Creates a button that temporarily switch its value, then back to default_value
             /// </summary>
@@ -180,10 +179,9 @@ namespace ActionMenu
             /// <param name="callback"></param>
             /// <param name="duration"></param>
             /// <param name="value"></param>
-            /// <param name="defaultValue"></param>
             /// <returns></returns>
-            public ItemAction BuildImpulseItem(string name, Action<bool> callback, float duration = 1f, object? value = null, object? defaultValue = null)
-                => BuildBoolItem(name, callback, "impulse", value: value, defaultValue: defaultValue, duration: duration);
+            public ItemAction BuildImpulseItem(string name, Action<bool> callback, float duration = 1f, object? value = null)
+                => BuildBoolItem(name, callback, "impulse", value: value, duration: duration);
 
             /// <summary>
             /// Creates a radial widget for picking values between a min and max.
