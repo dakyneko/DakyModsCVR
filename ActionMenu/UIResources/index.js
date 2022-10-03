@@ -349,22 +349,26 @@ function control_type_2d(item, action, set_values) {
 		});
 	}
 	else if (action.control == 'input_vector_2d') {
-		const delta_scale = 0.01;
+		const delta_scale = 0.001;
 		let last_value_x = start_value_x;
 		let last_value_y = start_value_y;
+		let last_time = new Date().getTime();
 
 		// always start in the middle because it works in relative coords
 		widget_j2d.start(item, 0.5, 0.5, (x, y) => {
+            const time_now = new Date().getTime();
+			const scale = delta_scale * (time_now - last_time)
 			// reconvert from 0,1 to -1,+1 and scale
 			const denormalized_x = clamp(min_value_x, max_value_x,
-				last_value_x + delta_scale * (2*x - 1) * delta_x);
+				last_value_x + scale * (2*x - 1) * delta_x);
 			const denormalized_y = clamp(min_value_y, max_value_y,
-				last_value_y + delta_scale * (2*y - 1) * delta_y);
+				last_value_y + scale * (2*y - 1) * delta_y);
 			set_values(denormalized_x, denormalized_y);
 			last_value_x = denormalized_x;
 			last_value_y = denormalized_y;
 			action.default_value_x = last_value_x;
 			action.default_value_y = last_value_y;
+			last_time = time_now;
 		});
 	}
 	wait_joystick_recenter = true;
