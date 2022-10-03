@@ -323,7 +323,7 @@ function control_type_radial(item, action, set_value) {
 	widget_radial.start(item, start_value, (v) => {
 		const denormalized = v * delta + min_value;
 		set_value(denormalized);
-		action.default_value = v; // kinda cheating but works
+		action.default_value = denormalized; // kinda cheating but works
 	});
 	wait_joystick_recenter = true;
 }
