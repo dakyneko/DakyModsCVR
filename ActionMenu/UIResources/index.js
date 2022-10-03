@@ -572,10 +572,13 @@ function trigger_animation($el, animation) {
 function selection_sector_set(sectors) {
 	const angle = pi2 / sectors;
 	const clip_path = compute_radial_mask(angle);
-	$sector.style.clipPath = `polygon(${clip_path})`;
+	$sector.style.clipPath = clip_path;
 }
 
 function compute_radial_mask(angle) { // angle in radians
+	// full circle = no mask
+	if (angle == pi2) return "none";
+
 	const quadrant = Math.floor(2 * angle / pi) % 4;
 	const x = 50 * (1 + Math.sin(angle)); // coordinates are computed in %
 	const y = 50 * (1 + Math.cos(pi - angle));
@@ -594,7 +597,7 @@ function compute_radial_mask(angle) { // angle in radians
 	}
 
 	// format as css clipPath string
-	return points.map(([x, y]) => `${x}% ${y}%`).join(" , ");
+	return "polygon("+ points.map(([x, y]) => `${x}% ${y}%`).join(" , ") + ")";
 }
 
 
@@ -624,7 +627,7 @@ const widget_radial = (function() {
 			if (Math.abs(last_angle - angle) > pi) {
 				// freeze only close to 0 or 360°
 				if (angle <= pi/2)
-					angle = pi2 - 0.001;
+					angle = pi2;
 				else if (angle >= 3*pi/2)
 					angle = 0;
 			}
@@ -643,7 +646,7 @@ const widget_radial = (function() {
 
 	const widget_radial_set = (angle) => {
 		const clip_path = compute_radial_mask(angle);
-		$arc.style.clipPath = `polygon(${clip_path})`;
+		$arc.style.clipPath = clip_path;
 	}
 
 	const value_label = value => Math.round(value * 100) + "%";
