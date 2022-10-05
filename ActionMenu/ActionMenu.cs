@@ -656,6 +656,7 @@ namespace ActionMenu
             splitAvatarOvercrowdedMenu, quickMenuLongPress;
         private MelonPreferences_Entry<float> menuSize;
         private MelonPreferences_Entry<Vector2> menuPositionOffset;
+        private MelonPreferences_Entry<KeyCode> openKeyBinding;
 
         // for mod dynamic items and menus: unique identifier -> function or menu
         private Dictionary<string, Action> callbackItems = new();
@@ -685,6 +686,8 @@ namespace ActionMenu
                 description: "Resize the menu bigger or small as you see fit");
             menuPositionOffset = melonPrefs.CreateEntry("menu_position_offset", 0.5f * Vector2.one, "Reposition",
                 description: "Move the menu off-center by this offset (in ratio of the screen height)");
+            openKeyBinding = melonPrefs.CreateEntry("open_key_binding", KeyCode.R, "Open binding",
+                description: "Key binding to open the menu");
 
             melonPrefsMap = new();
             foreach (var e in melonPrefs.Entries)
@@ -1439,6 +1442,10 @@ namespace ActionMenu
                 var shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
                 if (shift) ConfigReload();
                 else FullReload();
+            }
+
+            if (Input.GetKeyDown(openKeyBinding.Value) && cohtmlView != null) {
+                ToggleMenu(!cohtmlView.enabled);
             }
 
             if (menuTransform != null)
