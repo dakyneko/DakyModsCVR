@@ -4,11 +4,10 @@ using System.Linq;
 using ABI_RC.Core.InteractionSystem;
 using ABI_RC.Core.EventSystem;
 using ABI_RC.Core.Player;
-using ABI_RC.Core.UI;
-
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
 [assembly:MelonInfo(typeof(ActionMenuAvatarsList.ActionMenuAvatarsListMod), "ActionMenuAvatarsList", "1.0.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly: MelonAdditionalDependencies("ActionMenu")]
 
 namespace ActionMenuAvatarsList
 {
