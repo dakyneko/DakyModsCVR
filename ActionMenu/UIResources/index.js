@@ -522,14 +522,18 @@ function clear_all_enabled_sectors(parameter) {
 
 function load_menu(name) {
 	if (menus[name] == null) throw `Menu ${name} not found`;
-	menu = menus[name];
+	menu = [...menus[name]]; // make a shallow copy: we can add dynamic elements like the "back" button
+	menu_name = name;
+
+	// boring back button is part of the radial
+	if (menu_name != "main" && settings.boring_back_button)
+		menu.unshift(virtual_back_item);
 
 	$items.innerHTML = '';
 	$enabled_sectors.innerHTML = '';
 	$separators.innerHTML = '';
 	clear_all_enabled_sectors();
 
-	menu_name = name;
 	sectors = menu.length;
 	selection_sector_set(sectors);
 	refresh_selection_sector(selected_sector);
@@ -555,11 +559,11 @@ function load_menu(name) {
 		$items.appendChild($item);
 	});
 
-	// middle back button
-	if (!settings.boring_back_button && menu_name != "main") {
+	// not-boring back button
+	if (menu_name != "main" && !settings.boring_back_button) {
 		const $item = build_$item(virtual_back_item);
-		$item.style.left = $item.style.top = mid +'px';
-		$items.appendChild($item);
+		$item.style.left = $item.style.top = mid + 'px';
+		$items.appendChild($item); // it's not added to the radial itself
 	}
 
 	// animation weeeeeeee
@@ -770,14 +774,6 @@ function load_action_menu(_menu, _settings) {
 
 	if (settings.flick_selection)
 		wait_joystick_recenter = true;
-
-	// add a nice back button if requested
-	if (settings.boring_back_button) {
-		for (const [name, m] of Object.entries(menus)) {
-			if (name == "main") continue;
-			m.unshift(virtual_back_item);
-		}
-	}
 
 	// need an item registry to sync game<>menu update system
 	Object.values(menus).forEach(m => {
