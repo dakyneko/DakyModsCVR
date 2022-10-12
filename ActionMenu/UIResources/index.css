@@ -29,6 +29,11 @@
     width: 497px;
 }
 
+#widget-radial,
+#widget-j2d {
+    z-index: 10;
+}
+
 #widget-radial {
     display: none;
     position: absolute;
@@ -203,11 +208,22 @@
     text-align: center;
 }
 
+.item.hover {
+    z-index: 5;
+    border-radius: 15%;
+    background-color: #bb6b0d7a;
+    padding: 15px;
+}
+
 .item .hover {
     animation-name: grow_item;
     animation-iteration-count: 1;
     animation-duration: 0.1s;
     animation-fill-mode: forwards;
+}
+
+.item .label.hover {
+    color: white;
 }
 
 @keyframes grow_item {
@@ -234,7 +250,7 @@
 
 .label {
     font-size: 20px;
-    color: white;
+    color: #f9ecd7;
     text-shadow: 3px 3px 6px black;
 }
 

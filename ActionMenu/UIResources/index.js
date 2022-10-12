@@ -78,7 +78,9 @@ function handle_direction_main(x, y, dist) { // x,y from -1 to +1
 		const angle = coords_to_angle(x, y, dist);
 		selected_sector = Math.round( angle * sectors / pi2 ) % sectors;
 		// cohtml doesn't detect css change on children, so we have to resort to this ugliness
-		if ($item) Array.prototype.forEach.call($item.childNodes, $el => $el.classList.add('hover'));
+		if ($item) {
+			[$item, ...Array.from($item.childNodes)].forEach($el => $el.classList.add('hover'));
+		}
 		refresh_selection_sector(selected_sector);
 	}
 	else { // deadzone = no selection
@@ -94,7 +96,8 @@ function handle_direction_main(x, y, dist) { // x,y from -1 to +1
 	$joystick.style.top  = 100*(0.5 - maxdist * y) + '%'; // html convention has vertical axis inverted
 
 	if ($item && old_selected_sector != selected_sector) {
-		Array.prototype.forEach.call($item.childNodes, $el => $el.classList.remove('hover'));
+		$item.classList.remove('hover');
+		[$item, ...Array.from($item.childNodes)].forEach($el => $el.classList.remove('hover'));
 	}
 
 	if (old_selected_sector != selected_sector) {
@@ -702,7 +705,7 @@ const widget_j2d = (function() {
 		values_to_joystick(x, y);
 
 		const triangles = $triangles.childNodes.length;
-		Array.prototype.forEach.call($triangles.childNodes, ($t, i) => {
+		Array.from($triangles.childNodes).forEach(($t, i) => {
 			const angle =  i * pi2 / triangles;
 			const tx = Math.sin(angle);
 			const ty = -Math.cos(angle); // html vertical axis is inverted
