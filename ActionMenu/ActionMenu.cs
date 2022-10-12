@@ -449,6 +449,9 @@ namespace ActionMenu
         {
             var m = new Menus();
 
+            if (advSettings == null || advSettings.Count == 0)
+                return m;
+
             // Build menus from the avatar parameters, focus on items directly (leaves in the hierarchy)
             foreach (var s in advSettings)
             {
@@ -1125,8 +1128,8 @@ namespace ActionMenu
                 m = SplitOverCrowdedMenus(m);
 
             // add avatar emotes
-            var emoteNames = __instance.GetEmoteNames();
-            if (emoteNames.Length > 0)
+            var emoteNames = __instance?.GetEmoteNames();
+            if (emoteNames != null && emoteNames.Length > 0)
             {
                 var parents = Path(menuPrefix, "emotes");
                 var aitems = m.GetWithDefault(parents);
@@ -1160,8 +1163,8 @@ namespace ActionMenu
             // TODO: add cvr avatar ToggleState?
 
             // add avatar advanced settings profiles
-            var profilesNames = __instance.getCurrentAvatarSettingsProfiles().ToList();
-            if (profilesNames.Count > 0)
+            var profilesNames = __instance.getCurrentAvatarSettingsProfiles()?.ToList();
+            if (profilesNames != null && profilesNames.Count > 0)
             {
                 profilesNames.Add("default"); // there is an implicit default in cvr
                 var parents = Path(menuPrefix, "profiles");
