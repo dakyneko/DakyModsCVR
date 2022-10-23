@@ -19,7 +19,7 @@ using SettingsType = ABI.CCK.Scripts.CVRAdvancedSettingsEntry.SettingsType;
 using BindFlags = System.Reflection.BindingFlags;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
-[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.0.3", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.0.4", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 
 namespace ActionMenu
 {
