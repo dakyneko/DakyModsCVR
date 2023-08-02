@@ -24,7 +24,7 @@ using RefFlags = System.Reflection.BindingFlags;
 using Events = ABI_RC.Systems.Camera.Events;
 using AudioEffects = ABI_RC.Core.AudioEffects;
 
-[assembly:MelonInfo(typeof(LagFreeScreenshotsMod), "Lag Free Screenshots", "2.1.2", "Daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(LagFreeScreenshotsMod), "Lag Free Screenshots", "2.2.0", "Daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
 [assembly:MelonOptionalDependencies("libwebpwrapper")]
 
@@ -450,11 +450,12 @@ namespace LagFreeScreenshots
             bitmap.UnlockBits(bitmapData);
             Marshal.FreeHGlobal(pixelsPair.Item1);
 
+
             var format = ourFormat.Value switch
             {
                 "auto" when ourSupportsWebP => "webp",
                 "auto" when hasAlpha        => "png",
-                "auto"                      => "jpg",
+                "auto"                      => "jpeg",
                 _                           => ourFormat.Value,
             };
             var description = metadata?.ToString();
