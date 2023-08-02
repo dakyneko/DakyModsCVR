@@ -10,9 +10,11 @@ using Daky;
 
 using OpCodes = System.Reflection.Emit.OpCodes;
 using RefFlags = System.Reflection.BindingFlags;
+using System.Reflection.Emit;
+using System.Reflection;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
-[assembly:MelonInfo(typeof(CameraStar.CameraStarMod), "CameraStar", "1.0.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(CameraStar.CameraStarMod), "CameraStar", "1.1.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 
 namespace CameraStar
 {
@@ -20,9 +22,9 @@ namespace CameraStar
     public class CameraStarMod : MelonMod
     {
         private static MelonLogger.Instance logger;
-        public static bool disableCameraFadeout = false;
+        public static bool disableCameraFadeout = true; // this field is grabbed by name with reflection below
 
-        public override void OnApplicationStart()
+        public override void OnInitializeMelon()
         {
             logger = LoggerInstance;
 
@@ -31,12 +33,12 @@ namespace CameraStar
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(CameraStarMod), nameof(OnPortableCameraStart))));
             HarmonyInstance.Patch(
                 SymbolExtensions.GetMethodInfo(() => default(PortableCamera).Update()),
-                transpiler: new HarmonyMethod(AccessTools.Method(typeof(CameraStarMod), nameof(TranspilePortableCameraUpdate))));
+                transpiler: new HarmonyMethod(AccessTools.Method(typeof(CameraStarMod), nameof(DisableFadoutTranspiler))));
         }
         // TODO: there are too many built-in mods, we should have options to hide them or group them (like vrc)
         // TODO: add option to disable PortableCamera fading transparent when 'inactive' so annoying
 
-        private static IEnumerable<CodeInstruction> TranspilePortableCameraUpdate(IEnumerable<CodeInstruction> instructions)
+        private static IEnumerable<CodeInstruction> DisableFadoutTranspiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
         {
             var codes = new List<CodeInstruction>(instructions);
             var idx = codes.FindIndex(x => x.StoresField(typeof(PortableCamera).GetField("_fadeOutDistance", RefFlags.NonPublic | RefFlags.Instance)));
@@ -47,11 +49,22 @@ namespace CameraStar
                     if (codes.ElementAt(idx).opcode != OpCodes.Ldarg_0) goto case false;
                     if (codes.ElementAt(idx + 1).opcode != OpCodes.Ldarg_0) goto case false;
                     if (codes.ElementAt(idx + 121).opcode != OpCodes.Ret) goto case false; // check there is nothing else at the end
-                    codes.Insert(idx, new CodeInstruction(OpCodes.Ret));
+
+                    var f = typeof(CameraStarMod).GetField(nameof(disableCameraFadeout), RefFlags.Static | RefFlags.Public);
+                    if (f == null) goto case false;
+
+                    var l = generator.DefineLabel();
+                    codes.ElementAt(idx).labels.Add(l);
+
+                    codes.InsertRange(idx, new[] {
+                        new CodeInstruction(OpCodes.Ldsfld, (FieldInfo)f),
+                        new CodeInstruction(OpCodes.Brfalse_S, l),
+                        new CodeInstruction(OpCodes.Ret),
+                        });
                     break;
 
                 case false:
-                    logger.Warning("TranspilePortableCameraUpdate failure");
+                    logger.Warning("DisableFadoutTranspiler failure");
                     break;
             }
             return codes.AsEnumerable();
@@ -71,11 +84,23 @@ namespace CameraStar
                 else __instance.RestoreLayerMask();
             });
 
+            NewCameraSetting(__instance, "disablefadeout", "Disable fadeout", typeof(CameraStarMod),
+                disableCameraFadeout,
+                v => disableCameraFadeout = v);
+
+            NewCameraSetting(__instance, "fov", "FOV (Field Of View)", typeof(CameraStarMod),
+                __instance.cameraComponent.fieldOfView, minValue: 5f, maxValue: 180f,
+                onChange: v => __instance.cameraComponent.fieldOfView = v);
+
             NewCameraSetting(__instance, "clipnear", "Near Clipping", typeof(CameraStarMod), 0f, minValue: 0f, maxValue: 1f,
                 onChange: v => __instance._camera.nearClipPlane = 0.01f + Mathf.Exp(5 * v) - 1);
 
             NewCameraSetting(__instance, "clipfar", "Far Clipping", typeof(CameraStarMod), 1f, minValue: 0f, maxValue: 1f,
                 onChange: v => __instance._camera.farClipPlane = 0.01f + Mathf.Exp(7 * v) - 1);
+
+            NewCameraSetting(__instance, "orthographic", "Orthographic", typeof(CameraStarMod),
+                __instance.cameraComponent.orthographic,
+                v => __instance.cameraComponent.orthographic = v);
         }
     }
 
