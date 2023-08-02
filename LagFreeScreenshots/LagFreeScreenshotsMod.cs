@@ -18,9 +18,9 @@ using LagFreeScreenshots.API;
 using Object = UnityEngine.Object;
 using PlayerSetup = ABI_RC.Core.Player.PlayerSetup;
 using MetaPort = ABI_RC.Core.Savior.MetaPort;
+using AuthManager = ABI_RC.Core.Networking.AuthManager;
 using PortableCamera = ABI_RC.Systems.Camera.PortableCamera;
 using RefFlags = System.Reflection.BindingFlags;
-using SchedulerSystem = ABI_RC.Core.IO.SchedulerSystem;
 using Events = ABI_RC.Systems.Camera.Events;
 using AudioEffects = ABI_RC.Core.AudioEffects;
 
@@ -60,7 +60,7 @@ namespace LagFreeScreenshots
         private static Thread ourMainThread;
         private static MelonLogger.Instance logger;
 
-        public override void OnApplicationStart()
+        public override void OnInitializeMelon()
         {
             logger = LoggerInstance;
 
@@ -362,7 +362,7 @@ namespace LagFreeScreenshots
                     new API.CurrentPlayerInfo
                     {
                         Uuid = metaport.ownerId,
-                        Username = metaport.username,
+                        Username = AuthManager.username,
                         Transform = localPlayerObject.transform,
                     },
                     new API.CurrentInstanceInfo
