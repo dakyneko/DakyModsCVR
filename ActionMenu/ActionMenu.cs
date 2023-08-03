@@ -364,7 +364,7 @@ namespace ActionMenu
         public static readonly string couiUrl = "coui://UIResources/ActionMenu";
         public static readonly Vector2Int canvasSize = new Vector2Int(500, 500);
         public static readonly float menuBaseSizeDesktop = 1f;
-        public static readonly float menuBaseSizeVr = 0.3f;
+        public static readonly float menuBaseSizeVr = 0.6f;
         public static readonly string[] couiFiles = new string[]
         {
             "index.html", "index.js", "index.css", "actionmenu.json", "Montserrat-Regular.ttf",
@@ -658,7 +658,7 @@ namespace ActionMenu
         private MelonPreferences_Entry<bool> flickSelection, boringBackButton, dontInstallResources,
             splitAvatarOvercrowdedMenu, quickMenuLongPress;
         private MelonPreferences_Entry<float> menuSize;
-        private MelonPreferences_Entry<Vector2> menuPositionOffset;
+        private MelonPreferences_Entry<Vector2> menuPositionOffset, menuRotationXY;
         private MelonPreferences_Entry<KeyCode> openKeyBinding;
 
         // for mod dynamic items and menus: unique identifier -> function or menu
@@ -689,6 +689,8 @@ namespace ActionMenu
                 description: "Resize the menu bigger or small as you see fit");
             menuPositionOffset = melonPrefs.CreateEntry("menu_position_offset", 0.5f * Vector2.one, "Reposition",
                 description: "Move the menu off-center by this offset (in ratio of the screen height)");
+            menuRotationXY = melonPrefs.CreateEntry("menu_rotation_xy", Vector2.zero, "Rotation XY",
+                description: "Rotate the menu in the X and Y axis (tilt)");
             openKeyBinding = melonPrefs.CreateEntry("open_key_binding", KeyCode.R, "Open binding",
                 description: "Key binding to open the menu");
 
@@ -714,8 +716,7 @@ namespace ActionMenu
 
             // some need custom handling
             menuSize.OnValueChanged += (_, v) => {
-                var baseScale = MetaPort.Instance.isUsingVr ? menuBaseSizeVr : menuBaseSizeDesktop;
-                menuTransform.localScale = baseScale * v * Vector3.one;
+                UpdateMenuScale();
             };
 
 
@@ -851,8 +852,7 @@ namespace ActionMenu
 
             var t = menuTransform = go.transform;
             t.SetParent(parent, false);
-            var scale = MetaPort.Instance.isUsingVr ? menuBaseSizeVr : menuBaseSizeDesktop;
-            t.localScale = scale * menuSize.Value * Vector3.one;
+            UpdateMenuScale();
 
             menuCollider = t.GetComponent<Collider>();
 
@@ -1055,14 +1055,12 @@ namespace ActionMenu
                 joystick = Vector2.ClampMagnitude(3f * mousePos, 1f);
 
                 trigger = Input.GetMouseButtonDown(0) ? 1 : 0; // do we need button up anyway?
-                UpdatePositionToDesktopAnchor();
+                UpdatePositionToAnchor();
             }
             else
             {
                 if (menuCollider.enabled)
-                {
-                    UpdatePositionToVrAnchor();
-                }
+                    UpdatePositionToAnchor();
 
                 var movVect = menuManager._inputManager.movementVector;
                 joystick = new Vector2(movVect.x, movVect.z); // y is 0 and irrelevant
@@ -1080,37 +1078,27 @@ namespace ActionMenu
 
         private void UpdatePositionToAnchor()
         {
-            if (MetaPort.Instance.isUsingVr)
-                UpdatePositionToVrAnchor();
-            else
-                UpdatePositionToDesktopAnchor();
-        }
-
-        private void UpdatePositionToDesktopAnchor()
-        {
             if (cohtmlReadyState < 1) return;
-            Transform rotationPivot = PlayerSetup.Instance._movementSystem.rotationPivot;
-            var offset = 0.75f * (menuPositionOffset.Value - 0.5f * Vector2.one); // first value can be tweaked
-            menuTransform.rotation = rotationPivot.rotation;
-            menuTransform.position = rotationPivot.position
-                + rotationPivot.rotation * new Vector3(offset.x, offset.y, 1);
-        }
 
-        private void UpdatePositionToVrAnchor()
-        {
-            if (cohtmlReadyState < 1) return;
-            // TODO: auto detect left or right anchor
-            var anch = menuManager._leftVrAnchor.transform;
+            var vr = MetaPort.Instance.isUsingVr;
+            var t = vr
+                // TODO: auto detect left or right anchor for VR
+                ? menuManager._leftVrAnchor.transform
+                : PlayerSetup.Instance._movementSystem.rotationPivot;
+
+            // TODO: weight by avatar scale
             var offset = 0.75f * (menuPositionOffset.Value - 0.5f * Vector2.one); // first value can be tweaked
-            menuTransform.rotation = anch.rotation;
-            menuTransform.position = anch.position
-                + anch.rotation * new Vector3(offset.x, offset.y, 0);
+            // TODO: which direction to pick?
+            menuTransform.rotation = Quaternion.Euler(180*menuRotationXY.Value) * t.rotation;
+            menuTransform.position = t.position + t.rotation * new Vector3(offset.x, offset.y, vr ? 0 : 1);
         }
 
         private Menus? melonPrefsMenus;
         private void BuildOurMelonPrefsMenus()
         {
-            melonPrefsMenus = ourLib.BuildMelonPrefsMenus(melonPrefs.Entries);
+            melonPrefsMenus = ourLib.BuildMelonPrefsMenus(
+                // that one is for devs, change it in the melonprefs conf
+                melonPrefs.Entries.FindAll(e => e.Identifier != dontInstallResources.Identifier));
         }
 
 
@@ -1287,6 +1275,7 @@ namespace ActionMenu
                 view.TriggerEvent<string, string>("LoadActionMenu", configTxt, settingsTxt);
                 cohtmlReadyState = 2;
                 cohtmlView.enabled = false; // hide it by default
+                UpdateMenuScale(); // in case change avatar = new scale
             }
         }
 
@@ -1507,6 +1496,16 @@ namespace ActionMenu
             __instance.RespondWithSuccess(requestData);
 
             return false;
+        }
+
+        private void UpdateMenuScale()
+        {
+            var vr = MetaPort.Instance.isUsingVr;
+            var scale = vr ? menuBaseSizeVr : menuBaseSizeDesktop;
+            var viewman = ViewManager.Instance;
+            // TODO: experiment
+            var avatarScale = vr ? (viewman?.cachedAvatarHeight ?? 1.8f) / 1.8f : 1f;
+            menuTransform.localScale = scale * avatarScale * menuSize.Value * Vector3.one;
         }
 
         internal class OurLib : Lib
