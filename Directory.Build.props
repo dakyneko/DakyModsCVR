@@ -278,7 +278,6 @@
     <Reference Include="cohtml.Net"><HintPath>$(MsBuildThisFileDirectory)\ManagedLibs\cohtml.Net.dll</HintPath><Private>False</Private></Reference>
     <Reference Include="endel.nativewebsocket"><HintPath>$(MsBuildThisFileDirectory)\ManagedLibs\endel.nativewebsocket.dll</HintPath><Private>False</Private></Reference>
     <Reference Include="libwebpwrapper"><HintPath>$(MsBuildThisFileDirectory)\ManagedLibs\libwebpwrapper.dll</HintPath><Private>False</Private></Reference>
-    <Reference Include="mscorlib"><HintPath>$(MsBuildThisFileDirectory)\ManagedLibs\mscorlib.dll</HintPath><Private>False</Private></Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
