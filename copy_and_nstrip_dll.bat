@@ -7,10 +7,11 @@ xcopy /f /y "%CVRPATH%\MelonLoader\net35\MelonLoader.dll" "%0\..\ManagedLibs"
 xcopy /f /s /y "%CVRPATH%\ChilloutVR_Data\Managed" "%0\..\ManagedLibs"
 
 Rem this breaks vstudio build system it seems
-del ""%0\..\ManagedLibs\netstandard.dll"
+del "%0\..\ManagedLibs\netstandard.dll"
+del "%0\..\ManagedLibs\mscorlib.dll"
 
 echo Nstrip convert all private/protected stuff to public, yay
-for %%x in (Assembly-CSharp.dll Assembly-CSharp-firstpass.dll UnityEngine.CoreModule.dll Cohtml.Runtime.dll) do (
+for %%x in (Assembly-CSharp.dll Assembly-CSharp-firstpass.dll UnityEngine.CoreModule.dll Cohtml.Runtime.dll SteamVR_Actions.dll SteamVR.dll) do (
     NStrip.exe -p -n "%CVRPATH%\ChilloutVR_Data\Managed\%%x" "%0\..\ManagedLibs\%%x"
 )
 echo We re done now
