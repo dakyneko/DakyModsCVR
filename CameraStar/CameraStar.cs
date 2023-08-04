@@ -84,19 +84,19 @@ namespace CameraStar
                 else __instance.RestoreLayerMask();
             });
 
-            NewCameraSetting(__instance, "disablefadeout", "Disable fadeout", typeof(CameraStarMod),
-                disableCameraFadeout,
-                v => disableCameraFadeout = v);
+            NewCameraSetting(__instance, "disablefadeout", "Transparent when inactive", typeof(CameraStarMod),
+                !disableCameraFadeout,
+                v => disableCameraFadeout = !v);
 
             NewCameraSetting(__instance, "fov", "FOV (Field Of View)", typeof(CameraStarMod),
-                __instance.cameraComponent.fieldOfView, minValue: 5f, maxValue: 180f,
+                __instance.cameraComponent.fieldOfView, minValue: 3f, maxValue: 180f,
                 onChange: v => __instance.cameraComponent.fieldOfView = v);
 
             NewCameraSetting(__instance, "clipnear", "Near Clipping", typeof(CameraStarMod), 0f, minValue: 0f, maxValue: 1f,
                 onChange: v => __instance._camera.nearClipPlane = 0.01f + Mathf.Exp(5 * v) - 1);
 
             NewCameraSetting(__instance, "clipfar", "Far Clipping", typeof(CameraStarMod), 1f, minValue: 0f, maxValue: 1f,
-                onChange: v => __instance._camera.farClipPlane = 0.01f + Mathf.Exp(7 * v) - 1);
+                onChange: v => __instance._camera.farClipPlane = 0.01f + Mathf.Exp(8 * v) - 1);
 
             NewCameraSetting(__instance, "orthographic", "Orthographic", typeof(CameraStarMod),
                 __instance.cameraComponent.orthographic,
