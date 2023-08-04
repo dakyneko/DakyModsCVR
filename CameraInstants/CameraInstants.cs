@@ -7,7 +7,7 @@ using LfsApi = LagFreeScreenshots.API.LfsApi;
 using PortableCamera = ABI_RC.Systems.Camera.PortableCamera;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
-[assembly:MelonInfo(typeof(CameraInstants.CameraInstantsMod), "CameraInstants", "1.0.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(CameraInstants.CameraInstantsMod), "CameraInstants", "1.1.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 
 namespace CameraInstants
 {
@@ -16,7 +16,7 @@ namespace CameraInstants
         private static MelonLogger.Instance logger;
         private MelonPreferences_Entry<bool> myInstantsEnabled;
 
-        public override void OnApplicationStart()
+        public override void OnInitializeMelon()
         {
             logger = LoggerInstance;
 
