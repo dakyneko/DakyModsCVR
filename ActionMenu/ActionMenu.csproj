@@ -2,6 +2,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <ItemGroup>
+      <ProjectReference Include="..\VRBinding\VRBinding.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
         <EmbeddedResource Include="UIResources\index.html" />
         <EmbeddedResource Include="UIResources\index.js" />
         <EmbeddedResource Include="UIResources\index.css" />

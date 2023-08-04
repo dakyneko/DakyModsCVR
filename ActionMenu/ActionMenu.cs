@@ -13,13 +13,15 @@ using System;
 using Newtonsoft.Json;
 using System.IO;
 using Valve.VR;
+using VRBinding;
 
 using PlayerSetup = ABI_RC.Core.Player.PlayerSetup;
 using SettingsType = ABI.CCK.Scripts.CVRAdvancedSettingsEntry.SettingsType;
 using BindFlags = System.Reflection.BindingFlags;
+using ABI_RC.Systems.InputManagement;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
-[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.0.4", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 
 namespace ActionMenu
 {
@@ -649,7 +651,7 @@ namespace ActionMenu
         private static Collider menuCollider;
         private static CVR_MenuManager menuManager;
         private static Animator menuAnimator;
-        private static int cohtmlReadyState = 0; // 0=stratup, 1=binding ready, 2=ActionMenuReady
+        private static int cohtmlReadyState = 0; // 0=startup, 1=binding ready, 2=ActionMenuReady
         private static Lib ourLib;
 
         // our melon prefs
@@ -659,7 +661,7 @@ namespace ActionMenu
             splitAvatarOvercrowdedMenu, quickMenuLongPress;
         private MelonPreferences_Entry<float> menuSize;
         private MelonPreferences_Entry<Vector2> menuPositionOffset, menuRotationXY;
-        private MelonPreferences_Entry<KeyCode> openKeyBinding;
+        private MelonPreferences_Entry<KeyCode> openKeyBinding, reloadKeyBinding;
 
         // for mod dynamic items and menus: unique identifier -> function or menu
         private Dictionary<string, Action> callbackItems = new();
@@ -668,7 +670,7 @@ namespace ActionMenu
         private Dictionary<string, Action<float, float>> callbackItems_float_float = new();
         private Dictionary<string, MenuBuilder> dynamic_menus = new();
 
-        public override void OnApplicationStart()
+        public override void OnInitializeMelon()
         {
             logger = LoggerInstance;
             instance = this;
@@ -693,6 +695,8 @@ namespace ActionMenu
                 description: "Rotate the menu in the X and Y axis (tilt)");
             openKeyBinding = melonPrefs.CreateEntry("open_key_binding", KeyCode.R, "Open binding",
                 description: "Key binding to open the menu");
+            reloadKeyBinding = melonPrefs.CreateEntry("reload_key_binding", KeyCode.F3, "Reload binding",
+                description: "Key binding to reload the menu (combine with shift for config reload)");
 
             melonPrefsMap = new();
             foreach (var e in melonPrefs.Entries)
@@ -719,21 +723,6 @@ namespace ActionMenu
                 UpdateMenuScale();
             };
 
-
-            // override the quickmenu button behavior, long press means action menu
-            HarmonyInstance.Patch(
-                typeof(InputModuleSteamVR).GetMethod(nameof(InputModuleSteamVR.UpdateInput), BindFlags.Public | BindFlags.Instance),
-                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateInputSteamVR))));
-            HarmonyInstance.Patch(
-                typeof(InputModuleSteamVR).GetMethod(nameof(InputModuleSteamVR.UpdateImportantInput), BindFlags.Public | BindFlags.Instance),
-                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateInputSteamVR))));
-            HarmonyInstance.Patch(
-                typeof(InputModuleMouseKeyboard).GetMethod(nameof(InputModuleMouseKeyboard.UpdateInput), BindFlags.Public | BindFlags.Instance),
-                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateInputDesktop))));
-            HarmonyInstance.Patch(
-                typeof(InputModuleMouseKeyboard).GetMethod(nameof(InputModuleMouseKeyboard.UpdateImportantInput), BindFlags.Public | BindFlags.Instance),
-                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateInputDesktop))));
-
             // immobilize when the action menu is open
             // FIXME: this stops the avatar animator from moving too, but not ideal, cannot fly anymore or rotate head
             HarmonyInstance.Patch(
@@ -755,7 +744,7 @@ namespace ActionMenu
                 SymbolExtensions.GetMethodInfo(() => default(CVRCamController).Toggle()),
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRCameraToggle))));
             HarmonyInstance.Patch(
-                SymbolExtensions.GetMethodInfo(() => ABI_RC.Core.Base.Audio.SetMicrophoneActive(default)),
+                SymbolExtensions.GetMethodInfo(() => ABI_RC.Core.Base.AudioManagement.SetMicrophoneActive(default)),
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRMicrophoneToggle))));
             HarmonyInstance.Patch(
                 SymbolExtensions.GetMethodInfo(() => default(PlayerSetup).SwitchSeatedPlay(default)),
@@ -765,9 +754,6 @@ namespace ActionMenu
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRFlyToggle))));
 
             // override the way resources are loaded in cohtml to inject files from memory directly
-            HarmonyInstance.Patch(
-                typeof(DefaultResourceHandler).GetMethod(nameof(DefaultResourceHandler.OnResourceRequest)),
-                prefix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCohtmlLoadResource))));
 
 
             // cohtml reads files so let's install all that stuff, it's easier for everybody
@@ -793,9 +779,16 @@ namespace ActionMenu
             }
             MelonCoroutines.Start(WaitCohtmlSpawned());
 
+            VRBindingMod.RegisterBinding("ActionMenuOpen", "Open Action Menu", VRBindingMod.Requirement.optional, a =>
+            {
+                if (a.GetStateDown(SteamVR_Input_Sources.Any) == true)
+                {
+                    ToggleMenu(!cohtmlView.enabled);
+                }
+            });
         }
 
-        private static bool OnUpdateMovementSystem(ABI_RC.Core.Player.CVR_MovementSystem __instance)
+        private static bool OnUpdateMovementSystem(MovementSystem __instance)
         {
             if (!MetaPort.Instance.isUsingVr) return true;
             return cohtmlView?.enabled != true; // TODO: animation still run, prevent emotes
@@ -868,7 +861,6 @@ namespace ActionMenu
             v.Listener.ReadyForBindings += MenuManagerRegisterEvents;
             v.enabled = false;
             v.CohtmlUISystem = cohtmlUISystem;
-            v.AutoFocus = false;
             v.IsTransparent = true;
             v.Width = canvasSize.x;
             v.Height = canvasSize.y;
@@ -899,15 +891,15 @@ namespace ActionMenu
             instance.SendItemUpdate(action);
         }
 
-        private static void OnCVRMicrophoneToggle(bool muted)
+        private static void OnCVRMicrophoneToggle(bool active)
         {
             if (cohtmlReadyState < 2) return; // not ready for events
-            MelonLogger.Msg($"OnCVRMicrophoneToggle {muted}");
+            MelonLogger.Msg($"OnCVRMicrophoneToggle {active}");
             var action = new ItemAction()
             {
                 type = "system call",
                 event_ = "AppToggleMute",
-                value = !muted,
+                value = !active,
             };
             instance.SendItemUpdate(action);
         }
@@ -965,73 +957,6 @@ namespace ActionMenu
                 moveSys.disableCameraControl = show;
                 CVRInputManager.Instance.inputEnabled = !show;
                 RootLogic.Instance.ToggleMouse(show);
-            }
-        }
-
-        private static void OnUpdateInputSteamVR(InputModuleSteamVR __instance)
-        {
-            if (__instance.vrMenuButton == null) return; // cvr calls this even in desktop, doh
-
-            instance.OnUpdateInput(
-                __instance.vrMenuButton.GetStateDown(SteamVR_Input_Sources.LeftHand),
-                __instance.vrMenuButton.GetStateUp(SteamVR_Input_Sources.LeftHand));
-            // TODO: add support for right hand too
-        }
-
-        private static void OnUpdateInputDesktop(InputModuleMouseKeyboard __instance)
-        {
-            instance.OnUpdateInput(
-                Input.GetKeyDown(KeyCode.Tab),
-                Input.GetKeyUp(KeyCode.Tab));
-        }
-
-        private static float qmButtonStart = -1;
-        private static readonly float actionMenuShowHoldDuration = 0.5f;
-        private void ShortPressMenuToggle(bool show)
-        {
-            if (quickMenuLongPress.Value) ToggleMenu(show);
-            else menuManager.ToggleQuickMenu(show);
-        }
-        private void LongPressMenuToggle(bool show) {
-            if (quickMenuLongPress.Value) menuManager.ToggleQuickMenu(show);
-            else ToggleMenu(show);
-        }
-        private void OnUpdateInput(bool buttonDown, bool buttonUp)
-        {
-            if (cohtmlView == null || menuManager == null) return; // not yet ready
-
-            var now = Time.time;
-            var im = CVRInputManager.Instance;
-            var amOpen = cohtmlView?.enabled == true;
-            var qmOpen = menuManager._quickMenuOpen;
-            var shortPressMenuShown = quickMenuLongPress.Value ? amOpen : qmOpen;
-            var longPressMenuShown = quickMenuLongPress.Value ? qmOpen : amOpen;
-
-            im.quickMenuButton = false; // override the default behavior, always
-            im.quickMenuButtonHold = false; // TODO: allow people to use it still
-
-            if (buttonUp)
-            {
-                if (qmButtonStart >= 0)
-                    ShortPressMenuToggle(!shortPressMenuShown);
-                qmButtonStart = -1;
-            }
-            else if (buttonDown) // ignore if quickmenu is open
-            {
-                if (longPressMenuShown)
-                    LongPressMenuToggle(false);
-                else if (shortPressMenuShown)
-                    ShortPressMenuToggle(false);
-                else
-                    qmButtonStart = now;
-            }
-            else if (qmButtonStart >= 0 && !longPressMenuShown) // holding
-            {
-                if (now - qmButtonStart >= actionMenuShowHoldDuration)
-                {
-                    LongPressMenuToggle(true);
-                    qmButtonStart = -1; // prevent other menu to pop
-                }
             }
         }
 
@@ -1430,7 +1355,7 @@ namespace ActionMenu
 
         public override void OnUpdate()
         {
-            if (Input.GetKeyDown(KeyCode.F3)) {
+            if (Input.GetKeyDown(reloadKeyBinding.Value)) {
                 var shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
                 if (shift) ConfigReload();
                 else FullReload();
@@ -1442,60 +1367,6 @@ namespace ActionMenu
 
             if (menuTransform != null)
                 UpdatePositionToAnchor();
-        }
-
-        private static bool OnCohtmlLoadResource(DefaultResourceHandler __instance,
-            cohtml.Net.IAsyncResourceRequest request, cohtml.Net.IAsyncResourceResponse response)
-        {
-            var requestData = new DefaultResourceHandler.ResourceRequestData(request, response);
-            var uri = requestData?.UriBuilder?.Uri?.OriginalString ?? "";
-            if (!uri.StartsWith("data:")) return true;
-
-            // url of type data:image/png;base64,iVBORw0KGgoAA…
-            // we split those 4 fields ourself, check and extract the image
-            var sepIndex = uri.IndexOf(';');
-            var sepLength = sepIndex - 5;
-            var sep2Index = uri.IndexOf(',');
-            var sep2Length = 6; // "base64"
-            if (sepIndex < 0 || sep2Index < 0 || uri.Substring(sepIndex + 1, sep2Length) != "base64")
-            {
-                logger.Warning($"Invalid inlined format");
-                return false;
-            }
-
-            var mimeType = uri.Substring(5, sepLength);
-            if (mimeType != "image/png" && mimeType != "image/jpeg")
-            {
-                logger.Warning($"Unsupported format {mimeType}");
-                return false;
-            }
-
-            var data = uri.Substring(sep2Index + 1);
-            data = data.Replace("%20", "+").Replace("%2F", "/").Replace("%3D", "="); // cohtml url encode :(
-
-            Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false); // according to doc: size doesn't matter
-            try
-            {
-                tex.LoadImage(Convert.FromBase64String(data));
-                tex.hideFlags = HideFlags.DontUnloadUnusedAsset; // TODO: necessary?
-            }
-            catch (Exception ex)
-            {
-                logger.Warning($"Error while loading image from data uri: {ex}");
-                return false;
-            }
-
-            // cohtml wizardry
-            var imgManager = cohtmlView.CohtmlUISystem.UserImagesManager;
-            var handle = imgManager.NextImageHandle;
-            var resp = imgManager.CreateUserImageData(tex, imageHandle: handle);
-            // another cohtml madness: needed to preserve alpha, doh :(
-            resp.AlphaPremultiplication = cohtml.Net.IAsyncResourceResponse.UserImageData.AlphaPremultiplicationMode.NonPremultiplied;
-            logger.Msg($"OnCohtmlLoadResource loaded in-memory {mimeType} image {tex.format} {resp.Width}x{resp.Height} ({data.Length} bytes)");
-            requestData?.Response?.ReceiveUserImage(resp);
-            __instance.RespondWithSuccess(requestData);
-
-            return false;
         }
 
         private void UpdateMenuScale()
