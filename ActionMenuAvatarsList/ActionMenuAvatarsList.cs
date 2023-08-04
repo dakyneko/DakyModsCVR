@@ -15,7 +15,7 @@ namespace ActionMenuAvatarsList
     {
 
         private Menu lib;
-        public override void OnApplicationStart() => lib = new Menu();
+        public override void OnInitializeMelon() => lib = new Menu();
 
         public class Menu : ActionMenu.ActionMenuMod.Lib
         {

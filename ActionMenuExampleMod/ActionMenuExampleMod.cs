@@ -12,7 +12,7 @@ namespace ActionMenuExample
     {
 
         private Menu lib;
-        public override void OnApplicationStart()
+        public override void OnInitializeMelon()
         {
             lib = new Menu();
         }
