@@ -1,14 +1,17 @@
-﻿using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 using ABI.CCK.Components;
 using System.Linq;
-using ABI_RC.Core;
 using System.Collections.Generic;
 
 using ActionMenu;
-using ABI_RC.Core.Networking.IO.UserGeneratedContent;
-using AwesomeTechnologies.Utility.Quadtree;
+using ABI_RC.Core.Player;
+using ABI_RC.Core.Savior;
+using UnityEngine.AI;
+using System.Security.Policy;
+using Unity.Jobs.LowLevel.Unsafe;
+using Gaia;
+using System.Collections;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
 [assembly:MelonInfo(typeof(PetAI.PetAIMod), "PetAI", "1.0.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
@@ -39,16 +42,29 @@ namespace PetAI
             {
                 return new List<MenuItem>()
                 {
-                    new MenuItem("Come here", BuildButtonItem("comehere", instance.ComeHere)),
-                    new MenuItem("Licky", BuildButtonItem("licky", () => instance.Animate(1) )),
-                    new MenuItem("Scratch", BuildButtonItem("scratch", () => instance.Animate(2) )),
+                    new MenuItem("Follow me", BuildToggleItem("followme", instance.ToggleFollowMe), instance.following != null),
+                    new MenuItem("Follow", BuildCallbackMenu("follow_player", () =>
+                        MetaPort.Instance.PlayerManager.NetworkPlayers.Select(
+                            p => new MenuItem(p.Username, BuildButtonItem(p.Username, () => instance.FollowPlayer(p)))).ToList())),
+                    new MenuItem("Animate", BuildCallbackMenu("animate", () =>
+                        (new List<string> { "Idle", "Licky", "Scratch", "Hop", "Stand" }).Select(
+                            (x, i) => new MenuItem(x, BuildButtonItem(x, () => instance.Animate(i)))).ToList())),
+                    new MenuItem("Mouth", BuildCallbackMenu("mouth", () =>
+                        (new List<string> { "tongue", "Idle", ":O", ":/", ":(", ":<", ":>" }).Select(
+                            (x, i) => new MenuItem(x, BuildButtonItem(x, () => instance.SetMouth(i-1)))).ToList())),
+                    new MenuItem("Eyes", BuildCallbackMenu("eyes", () =>
+                        (new List<string> { "Idle", "Happy", "Calm" }).Select(
+                            (x, i) => new MenuItem(x, BuildButtonItem(x, () => instance.SetEyes(i)))).ToList())),
+                    new MenuItem("Sound", BuildCallbackMenu("sound", () =>
+                        (new List<string> { "None", "Kevie", "Meow" }).Select(
+                            (x, i) => new MenuItem(x, BuildButtonItem(x, () => instance.SetSound(i)))).ToList())),
                 };
             }
         }
 
-        private Transform towardTarget = null;
-        private Transform pet = null;
-        private Animator animator = null;
+        private Transform following = null, lookingAt = null;
+        private Transform pet = null, followObject = null, lookObject = null, headObject;
+        //private Animator animator = null;
         private CVRSpawnable spawnable = null;
         private Dictionary<string, int> syncedIds = null;
         
@@ -58,34 +74,104 @@ namespace PetAI
 
             // TODO: add config for name suffix?
             pet = GameObject.Find("PetAI_Daky")?.transform;
-            animator = pet?.GetComponent<Animator>();
-            spawnable = pet?.parent?.GetComponent<CVRSpawnable>(); ;
-            if (pet == null || animator == null || spawnable == null)
+            headObject = pet?.Find("Armature_Kitsune/Root_Kitsune/Pivot_Kitsune/Kitsune_Root.003/Kitsune_Head_Rotate/Kitsune_Head");
+            var parent = pet?.transform?.parent;
+            followObject = parent?.Find("followTarget");
+            lookObject = parent?.Find("lookTarget");
+            //animator = pet?.GetComponent<Animator>();
+            spawnable = parent?.GetComponent<CVRSpawnable>();
+            if (pet == null || spawnable == null)
             {
-                logger.Error($"Pet not found (pet={pet}, a={animator}, spawnable={spawnable}");
+                logger.Error($"Pet not found: pet={pet} spawnable={spawnable}");
                 return;
             }
+
+            if (headObject != null)
+            {
+                var cb = headObject.gameObject.AddComponent<TriggerCallback>();
+                cb.EnterListener += other => logger.Msg($"head trigger enter {other.name} {other}");
+                cb.ExitListener += other => logger.Msg($"head trigger exit {other.name} {other}");
+            }
+            else
+                logger.Warning($"Failed to find pet head object");
 
             syncedIds = new();
             var i = 0;
             foreach (var v in spawnable.syncValues)
                 syncedIds[v.name] = i++;
 
-            logger.Msg($"Found pet: {pet}");
+            logger.Msg($"Found pet {pet}: spawnable={spawnable} follow={followObject} look={lookObject}");
         }
 
-        private void ComeHere()
+        private void EnableFollow()
+        {
+            SetSyncedParameter("followTargetWeight", 0.01f); // TODO: speed
+        }
+        private void EnableLookAt()
+        {
+            SetSyncedParameter("lookTargetToggle", 1);
+            SetSyncedParameter("lookTargetSmooth", 0.01f); // TODO: speed
+        }
+
+        private void DisableFollow()
+        {
+            following = null;
+            SetSyncedParameter("followTargetWeight", 0);
+        }
+
+        private void DisableLookAt()
+        {
+            lookingAt = null;
+            SetSyncedParameter("lookTargetToggle", 0);
+            SetSyncedParameter("lookTargetSmooth", 0);
+        }
+
+        private void FollowPlayer(CVRPlayerEntity p)
         {
             FindGameObject();
             if (pet == null) return;
 
-            // TODO: get head
-            towardTarget = GameObject.Find("_PLAYERLOCAL").transform; // TODO: how to get differently?
+            var pm = p?.PuppetMaster;
+            following = pm?.gameObject?.transform;
+            if (following == null) logger.Warning($"Player avatar not found");
+            var head = pm?._animator.GetBoneTransform(HumanBodyBones.Head);
+            if (head == null) logger.Warning($"Player {p} head not found");
+            lookingAt = head ?? following;
+            EnableFollow();
+            EnableLookAt();
+        }
+
+        private void ToggleFollowMe(bool enable)
+        {
+            if (enable)
+                FollowMe();
+            else
+            {
+                SetAnimation(0);
+                DisableFollow();
+            }
+        }
+
+        private void FollowMe()
+        {
+            FindGameObject();
+            if (pet == null) return;
+
+            following = PlayerSetup.Instance.gameObject.transform;
+            if (following == null) logger.Warning($"Local avatar not found");
+            var head = PlayerSetup.Instance._animator.GetBoneTransform(HumanBodyBones.Head);
+            if (head == null) logger.Warning($"Local head not found");
+            lookingAt = head ?? following;
+            EnableFollow();
+            EnableLookAt();
         }
 
         private void SetSyncedParameter(string name, float value) => spawnable.SetValue(syncedIds[name], value);
+        private float GetSyncedParameter(string name) => spawnable.GetValue(syncedIds[name]);
 
-        private void SetAnimation(int code) => SetSyncedParameter("Animation", code);
+        private void SetEyes(int code) => SetSyncedParameter("eyes", code);
+        private void SetMouth(int code) => SetSyncedParameter("mouth", code);
+        private void SetAnimation(int code) => SetSyncedParameter("animation", code);
         
 
         private void Animate(int code)
@@ -93,26 +179,43 @@ namespace PetAI
             FindGameObject();
             if (pet == null) return;
             SetAnimation(code);
+            DisableLookAt();
         }
 
-        public override void OnUpdate()
+        private void SetSound(int code)
         {
-            if (towardTarget == null || pet == null) return;
+            FindGameObject();
+            if (pet == null) return;
+            SetSyncedParameter("sound", code);
+        }
 
-            pet.LookAt(towardTarget); // TODO: slowly turn, head instead of whole body?
-            var dist = towardTarget.position - pet.position;
-            if (dist.magnitude < 1)
+        public override void OnFixedUpdate()
+        {
+            if (pet == null) return;
+            if (following == null && lookingAt == null) return;
+
+            if (lookingAt != null)
             {
-                // stop walking
-                if (animator.GetFloat("Animation") != 3) return; // not running = ignore
-                SetAnimation(0);
+                lookObject.position = lookingAt.position;
+                spawnable.needsUpdate = true;
             }
-            else
+            if (following != null)
             {
-                pet.position += 0.01f * dist.normalized; // TODO: speed
-                SetAnimation(3);
+                var dist = following.position - pet.position;
+                if (dist.magnitude < 1.05)
+                {
+                    if (GetSyncedParameter("animation") != 3) return; // not running = ignore
+                    SetAnimation(0); // stop walking animation
+                    followObject.position = pet.position + 0.01f * dist.normalized; // stay there
+                    spawnable.needsUpdate = true;
+                }
+                else
+                {
+                    SetAnimation(3);
+                    followObject.position = pet.position + 1f * dist.normalized; // TODO: speed
+                    spawnable.needsUpdate = true;
+                }
             }
-            spawnable.needsUpdate = true;
         }
     }
 }
