@@ -5,4 +5,12 @@
       <ProjectReference Include="..\ActionMenu\ActionMenu.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Reference Include="NavMeshTools">
+        <HintPath>..\ManagedLibs\NavMeshTools.dll</HintPath>
+        <Private>false</Private>
+      </Reference>
+    </ItemGroup>
+
+
 </Project>

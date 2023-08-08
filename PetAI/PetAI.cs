@@ -3,6 +3,7 @@ using UnityEngine;
 using ABI.CCK.Components;
 using System.Linq;
 using System.Collections.Generic;
+using NavMeshTools = Kafe.NavMeshTools.API;
 
 using ActionMenu;
 using ABI_RC.Core.Player;
@@ -46,6 +47,7 @@ namespace PetAI
                     new MenuItem("Follow", BuildCallbackMenu("follow_player", () =>
                         MetaPort.Instance.PlayerManager.NetworkPlayers.Select(
                             p => new MenuItem(p.Username, BuildButtonItem(p.Username, () => instance.FollowPlayer(p)))).ToList())),
+                    new MenuItem("NavMesh Follow", BuildToggleItem("navmeshfollow", instance.ToggleNavMeshFollow), instance?.agent == true),
                     new MenuItem("Animate", BuildCallbackMenu("animate", () =>
                         (new List<string> { "Idle", "Licky", "Scratch", "Hop", "Stand" }).Select(
                             (x, i) => new MenuItem(x, BuildButtonItem(x, () => instance.Animate(i)))).ToList())),
@@ -67,6 +69,9 @@ namespace PetAI
         //private Animator animator = null;
         private CVRSpawnable spawnable = null;
         private Dictionary<string, int> syncedIds = null;
+        private (float height, float radius, float climb) geometry = (0.3f, 0.3f, 0.29f);
+        private NavMeshAgent agent;
+        private float agentSpeed = 3f;
         
         private void FindGameObject()
         {
@@ -101,6 +106,46 @@ namespace PetAI
                 syncedIds[v.name] = i++;
 
             logger.Msg($"Found pet {pet}: spawnable={spawnable} follow={followObject} look={lookObject}");
+
+            if (followObject.GetComponent<NavMeshAgent>() == null)
+                setupNavMesh();
+        }
+
+        private void setupNavMesh()
+        {
+            agent = followObject.gameObject.AddComponent<NavMeshAgent>();
+            var agentId = agent.agentTypeID; // TODO: how to create new id?
+            agent.enabled = false;
+            agent.height = geometry.height;
+            agent.radius = geometry.radius;
+            agent.speed = agentSpeed;
+            agent.angularSpeed = 60f; // enough?
+            agent.stoppingDistance = 1f;
+            var navSettings = new NavMeshBuildSettings()
+            {
+                agentTypeID = agentId,
+                agentHeight = geometry.height,
+                agentRadius = geometry.radius,
+                agentSlope = 45f,
+                agentClimb = geometry.climb,
+                minRegionArea = 0.5f,
+                maxJobWorkers = (uint)Mathf.Max(1, JobsUtility.JobWorkerCount - 2),
+            };
+            var violations = navSettings.ValidationReport(new Bounds()); // TODO: empty bounds work?
+            if (violations.Length > 0)
+            {
+                logger.Error($"Navmesh settings violations: {string.Join(", ", violations)}");
+            }
+            NavMeshTools.BakeCurrentWorldNavMesh(navSettings, false, success =>
+            {
+                if (!success)
+                {
+                    logger.Error("BakeCurrentWorldNavMesh failed");
+                    return;
+                }
+
+                logger.Msg("BakeCurrentWorldNavMesh succeed");
+            });
         }
 
         private void EnableFollow()
@@ -164,6 +209,19 @@ namespace PetAI
             lookingAt = head ?? following;
             EnableFollow();
             EnableLookAt();
+            if (agent != null) agent.enabled = false;
+        }
+
+        private void ToggleNavMeshFollow(bool enable)
+        {
+            if (agent == null)
+            {
+                logger.Error($"ToggleNavMeshFollow agent null!");
+                return;
+            }
+            if (following == null)
+                FollowMe(); // TODO: remove its agent.enabled = false?
+            agent.enabled = enable;
         }
 
         private void SetSyncedParameter(string name, float value) => spawnable.SetValue(syncedIds[name], value);
@@ -206,13 +264,17 @@ namespace PetAI
                 {
                     if (GetSyncedParameter("animation") != 3) return; // not running = ignore
                     SetAnimation(0); // stop walking animation
-                    followObject.position = pet.position + 0.01f * dist.normalized; // stay there
+                    if (agent == null || !agent.enabled)
+                        followObject.position = pet.position + 0.01f * dist.normalized; // stay there
                     spawnable.needsUpdate = true;
                 }
                 else
                 {
                     SetAnimation(3);
-                    followObject.position = pet.position + 1f * dist.normalized; // TODO: speed
+                    if (agent == null || !agent.enabled)
+                        followObject.position = pet.position + 1f * dist.normalized; // TODO: speed
+                    else
+                        agent.destination = following.position;
                     spawnable.needsUpdate = true;
                 }
             }
