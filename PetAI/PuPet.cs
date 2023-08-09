@@ -1,10 +1,12 @@
 using ABI.CCK.Components;
-using ABI_RC.Core.Player;
 using MelonLoader;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.AI;
 using NavMeshTools = Kafe.NavMeshTools.API;
+
+using Behavior = PetAI.Behaviors.Behavior;
 
 namespace PetAI
 {
@@ -12,15 +14,17 @@ namespace PetAI
     {
         private PetAIMod mod;
         private MelonLogger.Instance logger;
+        private Dictionary<string, Behavior> behaviors = new();
 
-        public Transform following, lookingAt, followObject, lookObject, headObject;
+        public Transform followObject, lookObject, headObject;
         public CVRSpawnable spawnable;
         public Dictionary<string, int> syncedIds;
         public (float height, float radius, float climb) geometry = (0.3f, 0.3f, 0.29f);
         public NavMeshAgent agent;
         public float agentSpeed = 3f;
         public NavMeshBuildSettings navSettings;
-        
+        public TriggerCallback headTriggerCallback;
+
         public void Init(PetAIMod mod, MelonLogger.Instance logger)
         {
             this.mod = mod;
@@ -39,7 +43,8 @@ namespace PetAI
             headObject = transform.Find("Armature_Kitsune/Root_Kitsune/Pivot_Kitsune/Kitsune_Root.003/Kitsune_Head_Rotate/Kitsune_Head");
             if (headObject != null)
             {
-                var cb = headObject.gameObject.AddComponent<TriggerCallback>();
+                var cb = headTriggerCallback = headObject.gameObject.AddComponent<TriggerCallback>();
+                // TODO: debug to remove?
                 cb.EnterListener += other => logger.Msg($"head trigger enter {other.name} {other}");
                 cb.ExitListener += other => logger.Msg($"head trigger exit {other.name} {other}");
             }
@@ -77,7 +82,7 @@ namespace PetAI
             agent.speed = agentSpeed;
             agent.angularSpeed = 60f; // enough?
             agent.stoppingDistance = 1f;
-            
+
             var violations = navSettings.ValidationReport(new Bounds()); // TODO: empty bounds work?
             if (violations.Length > 0)
             {
@@ -100,63 +105,15 @@ namespace PetAI
             });
         }
 
-        public void EnableFollow()
+        public void FollowPlayer(Transform target, Animator a)
         {
-            SetSyncedParameter("followTargetWeight", 0.01f); // TODO: speed
-        }
-        public void EnableLookAt()
-        {
-            SetSyncedParameter("lookTargetToggle", 1);
-            SetSyncedParameter("lookTargetSmooth", 0.01f); // TODO: speed
-        }
-
-        public void DisableFollow()
-        {
-            following = null;
-            SetSyncedParameter("followTargetWeight", 0);
+            if (target == null) logger.Warning($"Player avatar not found");
+            else AddBehavior(new Behaviors.Follow(target));
+            var head = a?.GetBoneTransform(HumanBodyBones.Head);
+            if (head == null) logger.Warning($"Player {target?.name} head not found");
+            else if (target != null) AddBehavior(new Behaviors.LookAt(head ?? target));
         }
 
-        public void DisableLookAt()
-        {
-            lookingAt = null;
-            SetSyncedParameter("lookTargetToggle", 0);
-            SetSyncedParameter("lookTargetSmooth", 0);
-        }
-
-        public void FollowPlayer(CVRPlayerEntity p)
-        {
-            var pm = p?.PuppetMaster;
-            following = pm?.gameObject?.transform;
-            if (following == null) logger.Warning($"Player avatar not found");
-            var head = pm?._animator.GetBoneTransform(HumanBodyBones.Head);
-            if (head == null) logger.Warning($"Player {p} head not found");
-            lookingAt = head ?? following;
-            EnableFollow();
-            EnableLookAt();
-        }
-
-        public void ToggleFollowMe(bool enable)
-        {
-            if (enable)
-                FollowMe();
-            else
-            {
-                SetAnimation(0);
-                DisableFollow();
-            }
-        }
-
-        public void FollowMe()
-        {
-            following = PlayerSetup.Instance.gameObject.transform;
-            if (following == null) logger.Warning($"Local avatar not found");
-            var head = PlayerSetup.Instance._animator.GetBoneTransform(HumanBodyBones.Head);
-            if (head == null) logger.Warning($"Local head not found");
-            lookingAt = head ?? following;
-            EnableFollow();
-            EnableLookAt();
-            if (agent != null) agent.enabled = false;
-        }
 
         public void ToggleNavMeshFollow(bool enable)
         {
@@ -165,23 +122,23 @@ namespace PetAI
                 logger.Error($"ToggleNavMeshFollow agent null!");
                 return;
             }
-            if (following == null)
-                FollowMe(); // TODO: remove its agent.enabled = false?
             agent.enabled = enable;
         }
 
         public void SetSyncedParameter(string name, float value) => spawnable.SetValue(syncedIds[name], value);
+        public void SetSyncedParameterIntensity(string name, int code, float intensity = 1) =>
+            SetSyncedParameter(name, (code - 1) + 0.1f + 0.9f * intensity); // with blendtrees: each state go smoothly from x.1 to x+1=code
         public float GetSyncedParameter(string name) => spawnable.GetValue(syncedIds[name]);
 
-        public void SetEyes(int code) => SetSyncedParameter("eyes", code);
-        public void SetMouth(int code) => SetSyncedParameter("mouth", code);
+        public void SetEyes(int code, float intensity = 1) => SetSyncedParameterIntensity("eyes", code, intensity);
+        public void SetMouth(int code, float intensity = 1) => SetSyncedParameterIntensity("mouth", code, intensity);
         public void SetAnimation(int code) => SetSyncedParameter("animation", code);
         
 
         public void Animate(int code)
         {
+            RemAllBehaviors();
             SetAnimation(code);
-            DisableLookAt();
         }
 
         public void SetSound(int code)
@@ -189,34 +146,51 @@ namespace PetAI
             SetSyncedParameter("sound", code);
         }
 
+        public void AddBehavior(Behavior behavior)
+        {
+            if (behaviors.ContainsKey(behavior.name))
+                logger.Warning($"Behavior {behavior.name} already exists, overwriting");
+            behavior.pet = this;
+            behavior.logger = logger;
+            behavior.iterator = behavior.Run().GetEnumerator();
+            behavior.Start();
+            behaviors[behavior.name] = behavior;
+            logger.Msg($"Add behavior {behavior.name}");
+        }
+
+        public void RemBehavior(string name)
+        {
+            if (!behaviors.ContainsKey(name))
+            {
+                logger.Warning($"Behavior {name} is not running");
+                return;
+            }
+            var behavior = behaviors[name];
+            behaviors.Remove(name);
+            behavior.End();
+        }
+
+        public void RemAllBehaviors()
+        {
+            foreach (var kv in behaviors.ToList())
+            {
+                behaviors.Remove(kv.Key);
+                kv.Value.End();
+            }
+        }
+
+        public bool HasBehavior(string name) => behaviors.ContainsKey(name);
+
         public void FixedUpdate()
         {
-            if (following == null && lookingAt == null) return;
-
-            if (lookingAt != null)
+            foreach (var kv in behaviors.ToList())
             {
-                lookObject.position = lookingAt.position;
-                spawnable.needsUpdate = true;
-            }
-            if (following != null)
-            {
-                var dist = following.position - transform.position;
-                if (dist.magnitude < 1.05)
+                var it = kv.Value.iterator;
+                if (!it.MoveNext())
                 {
-                    if (GetSyncedParameter("animation") != 3) return; // not running = ignore
-                    SetAnimation(0); // stop walking animation
-                    if (agent == null || !agent.enabled)
-                        followObject.position = transform.position + 0.01f * dist.normalized; // stay there
-                    spawnable.needsUpdate = true;
-                }
-                else
-                {
-                    SetAnimation(3);
-                    if (agent == null || !agent.enabled)
-                        followObject.position = transform.position + 1f * dist.normalized; // TODO: speed
-                    else
-                        agent.destination = following.position;
-                    spawnable.needsUpdate = true;
+                    logger.Msg($"Behavior {kv.Key} ended");
+                    behaviors.Remove(kv.Key);
+                    kv.Value.End();
                 }
             }
         }
