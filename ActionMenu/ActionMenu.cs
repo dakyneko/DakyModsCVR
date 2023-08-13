@@ -1205,7 +1205,16 @@ namespace ActionMenu
 #if DEBUG
             logger.Msg($"OnActionMenuReady for view {view}");
 #endif
-            var fromFile = File.ReadAllText(@"ChilloutVR_Data\StreamingAssets\Cohtml\UIResources\ActionMenu\actionmenu.json");
+            string fromFile;
+            try
+            {
+                fromFile = File.ReadAllText(@"ChilloutVR_Data\StreamingAssets\Cohtml\UIResources\ActionMenu\actionmenu.json");
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Cannot read main json file. Erase your melon preference for ActionMenu and try reinstalling the mod.");
+                return;
+            }
             var config = JsonConvert.DeserializeObject<Menu>(fromFile);
 #if DEBUG
             logger.Msg($"Loaded config with {config.menus.Count} menus: {string.Join(", ", config.menus.Keys)}");
