@@ -464,7 +464,9 @@ namespace ActionMenu
 
                     case MenuItem item:
                         item.name = s.name;
+#if DEBUG
                         logger.Msg($"OnAvatarAdvancedSettings parameter {item.name}: {s.type}");
+#endif
                         var aitems = m.GetWithDefault(menuPrefix);
                         aitems.Add(item);
                         break;
@@ -633,7 +635,7 @@ namespace ActionMenu
                 case SettingsType.MaterialColor:
                 case SettingsType.Joystick3D:
                 case SettingsType.InputVector3:
-                    logger.Msg($"Avatar parameter {s.name} ignored, its type {s.type} is not supported yet");
+                    logger.Warning($"Avatar parameter {s.name} ignored, its type {s.type} is not supported yet");
                     return null; // TODO: unsupported
             };
 
@@ -753,9 +755,6 @@ namespace ActionMenu
                 SymbolExtensions.GetMethodInfo(() => default(MovementSystem).ToggleFlight()),
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRFlyToggle))));
 
-            // override the way resources are loaded in cohtml to inject files from memory directly
-
-
             // cohtml reads files so let's install all that stuff, it's easier for everybody
             if (dontInstallResources.Value)
             {
@@ -770,12 +769,14 @@ namespace ActionMenu
                     var raw = BytesFromAssembly(couiNs, fname);
                     if (raw == null)
                     {
-                        logger.Warning($"File missing from assembly {fname}");
+                        logger.Error($"File missing from assembly {fname}");
                         continue;
                     }
                     File.WriteAllBytes(couiPath + @"\" + fname, raw);
                 }
+#if DEBUG
                 logger.Msg($"Installed {couiFiles.Length} resource files from assembly into {couiPath}");
+#endif
             }
             MelonCoroutines.Start(WaitCohtmlSpawned());
 
@@ -804,7 +805,9 @@ namespace ActionMenu
         private void MenuManagerRegisterEvents()
         {
             var view = cohtmlView.View;
+#if DEBUG
             logger.Msg($"MenuManagerRegisterEvents called {view}");
+#endif
             view.RegisterForEvent("ActionMenuReady", new Action(OnActionMenuReady));
             view.BindCall("CVRAppCallSystemCall", new Action<string, string, string, string, string>(menuManager.HandleSystemCall));
             view.BindCall("CVRAppCallSaveSetting", new Action<string, string>(MetaPort.Instance.settings.SetSetting));
@@ -832,7 +835,9 @@ namespace ActionMenu
                 yield return null;
             while ((cohtmlUISystem = GameObject.Find("/Cohtml/CohtmlUISystem").GetComponent<CohtmlUISystem>()) == null)
                 yield return null;
+#if DEBUG
             logger.Msg($"WaitCohtmlSpawned start {cwv}");
+#endif
             menuManager = CVR_MenuManager.Instance;
 
             var parent = cwv.transform.parent;
@@ -881,7 +886,9 @@ namespace ActionMenu
         private static void OnCVRCameraToggle(CVRCamController __instance)
         {
             if (cohtmlReadyState < 2) return; // not ready for events
+#if DEBUG
             MelonLogger.Msg($"OnCVRCameraToggle {__instance}");
+#endif
             var action = new ItemAction()
             {
                 type = "system call",
@@ -894,7 +901,9 @@ namespace ActionMenu
         private static void OnCVRMicrophoneToggle(bool active)
         {
             if (cohtmlReadyState < 2) return; // not ready for events
+#if DEBUG
             MelonLogger.Msg($"OnCVRMicrophoneToggle {active}");
+#endif
             var action = new ItemAction()
             {
                 type = "system call",
@@ -907,7 +916,9 @@ namespace ActionMenu
         private static void OnCVRSeatedToggle(PlayerSetup __instance)
         {
             if (cohtmlReadyState < 2) return; // not ready for events
+#if DEBUG
             MelonLogger.Msg($"OnCVRSeatedToggle {__instance.seatedPlay}");
+#endif
             var action = new ItemAction()
             {
                 type = "system call",
@@ -920,7 +931,9 @@ namespace ActionMenu
         private static void OnCVRFlyToggle(MovementSystem __instance)
         {
             if (cohtmlReadyState < 2) return; // not ready for events
+#if DEBUG
             MelonLogger.Msg($"OnCVRFlyToggle {__instance.flying}");
+#endif
             var action = new ItemAction()
             {
                 type = "system call",
@@ -939,7 +952,9 @@ namespace ActionMenu
 
         private void ToggleMenu(bool show)
         {
+#if DEBUG
             logger.Msg($"ToggleMenu show={show} , cohtmlView.enabled={cohtmlView.enabled} collider={menuCollider?.enabled} vr={MetaPort.Instance.isUsingVr}");
+#endif
             if (cohtmlView == null || cohtmlView.View == null) return;
 
             cohtmlView.View.TriggerEvent<bool>("ToggleActionMenu", show);
@@ -1035,7 +1050,9 @@ namespace ActionMenu
             var menuPrefix = avatarMenuName;
             var m = avatarMenus = AvatarAdvancedSettingsToMenus(advSettings, animator, menuPrefix);
 
+#if DEBUG
             logger.Msg($"OnAvatarAdvancedSettings {advSettings.Count} items");
+#endif
 
             if (instance.splitAvatarOvercrowdedMenu.Value)
                 m = SplitOverCrowdedMenus(m);
@@ -1049,7 +1066,9 @@ namespace ActionMenu
                 var i = 1;
                 emoteNames.Do(name =>
                 {
+#if DEBUG
                     logger.Msg($"OnAvatarAdvancedSettings emote {name} <- {parents}");
+#endif
                     var item = new MenuItem
                     {
                         name = name,
@@ -1084,7 +1103,9 @@ namespace ActionMenu
                 var aitems = m.GetWithDefault(parents);
                 profilesNames.Do(name =>
                 {
+#if DEBUG
                     logger.Msg($"OnAvatarAdvancedSettings profiles {name} <- {parents}");
+#endif
                     var item = new MenuItem
                     {
                         name = name,
@@ -1136,10 +1157,14 @@ namespace ActionMenu
         private void OnActionMenuReady()
         {
             var view = cohtmlView.View;
+#if DEBUG
             logger.Msg($"OnActionMenuReady for view {view}");
+#endif
             var fromFile = File.ReadAllText(@"ChilloutVR_Data\StreamingAssets\Cohtml\UIResources\ActionMenu\actionmenu.json");
             var config = JsonConvert.DeserializeObject<Menu>(fromFile);
+#if DEBUG
             logger.Msg($"Loaded config with {config.menus.Count} menus: {string.Join(", ", config.menus.Keys)}");
+#endif
 
             // add our melon prefs
             if (melonPrefsMenus != null)
@@ -1222,7 +1247,7 @@ namespace ActionMenu
         {
             if (cohtmlView == null)
             {
-                logger.Warning($"Reload view is null!");
+                logger.Error($"Reload view is null!");
                 return;
             }
             cohtmlReadyState = 0;
@@ -1238,7 +1263,9 @@ namespace ActionMenu
             while (--i > 0)
                 yield return null;
             ToggleMenu(wasEnabled);
+#if DEBUG
             logger.Msg($"view reloaded {cohtmlView} {cohtmlView.View}");
+#endif
         }
 
         private void OnSetMelonPreference(string identifier, string value)
@@ -1246,7 +1273,7 @@ namespace ActionMenu
             MelonPreferences_Entry e_;
             if (!melonPrefsMap.TryGetValue(identifier, out e_) || e_ == null)
             {
-                logger.Warning($"didn't find preference {identifier}");
+                logger.Error($"didn't find preference {identifier}");
                 return;
             }
 
@@ -1273,7 +1300,7 @@ namespace ActionMenu
                 // TODO: implement other types
 
                 default:
-                    logger.Warning($"OnSetMelonPreference {identifier} unsupported type {e_.GetReflectedType()}");
+                    logger.Error($"OnSetMelonPreference {identifier} unsupported type {e_.GetReflectedType()}");
                     return;
             }
         }
@@ -1287,7 +1314,9 @@ namespace ActionMenu
                 return;
             }
 
+#if DEBUG
             logger.Msg($"OnItemCallback calling {identifier}: {f}"); // TODO debug
+#endif
             try { f(); }
             catch (Exception e) { logger.Error($"failure in callback {identifier}: {e}"); }
         }
@@ -1340,7 +1369,9 @@ namespace ActionMenu
                 return;
             }
 
+#if DEBUG
             logger.Msg($"OnRequestDynamicMenu calling {identifier}: {f}"); // TODO debug
+#endif
             try
             {
                 var items = f();
