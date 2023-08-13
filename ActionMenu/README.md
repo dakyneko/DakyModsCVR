@@ -6,8 +6,8 @@ For Mod developers looking into expanding the Action Menu, see [Modding API (C#)
 ## Usage
 
 By default the Action Menu can be opened:
-- In Desktop by holding `Tab`.
-- In VR by holding the left menu button (the Quick Menu button),
+- In Desktop by pressing e. The key is configurable in a MelonPreference.
+- In VR, you have to assign a button on your controller in SteamVR Binding to "Open Action Menu". To do so, open SteamVR dashboard in VR, open your settings and look for your controller bindings, pick a controller button, assign a press or double press to the action menu.
 
 There is an option to swap the short press for the Action Menu. Currently the menu is left-handed only but support for both hands may appear soon.
 

@@ -16,7 +16,7 @@ Then download the .dll mods you want [from here in the release section](https://
 ![Screenshot](actionmenu_demo.jpg) ![Screenshot](dakymods1.jpg?raw=true "Camera Instants and Remote")
 
 ## Action Menu
-Add a new popup menu to quickly control your avatar and game settings with just a few tap of your joystick. [Please read the following, for more information. How to use it, how to customize and mod it](ActionMenu/README.md).
+Add a new popup menu to quickly control your avatar and game settings with just a few tap of your joystick. Once installed, to open it in VR, you have to assign a new binding in SteamVR controller; for desktop press e key. [Please read the following, for more information. How to use it, how to customize and mod it](ActionMenu/README.md).
 
 ## Lag Free Screenshots
 Add many features and prevent lag when you take screenshots. Pick the resolution up to 16K and the format: JPG, PNG or WebP (and the compression quality); Portrait pictures are automatically rotated like your smartphone does. Optionally you can embed metadata EXIF/ITxT like world info and player list.
