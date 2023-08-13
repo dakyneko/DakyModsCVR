@@ -17,11 +17,11 @@ using VRBinding;
 
 using PlayerSetup = ABI_RC.Core.Player.PlayerSetup;
 using SettingsType = ABI.CCK.Scripts.CVRAdvancedSettingsEntry.SettingsType;
-using BindFlags = System.Reflection.BindingFlags;
 using ABI_RC.Systems.InputManagement;
+using ABI_RC.Systems.GameEventSystem;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
-[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.1", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 
 namespace ActionMenu
 {
@@ -705,7 +705,7 @@ namespace ActionMenu
         private MelonPreferences_Category melonPrefs;
         private Dictionary<string, MelonPreferences_Entry> melonPrefsMap;
         private MelonPreferences_Entry<bool> flickSelection, boringBackButton, dontInstallResources,
-            splitAvatarOvercrowdedMenu, quickMenuLongPress;
+            splitAvatarOvercrowdedMenu;
         private MelonPreferences_Entry<float> menuSize;
         private MelonPreferences_Entry<Vector2> menuPositionOffset, menuRotationXY;
         private MelonPreferences_Entry<KeyCode> openKeyBinding, reloadKeyBinding;
@@ -726,8 +726,6 @@ namespace ActionMenu
             melonPrefs = MelonPreferences.CreateCategory("ActionMenu", "Action Menu");
             flickSelection = melonPrefs.CreateEntry("flick_selection", false, "Flick select",
                 description: "Trigger items by just selecting one and recentering selection (no need for trigger)");
-            quickMenuLongPress = melonPrefs.CreateEntry("quickmenu_long_press", false, "Long press for QM",
-                description: "Makes the ActionMenu appear with a short press and QuickMenu with long");
             boringBackButton = melonPrefs.CreateEntry("boring_back_button", false, "Eccentric 'Back'",
                 description: "Show the Back button like other items (not in the middle), as the last element in all menus");
             dontInstallResources = melonPrefs.CreateEntry("dont_install_resources", false, "Dev mode",
@@ -770,6 +768,11 @@ namespace ActionMenu
                 UpdateMenuScale();
             };
 
+            CVRGameEventSystem.MainMenu.OnOpen.AddListener(() => ToggleMenu(false));
+            CVRGameEventSystem.QuickMenu.OnOpen.AddListener(() => ToggleMenu(false));
+            CVRGameEventSystem.Microphone.OnMute.AddListener(() => OnCVRMicrophoneToggle(false));
+            CVRGameEventSystem.Microphone.OnUnmute.AddListener(() => OnCVRMicrophoneToggle(true));
+
             // immobilize when the action menu is open
             // FIXME: this stops the avatar animator from moving too, but not ideal, cannot fly anymore or rotate head
             HarmonyInstance.Patch(
@@ -790,9 +793,6 @@ namespace ActionMenu
             HarmonyInstance.Patch(
                 SymbolExtensions.GetMethodInfo(() => default(CVRCamController).Toggle()),
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRCameraToggle))));
-            HarmonyInstance.Patch(
-                SymbolExtensions.GetMethodInfo(() => ABI_RC.Core.Base.AudioManagement.SetMicrophoneActive(default)),
-                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRMicrophoneToggle))));
             HarmonyInstance.Patch(
                 SymbolExtensions.GetMethodInfo(() => default(PlayerSetup).SwitchSeatedPlay(default)),
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRSeatedToggle))));
@@ -1017,6 +1017,14 @@ namespace ActionMenu
                 moveSys.disableCameraControl = show;
                 CVRInputManager.Instance.inputEnabled = !show;
                 RootLogic.Instance.ToggleMouse(show);
+            }
+
+            if (show) // need to close down quick + main menu
+            {
+                var mm = CVR_MenuManager.Instance;
+                var vm = ViewManager.Instance;
+                if (mm._quickMenuOpen) mm.ToggleQuickMenu(false);
+                else if (vm.isGameMenuOpen()) vm.UiStateToggle(false);
             }
         }
 
