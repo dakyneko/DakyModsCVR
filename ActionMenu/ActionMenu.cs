@@ -779,11 +779,6 @@ namespace ActionMenu
                 SymbolExtensions.GetMethodInfo(() => default(MovementSystem).Update()),
                 prefix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnUpdateMovementSystem))));
 
-            // close action menu when main menu opens
-            HarmonyInstance.Patch(
-                SymbolExtensions.GetMethodInfo(() => default(ViewManager).UiStateToggle(default)),
-                postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnMainMenuToggle))));
-
             // build avatar menu from parameters after avatar is loaded
             HarmonyInstance.Patch(
                 SymbolExtensions.GetMethodInfo(() => default(PlayerSetup).initializeAdvancedAvatarSettings()),
@@ -838,13 +833,6 @@ namespace ActionMenu
         {
             if (!MetaPort.Instance.isUsingVr) return true;
             return cohtmlView?.enabled != true; // TODO: animation still run, prevent emotes
-        }
-
-        private static void OnMainMenuToggle(ViewManager __instance, bool show)
-        {
-            if (!show || cohtmlView?.enabled != true) return;
-
-            instance.ToggleMenu(false);
         }
 
         private void MenuManagerRegisterEvents()
