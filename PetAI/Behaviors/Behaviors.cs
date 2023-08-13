@@ -95,7 +95,7 @@ public class Follow : Behavior
     }
 
     public void SetNavWeight() => pet.SetSyncedParameter("followTargetWeight", 0.05f);
-    public void SetFlyWeight() => pet.SetSyncedParameter("followTargetWeight", 0.02f);
+    public void SetFlyWeight() => pet.SetSyncedParameter("followTargetWeight", 0.01f);
 
     public override string ToString() => base.ToString() + $"(following={following?.name} velocity={velocity:0.00} stuckTime={stuckTime:0.00} reached={reached} speedStalled={speedStalled} agent.enabled={agent.enabled} toTarget.magnitude={toTarget.magnitude:F2})";
 
@@ -216,8 +216,10 @@ public class Follow : Behavior
         {
             reached = toTarget.magnitude <= stopDistance;
 
-            var v = reached ? 0.01f : 1f; // TODO: honor stopDistance
-            pet.followObject.position = pet.transform.position + v * toTarget.normalized;
+            var direction = toTarget.normalized;
+            var toDestination = toTarget - stopDistance * direction;
+            var v = Mathf.Min(1.5f, toDestination.magnitude);
+            pet.followObject.position = pet.transform.position + v * direction;
 
             yield return null;
         }
