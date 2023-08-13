@@ -7,7 +7,7 @@
 
     <ItemGroup>
       <Reference Include="NavMeshTools">
-        <HintPath>..\ManagedLibs\NavMeshTools.dll</HintPath>
+        <HintPath>..\ModLibs\NavMeshTools.dll</HintPath>
         <Private>false</Private>
       </Reference>
     </ItemGroup>

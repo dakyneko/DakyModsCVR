@@ -7,6 +7,7 @@ using ActionMenu;
 using ABI_RC.Core.Savior;
 using ABI_RC.Systems.GameEventSystem;
 using ABI_RC.Core.Player;
+using PetAI.Behaviors;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
 [assembly:MelonInfo(typeof(PetAI.PetAIMod), "PetAI", "1.0.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
@@ -62,8 +63,17 @@ namespace PetAI
             private List<MenuItem> PetMenu(PuPet pet)
             {
                 return new List<MenuItem>() {
+                    new MenuItem("Dump all behaviors", BuildButtonItem("dumpbehaviors", pet.ShowAllBehaviors)),
                     new MenuItem("Follow", BuildCallbackMenu("follow_player", () => FollowMenu(pet))),
-                    new MenuItem("NavMesh Follow", BuildToggleItem("navmeshfollow", pet.ToggleNavMeshFollow), pet.agent?.enabled == true),
+                    new MenuItem("Headpat", BuildToggleItem("headpat", enable => {
+                        if (enable) pet.AddBehavior(new Behaviors.PatsLover(pet));
+                        else pet.RemBehavior<PatsLover>();
+                        }), pet.HasBehavior<PatsLover>()),
+                    new MenuItem("Start Main", BuildToggleItem("startmain", enable => {
+                        if (enable) pet.AddBehavior(new Behaviors.Main(pet));
+                        else pet.RemBehavior<Behaviors.Main>();
+                        }), pet.HasBehavior<Behaviors.Main>()),
+                    new MenuItem("NavMesh Bake", BuildButtonItem("navmeshgen", () => pet.InitNavMesh(force: true))),
                     new MenuItem("Animate", BuildCallbackMenu("animate", () =>
                         (new List<string> { "Idle", "Licky", "Scratch", "Hop", "Stand" }).Select(
                             (x, i) => new MenuItem(x, BuildButtonItem(x, () => pet.Animate(i)))).ToList())),
@@ -83,7 +93,7 @@ namespace PetAI
             {
                 var xs = new List<MenuItem>()
                 {
-                    new MenuItem("None", BuildButtonItem("none", () => pet.RemBehavior("Follow"))),
+                    new MenuItem("None", BuildButtonItem("none", () => pet.RemBehavior<Follow>())),
                     new MenuItem("Me", BuildButtonItem("me", () => pet.FollowPlayer(PlayerSetup.Instance.gameObject.transform, PlayerSetup.Instance._animator))),
                 };
                 foreach (var p in MetaPort.Instance.PlayerManager.NetworkPlayers)

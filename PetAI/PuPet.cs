@@ -4,30 +4,31 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.AI;
-using NavMeshTools = Kafe.NavMeshTools.API;
+using System;
+using Common = Daky.Dakytils;
 
+using NavMeshTools = Kafe.NavMeshTools.API;
 using Behavior = PetAI.Behaviors.Behavior;
 
 namespace PetAI
 {
     public class PuPet : MonoBehaviour
     {
-        private PetAIMod mod;
-        private MelonLogger.Instance logger;
+        internal MelonLogger.Instance logger;
         private Dictionary<string, Behavior> behaviors = new();
+        private List< WeakReference> behaviorsAll = new();
 
         public Transform followObject, lookObject, headObject;
         public CVRSpawnable spawnable;
         public Dictionary<string, int> syncedIds;
-        public (float height, float radius, float climb) geometry = (0.3f, 0.3f, 0.29f);
+        public (float height, float radius, float climb) geometry = (0.8f, 0.2f, 0.79f);
         public NavMeshAgent agent;
-        public float agentSpeed = 3f;
+        public float maxSpeed = 3f, maxAngularSpeed = 60f;
         public NavMeshBuildSettings navSettings;
         public TriggerCallback headTriggerCallback;
 
         public void Init(PetAIMod mod, MelonLogger.Instance logger)
         {
-            this.mod = mod;
             this.logger = logger;
 
             spawnable = transform.parent.GetComponent<CVRSpawnable>();
@@ -59,71 +60,50 @@ namespace PetAI
             logger.Msg($"Found pet {this}: spawnable={spawnable} follow={followObject} look={lookObject}");
 
             if (followObject.GetComponent<NavMeshAgent>() == null)
-                InitNavMesh();
-        }
-
-        public void InitNavMesh()
-        {
-            navSettings = NavMesh.CreateSettings() with
             {
-                agentHeight = geometry.height,
-                agentRadius = geometry.radius,
-                agentSlope = 45f,
-                agentClimb = geometry.climb,
-                minRegionArea = 0.5f,
-                maxJobWorkers = (uint)Mathf.Max(1, Unity.Jobs.LowLevel.Unsafe.JobsUtility.JobWorkerCount - 2),
-            };
+                agent = followObject.gameObject.AddComponent<NavMeshAgent>();
+                agent.agentTypeID = 0; // default human
+                agent.enabled = false;
+                agent.height = geometry.height;
+                agent.radius = geometry.radius;
+                agent.speed = maxSpeed;
+                agent.angularSpeed = maxAngularSpeed;
+                agent.stoppingDistance = 1f;
 
-            agent = followObject.gameObject.AddComponent<NavMeshAgent>();
-            agent.agentTypeID = navSettings.agentTypeID;
-            agent.enabled = false;
-            agent.height = geometry.height;
-            agent.radius = geometry.radius;
-            agent.speed = agentSpeed;
-            agent.angularSpeed = 60f; // enough?
-            agent.stoppingDistance = 1f;
-
-            var violations = navSettings.ValidationReport(new Bounds()); // TODO: empty bounds work?
-            if (violations.Length > 0)
-            {
-                logger.Error($"Navmesh settings violations: {string.Join(", ", violations)}");
+                var tri = NavMesh.CalculateTriangulation();
+                if (tri.vertices.Length == 0) // if empty, generate
+                    InitNavMesh();
             }
-            BakeNavMesh();
         }
 
-        public void BakeNavMesh(bool force = false)
+        public void InitNavMesh(bool force = false)
         {
-            NavMeshTools.BakeCurrentWorldNavMesh(navSettings, force, success =>
+            var navSettings = new NavMeshTools.Agent(
+                agentRadius: geometry.radius,
+                agentHeight: geometry.height,
+                agentClimb: geometry.climb,
+                generateNavMeshLinks: false);
+
+            agent.agentTypeID = navSettings.AgentTypeID;
+
+            NavMeshTools.BakeCurrentWorldNavMesh(navSettings, (_, success) =>
             {
                 if (!success)
-                {
                     logger.Error("BakeCurrentWorldNavMesh failed");
-                    return;
-                }
-
-                logger.Msg("BakeCurrentWorldNavMesh succeed");
-            });
+                else
+                    logger.Msg("BakeCurrentWorldNavMesh succeed");
+            }, force);
         }
 
         public void FollowPlayer(Transform target, Animator a)
         {
             if (target == null) logger.Warning($"Player avatar not found");
-            else AddBehavior(new Behaviors.Follow(target));
+            else AddBehavior(new Behaviors.Follow(this, target));
             var head = a?.GetBoneTransform(HumanBodyBones.Head);
             if (head == null) logger.Warning($"Player {target?.name} head not found");
-            else if (target != null) AddBehavior(new Behaviors.LookAt(head ?? target));
+            if (head != null || target != null) AddBehavior(new Behaviors.LookAt(this, head ?? target));
         }
 
-
-        public void ToggleNavMeshFollow(bool enable)
-        {
-            if (agent == null)
-            {
-                logger.Error($"ToggleNavMeshFollow agent null!");
-                return;
-            }
-            agent.enabled = enable;
-        }
 
         public void SetSyncedParameter(string name, float value) => spawnable.SetValue(syncedIds[name], value);
         public void SetSyncedParameterIntensity(string name, int code, float intensity = 1) =>
@@ -146,20 +126,22 @@ namespace PetAI
             SetSyncedParameter("sound", code);
         }
 
-        public void AddBehavior(Behavior behavior)
+        public void AddBehavior<T>(T behavior) where T : Behavior
         {
-            if (behaviors.ContainsKey(behavior.name))
-                logger.Warning($"Behavior {behavior.name} already exists, overwriting");
+            var name = typeof(T).Name;
+            if (behaviors.ContainsKey(name))
+                logger.Warning($"Behavior {name} already exist, overwriting");
             behavior.pet = this;
             behavior.logger = logger;
             behavior.iterator = behavior.Run().GetEnumerator();
             behavior.Start();
-            behaviors[behavior.name] = behavior;
-            logger.Msg($"Add behavior {behavior.name}");
+            behaviors[name] = behavior;
+            logger.Msg($"Added behavior {name}");
         }
 
-        public void RemBehavior(string name)
+        public void RemBehavior<T>() where T : Behavior
         {
+            var name = typeof(T).Name;
             if (!behaviors.ContainsKey(name))
             {
                 logger.Warning($"Behavior {name} is not running");
@@ -168,6 +150,22 @@ namespace PetAI
             var behavior = behaviors[name];
             behaviors.Remove(name);
             behavior.End();
+            logger.Msg($"Removed behavior {name}");
+        }
+
+        public void RegisterBehavior(Behavior behavior)
+        {
+            var name = behavior.GetType().Name;
+            if (behaviorsAll.Exists(b => b.Target == behavior))
+                logger.Warning($"Behavior {name} already exists, overwriting");
+            behaviorsAll.Add(new WeakReference(behavior));
+            logger.Msg($"Register behavior {name}");
+        }
+        public void UnregisterBehavior(Behavior behavior)
+        {
+            var name = behavior.GetType().Name;
+            behaviorsAll = behaviorsAll.Where(b => (b.Target as Behavior) != behavior).ToList(); // very efficient I know
+            logger.Msg($"Unregister behavior {name}");
         }
 
         public void RemAllBehaviors()
@@ -175,11 +173,21 @@ namespace PetAI
             foreach (var kv in behaviors.ToList())
             {
                 behaviors.Remove(kv.Key);
-                kv.Value.End();
+                kv.Value.End(); // also for non standalone, is that ok?
             }
         }
 
-        public bool HasBehavior(string name) => behaviors.ContainsKey(name);
+        public void ShowAllBehaviors()
+        {
+            Dictionary<Behavior, string> toName = new();
+            foreach (var kv in behaviors)
+                toName[kv.Value] = kv.Key;
+
+            logger.Msg($"All {behaviors.Count} {this.name}'s behaviors running:"
+                + string.Join("", behaviorsAll.Where(b => b != null).Select(b => $"\n - {Common.GetWithDefault<Behavior, string?>(toName, b.Target as Behavior, () => null) ?? "(no name)"}: {b.Target?.ToString()}")));
+        }
+
+        public bool HasBehavior<T>() where T : Behavior => behaviors.ContainsKey(typeof(T).Name);
 
         public void FixedUpdate()
         {
