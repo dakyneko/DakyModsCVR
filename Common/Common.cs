@@ -104,5 +104,18 @@ namespace Daky
                 return default;
             }
         }
+
+        // retruns a function that check if the value changed (returned by get) if so calls action with old and new value
+        public static Action TriggerOnChange<T>(Func<T> get, Action<T, T> action)
+        {
+            var v = get();
+            return () =>
+            {
+                var newV = get();
+                if (!EqualityComparer<T>.Default.Equals(v, newV))
+                    action(v, newV);
+                v = newV;
+            };
+        }
     }
 }
