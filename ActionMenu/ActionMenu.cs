@@ -130,6 +130,51 @@ namespace ActionMenu
             /// <param name="patch"></param>
             public static void ApplyMenuPatch(Menus menus, MenusPatch patch) => patch.ApplyToMenu(menus);
 
+            private int uniqueItemId = 0;
+            private string nextUniqueItemId(string suffix) => $"item_{uniqueItemId++}_{suffix}";
+
+            // New easier API to create MenuItem with ItemAction in 1-call
+            public MenuItem Button(string label, Action callback, bool? enabled = null, string? icon = null, bool exclusiveOption = false)
+            {
+                return new MenuItem(label, icon, BuildButtonItem(nextUniqueItemId("button"), callback, exclusiveOption: exclusiveOption), enabled: enabled);
+            }
+            public MenuItem Toggle(string label, Action<bool> callback, bool? enabled = null, string? icon = null)
+            {
+                return new MenuItem(label, icon, BuildToggleItem(nextUniqueItemId(label), callback), enabled: enabled);
+            }
+            public MenuItem Impulse(string label, Action<bool> callback, float duration = 1f, object? value = null, string? icon = null)
+            {
+                return new MenuItem(label, icon, BuildImpulseItem(nextUniqueItemId(label), callback, duration: duration, value: value));
+            }
+            public MenuItem Radial(string label, Action<float> callback, string? icon = null,
+                float? minValue = null, float? maxValue = null, float? defaultValue = null)
+            {
+                return new MenuItem(label, icon, BuildRadialItem(nextUniqueItemId("radial"), callback,
+                    minValue: minValue, maxValue: maxValue, defaultValue: defaultValue));
+            }
+            public MenuItem Menu(string label, MenuBuilder menuBuilder, string? icon = null)
+            {
+                return new MenuItem(label, icon, BuildCallbackMenu(nextUniqueItemId("menu"), menuBuilder));
+            }
+            public MenuItem Joystick2D(string label, Action<float, float> callback, string? icon = null,
+                float? minValueX = null, float? maxValueX = null, float? defaultValueX = null,
+                float? minValueY = null, float? maxValueY = null, float? defaultValueY = null)
+            {
+                return new MenuItem(label, icon, BuildJoystick2D(nextUniqueItemId("joystick2d"), callback,
+                minValueX: minValueX, maxValueX: maxValueX, defaultValueX: defaultValueX,
+                minValueY: minValueY, maxValueY: maxValueY, defaultValueY: defaultValueY));
+            }
+            public MenuItem InputVector2D(string label, Action<float, float> callback, string? icon = null,
+                float? minValueX = null, float? maxValueX = null, float? defaultValueX = null,
+                float? minValueY = null, float? maxValueY = null, float? defaultValueY = null)
+            {
+                return new MenuItem(label, icon, BuildInputVector2D(nextUniqueItemId("vector2d"), callback,
+                minValueX: minValueX, maxValueX: maxValueX, defaultValueX: defaultValueX,
+                minValueY: minValueY, maxValueY: maxValueY, defaultValueY: defaultValueY));
+            }
+
+            // below is older API where you need to build more stuff yourself
+
             /// <summary>
             /// Create an ItemAction when triggered, will call your function
             /// Basically for button/widget item for callback in your mod
