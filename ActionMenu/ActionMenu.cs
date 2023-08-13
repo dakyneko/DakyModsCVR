@@ -21,7 +21,7 @@ using ABI_RC.Systems.InputManagement;
 using ABI_RC.Systems.GameEventSystem;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
-[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.1", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.2", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 
 namespace ActionMenu
 {
@@ -768,8 +768,8 @@ namespace ActionMenu
                 UpdateMenuScale();
             };
 
-            CVRGameEventSystem.MainMenu.OnOpen.AddListener(() => ToggleMenu(false));
-            CVRGameEventSystem.QuickMenu.OnOpen.AddListener(() => ToggleMenu(false));
+            CVRGameEventSystem.MainMenu.OnOpen.AddListener(() => ToggleMenu(false, handleDesktopInputs: false));
+            CVRGameEventSystem.QuickMenu.OnOpen.AddListener(() => ToggleMenu(false, handleDesktopInputs: false));
             CVRGameEventSystem.Microphone.OnMute.AddListener(() => OnCVRMicrophoneToggle(false));
             CVRGameEventSystem.Microphone.OnUnmute.AddListener(() => OnCVRMicrophoneToggle(true));
 
@@ -983,7 +983,7 @@ namespace ActionMenu
             public float trigger;
         }
 
-        private void ToggleMenu(bool show)
+        private void ToggleMenu(bool show, bool handleDesktopInputs = true)
         {
 #if DEBUG
             logger.Msg($"ToggleMenu show={show} , cohtmlView.enabled={cohtmlView.enabled} collider={menuCollider?.enabled} vr={MetaPort.Instance.isUsingVr}");
@@ -1000,7 +1000,7 @@ namespace ActionMenu
             if (show && menuCollider?.enabled == true)
                 UpdatePositionToAnchor();
 
-            if (!vr)
+            if (!vr && handleDesktopInputs)
             {
                 moveSys.disableCameraControl = show;
                 CVRInputManager.Instance.inputEnabled = !show;
