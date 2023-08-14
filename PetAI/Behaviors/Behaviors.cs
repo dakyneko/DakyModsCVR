@@ -238,7 +238,8 @@ public class Follow : Behavior
             reached = toTarget.magnitude <= stopDistance;
 
             var direction = toTarget.normalized;
-            var toDestination = toTarget - stopDistance * direction;
+            // 0.95 to ensure we reach stopDistance or reachedConsecutive will wait a long time!
+            var toDestination = toTarget - 0.95f * stopDistance * direction;
             var v = Mathf.Min(1.5f, toDestination.magnitude);
             pet.followObject.position = pet.transform.position + v * direction;
 
