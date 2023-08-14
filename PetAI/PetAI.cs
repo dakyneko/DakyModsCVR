@@ -63,29 +63,29 @@ namespace PetAI
             private List<MenuItem> PetMenu(PuPet pet)
             {
                 return new List<MenuItem>() {
-                    new MenuItem("Dump all behaviors", BuildButtonItem("dumpbehaviors", pet.ShowAllBehaviors)),
-                    new MenuItem("Follow", BuildCallbackMenu("follow_player", () => FollowMenu(pet))),
-                    new MenuItem("Headpat", BuildToggleItem("headpat", enable => {
-                        if (enable) pet.AddBehavior(new Behaviors.PatsLover(pet));
-                        else pet.RemBehavior<PatsLover>();
-                        }), pet.HasBehavior<PatsLover>()),
-                    new MenuItem("Start Main", BuildToggleItem("startmain", enable => {
-                        if (enable) pet.AddBehavior(new Behaviors.Main(pet));
-                        else pet.RemBehavior<Behaviors.Main>();
-                        }), pet.HasBehavior<Behaviors.Main>()),
-                    new MenuItem("NavMesh Bake", BuildButtonItem("navmeshgen", () => pet.InitNavMesh(force: true))),
-                    new MenuItem("Animate", BuildCallbackMenu("animate", () =>
+                    Button("Dump all behaviors", pet.ShowAllBehaviors),
+                    Menu("Follow", () => FollowMenu(pet)),
+                    Toggle("Headpat", enable => {
+                            if (enable) pet.AddBehavior(new Behaviors.PatsLover(pet));
+                            else pet.RemBehavior<PatsLover>();
+                        }, pet.HasBehavior<PatsLover>()),
+                    Toggle("Start Main", enable => {
+                            if (enable) pet.AddBehavior(new Behaviors.Main(pet));
+                            else pet.RemBehavior<Behaviors.Main>();
+                        }, pet.HasBehavior<Behaviors.Main>()),
+                    Button("NavMesh Bake", () => pet.InitNavMesh(force: true)),
+                    Menu("Animate", () =>
                         (new List<string> { "Idle", "Licky", "Scratch", "Hop", "Stand" }).Select(
-                            (x, i) => new MenuItem(x, BuildButtonItem(x, () => pet.Animate(i)))).ToList())),
-                    new MenuItem("Mouth", BuildCallbackMenu("mouth", () =>
+                            (x, i) => Button(x, () => pet.Animate(i), exclusiveOption: true)).ToList()),
+                    Menu("Mouth", () =>
                         (new List<string> { "Tongue", "Idle", ":O", ":/", ":(", ":<", ":>", "Dog"}).Select(
-                            (x, i) => new MenuItem(x, BuildButtonItem(x, () => pet.SetMouth(i-1)))).ToList())),
-                    new MenuItem("Eyes", BuildCallbackMenu("eyes", () =>
+                            (x, i) => Button(x, () => pet.SetMouth(i-1), exclusiveOption: true)).ToList()),
+                    Menu("Eyes", () =>
                         (new List<string> { "Idle", "Happy", "Calm" }).Select(
-                            (x, i) => new MenuItem(x, BuildButtonItem(x, () => pet.SetEyes(i)))).ToList())),
-                    new MenuItem("Sound", BuildCallbackMenu("sound", () =>
+                            (x, i) => Button(x, () => pet.SetEyes(i), exclusiveOption : true)).ToList()),
+                    Menu("Sound", () =>
                         (new List<string> { "None", "Kevie", "Meow" }).Select(
-                            (x, i) => new MenuItem(x, BuildButtonItem(x, () => pet.SetSound(i)))).ToList())),
+                            (x, i) => Button(x, () => pet.SetSound(i), exclusiveOption : true)).ToList()),
                 };
             }
 
