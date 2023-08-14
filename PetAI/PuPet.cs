@@ -16,7 +16,6 @@ namespace PetAI
     {
         internal MelonLogger.Instance logger;
         private Dictionary<string, Behavior> behaviors = new();
-        private List< WeakReference> behaviorsAll = new();
 
         public Transform followObject, lookObject, headObject;
         public CVRSpawnable spawnable;
@@ -134,7 +133,6 @@ namespace PetAI
             behavior.pet = this;
             behavior.logger = logger;
             behavior.iterator = behavior.Run().GetEnumerator();
-            behavior.Start();
             behaviors[name] = behavior;
             logger.Msg($"Added behavior {name}");
         }
@@ -153,21 +151,6 @@ namespace PetAI
             logger.Msg($"Removed behavior {name}");
         }
 
-        public void RegisterBehavior(Behavior behavior)
-        {
-            var name = behavior.GetType().Name;
-            if (behaviorsAll.Exists(b => b.Target == behavior))
-                logger.Warning($"Behavior {name} already exists, overwriting");
-            behaviorsAll.Add(new WeakReference(behavior));
-            logger.Msg($"Register behavior {name}");
-        }
-        public void UnregisterBehavior(Behavior behavior)
-        {
-            var name = behavior.GetType().Name;
-            behaviorsAll = behaviorsAll.Where(b => (b.Target as Behavior) != behavior).ToList(); // very efficient I know
-            logger.Msg($"Unregister behavior {name}");
-        }
-
         public void RemAllBehaviors()
         {
             foreach (var kv in behaviors.ToList())
@@ -179,12 +162,8 @@ namespace PetAI
 
         public void ShowAllBehaviors()
         {
-            Dictionary<Behavior, string> toName = new();
-            foreach (var kv in behaviors)
-                toName[kv.Value] = kv.Key;
-
             logger.Msg($"All {behaviors.Count} {this.name}'s behaviors running:"
-                + string.Join("", behaviorsAll.Where(b => b != null).Select(b => $"\n - {Common.GetWithDefault<Behavior, string?>(toName, b.Target as Behavior, () => null) ?? "(no name)"}: {b.Target?.ToString()}")));
+                + string.Join("", behaviors.Select(kv => $"\n - {kv.Key}: {kv.Value.ToString()}")));
         }
 
         public bool HasBehavior<T>() where T : Behavior => behaviors.ContainsKey(typeof(T).Name);

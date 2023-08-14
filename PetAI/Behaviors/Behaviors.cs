@@ -1,7 +1,6 @@
 using ABI.CCK.Components;
 using ABI_RC.Core.Player;
 using ABI_RC.Core.Savior;
-using Daky;
 using MelonLoader;
 using System.Collections;
 using System.Collections.Generic;
@@ -17,20 +16,43 @@ public abstract class Behavior
     public PuPet pet;
     public IEnumerator iterator;
     public MelonLogger.Instance logger;
+    public List<Behavior> children = new();
+    public static uint uniqueIdNext = 0;
+    public uint uniqueId; // TODO: debug
 
     public Behavior(PuPet pet)
     {
         this.pet = pet;
         this.logger = pet.logger;
         this.iterator = Run().GetEnumerator();
-        pet.RegisterBehavior(this);
+        this.uniqueId = uniqueIdNext++;
+    }
+
+    public T Add<T>(T behavior) where T : Behavior
+    {
+        logger.Msg($"Addition {behavior.GetType().Name}({behavior.uniqueId}) -> {this.GetType().Name}({uniqueId}) ");
+        children.Add(behavior); // calling Start() is responsibilty of Behavior
+        return behavior;
+    }
+    public void Remove<T>(T behavior) where T : Behavior
+    {
+        logger.Msg($"Removal {behavior.GetType().Name}({behavior.uniqueId}) -> {this.GetType().Name}({uniqueId}) ");
+        behavior.End();
+        if (!children.Remove(behavior))
+            logger.Warning($"Couldn't remove children behavior {behavior}");
     }
 
     public virtual IEnumerable Run() { yield break; }
     public bool Step() => iterator.MoveNext();
-    public virtual void Start() { }
-    public virtual void End() => pet.UnregisterBehavior(this);
-    public override string ToString() => $"Behavior<{this.GetType().Name}>";
+    public virtual void End() { }
+    public virtual string StateToString() => "";
+    public override string ToString() => ToString(1);
+    public string ToString(int indent)
+    {
+        var childrenStr = string.Join("", children.Select(
+            children => "\n "+ (new string(' ', 2*indent)) +"- " + children.ToString(indent+1)));
+        return $"{this.GetType().Name}[{this.uniqueId}]({StateToString()}){childrenStr}";
+    }
 }
 
 public class LookAt : Behavior
@@ -44,7 +66,7 @@ public class LookAt : Behavior
         this.lookingAt = lookingAt;
     }
 
-    public override void Start()
+    public void Start()
     {
         pet.SetSyncedParameter("lookTargetToggle", 1);
         pet.SetSyncedParameter("lookTargetSmooth", speed);
@@ -53,7 +75,6 @@ public class LookAt : Behavior
     {
         pet.SetSyncedParameter("lookTargetToggle", 0);
         pet.SetSyncedParameter("lookTargetSmooth", 0);
-        base.End();
     }
 
     public override IEnumerable Run()
@@ -66,7 +87,7 @@ public class LookAt : Behavior
             yield return null;
         }
     }
-    public override string ToString() => base.ToString() + $"(lookingAt={lookingAt?.name})";
+    public override string StateToString() => $"lookingAt={lookingAt?.name}";
 }
 
 public class Follow : Behavior
@@ -87,17 +108,17 @@ public class Follow : Behavior
         this.following = following;
         this.agent = pet.agent;
     }
-    public override void Start() => SetNavWeight();
+    public void Start() => SetNavWeight();
     public override void End()
     {
+        //pet.SetSyncedParameter("followTargetWeight", 0); // TODO: testing it
         pet.SetAnimation(0);
-        base.End();
     }
 
     public void SetNavWeight() => pet.SetSyncedParameter("followTargetWeight", 0.05f);
     public void SetFlyWeight() => pet.SetSyncedParameter("followTargetWeight", 0.01f);
 
-    public override string ToString() => base.ToString() + $"(following={following?.name} velocity={velocity:0.00} stuckTime={stuckTime:0.00} reached={reached} speedStalled={speedStalled} agent.enabled={agent.enabled} toTarget.magnitude={toTarget.magnitude:F2})";
+    public override string StateToString() => $"following={following?.name} velocity={velocity:0.00} stuckTime={stuckTime:0.00} reached={reached} speedStalled={speedStalled} agent.enabled={agent.enabled} toTarget.magnitude={toTarget.magnitude:F2}";
 
     public override IEnumerable Run()
     {
@@ -241,14 +262,14 @@ public class PatsLover : Behavior
     public float scoreThreshold = 1;
     public float scoreDecay = 0.997f, scorePuur = 0.5f, scoreCalming = 0.1f;
     public PlayerDescriptor winner;
-    public override string ToString() => base.ToString() + $"(scoreThreshold={scoreThreshold} winner={winner?.userName} pats={pats.Count}[{string.Join(", ", pats.Select(p => $"{p.Key}={p.Value.score:0.00}/{p.Value.count}") )}] )";
+    public override string StateToString() => $"scoreThreshold={scoreThreshold} winner={winner?.userName} pats={pats.Count}[{string.Join(", ", pats.Select(p => $"{p.Key}={p.Value.score:0.00}/{p.Value.count}") )}]";
 
     public PatsLover(PuPet pet) : base(pet)
     {
         this.callback = pet.headTriggerCallback;
     }
 
-    public override void Start()
+    public void Start()
     {
         this.callback.EnterListener += OnEnter;
         this.callback.ExitListener += OnExit;
@@ -259,12 +280,12 @@ public class PatsLover : Behavior
     {
         this.callback.EnterListener -= OnEnter;
         this.callback.ExitListener -= OnExit;
-        base.End();
     }
 
+    public string[] allowedPointerTypes = new string[] { "index", "grab", "hand" };
     private void OnEnter(Collider other) {
         var p = other.GetComponent<CVRPointer>();
-        if (p?.type != "index" && p?.type != "grab" && p?.type != "hand") return;
+        if (p?.type != null && !allowedPointerTypes.Contains(p.type)) return;
 
         if (pats.ContainsKey(p.name))
         {
@@ -367,19 +388,19 @@ public class Fond : Behavior
 
     public override IEnumerable Run()
     {
-        var follow = new Follow(pet, target);
-        var lookAt = new LookAt(pet, target);
+        var follow = Add(new Follow(pet, target));
+        var lookAt = Add(new LookAt(pet, target));
         while (follow.Step() && lookAt.Step()) yield return null;
-        follow.End(); lookAt.End();
+        Remove(follow); Remove(lookAt);
 
         pet.SetSound(2);
-        for (var wait = 0f; wait < 1000; wait += Time.deltaTime)
+        for (var wait = 0f; wait < 3; wait += Time.deltaTime)
             yield return null; // puur for a bit
         pet.SetSound(0);
 
         // TODO: do more interaction
     }
-    public override string ToString() => base.ToString() + $"(target={target?.name})";
+    public override string StateToString() => $"target={target?.name}";
 }
 
 public class Main : Behavior
@@ -392,15 +413,15 @@ public class Main : Behavior
         while (true)
         {
             Transform target;
-            var patsLover = new PatsLover(pet);
+            var patsLover = Add(new PatsLover(pet));
             while (patsLover.Step()) yield return null;
             if (patsLover.winner == null) yield break; // TODO: why it stopped?
             target = patsLover.winner.transform;
-            patsLover.End();
+            Remove(patsLover);
 
-            var fond = new Fond(pet, target);
+            var fond = Add(new Fond(pet, target));
             while (target != null && fond.Step()) yield return null;
-            fond.End();
+            Remove(fond);
             //if (target == null) continue; // restart
             // TODO
         }
