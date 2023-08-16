@@ -990,6 +990,14 @@ namespace ActionMenu
 #endif
             if (cohtmlView == null || cohtmlView.View == null) return;
 
+            if (show) // need to close down quick + main menu
+            {
+                var mm = CVR_MenuManager.Instance;
+                var vm = ViewManager.Instance;
+                if (mm?._quickMenuOpen == true) mm.ToggleQuickMenu(false);
+                else if (vm?.isGameMenuOpen() == true) vm.UiStateToggle(false);
+            }
+
             cohtmlView.View.TriggerEvent<bool>("ToggleActionMenu", show);
             cohtmlView.enabled = show; // TODO: doesn this reload cohtml each time? careful
             menuAnimator.SetBool("Open", show);
@@ -1005,14 +1013,6 @@ namespace ActionMenu
                 moveSys.disableCameraControl = show;
                 CVRInputManager.Instance.inputEnabled = !show;
                 RootLogic.Instance.ToggleMouse(show);
-            }
-
-            if (show) // need to close down quick + main menu
-            {
-                var mm = CVR_MenuManager.Instance;
-                var vm = ViewManager.Instance;
-                if (mm._quickMenuOpen) mm.ToggleQuickMenu(false);
-                else if (vm.isGameMenuOpen()) vm.UiStateToggle(false);
             }
         }
 
