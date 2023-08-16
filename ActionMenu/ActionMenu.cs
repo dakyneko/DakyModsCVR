@@ -1436,6 +1436,12 @@ namespace ActionMenu
 
         public override void OnUpdate()
         {
+            if (menuTransform != null)
+                UpdatePositionToAnchor();
+
+            var keyboardGrabbed = ViewManager.Instance?.textInputFocused == true;
+            if (keyboardGrabbed) return;
+
             if (Input.GetKeyDown(reloadKeyBinding.Value)) {
                 var shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
                 if (shift) ConfigReload();
@@ -1445,9 +1451,6 @@ namespace ActionMenu
             if (Input.GetKeyDown(openKeyBinding.Value) && cohtmlView != null) {
                 ToggleMenu(!cohtmlView.enabled);
             }
-
-            if (menuTransform != null)
-                UpdatePositionToAnchor();
         }
 
         private void UpdateMenuScale()
