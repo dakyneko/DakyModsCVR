@@ -46,7 +46,7 @@ namespace LagFreeScreenshots
 
         private static MelonPreferences_Entry<bool> ourEnabled;
         private static MelonPreferences_Entry<PresetScreenshotSizes> ourResolution;
-        private static MelonPreferences_Entry<string> ourFormat;
+        private static MelonPreferences_Entry<ImageFormats> ourFormat;
         private static MelonPreferences_Entry<int> ourJpegPercent;
         private static MelonPreferences_Entry<int> ourWebpPercent;
         private static MelonPreferences_Entry<int> ourCustomResolutionX;
@@ -67,7 +67,7 @@ namespace LagFreeScreenshots
             var category = MelonPreferences.CreateCategory(SettingsCategory, "Lag Free Screenshots");
             ourEnabled = category.CreateEntry(SettingEnableMod, true, "Enabled");
             ourResolution = category.CreateEntry( SettingScreenshotResolution, PresetScreenshotSizes.Default, "Screenshot resolution override");
-            ourFormat = category.CreateEntry( SettingScreenshotFormat, "png", "Screenshot format");
+            ourFormat = category.CreateEntry( SettingScreenshotFormat, ImageFormats.png, "Screenshot format");
             ourJpegPercent = category.CreateEntry(SettingJpegPercent, 95, "JPEG quality (0-100)");
             ourWebpPercent = category.CreateEntry(SettingWebpPercent, 85, "WebP quality (0-100)");
             ourAutorotation = category.CreateEntry(SettingAutorotation, true, "Rotate picture to match camera");
@@ -81,10 +81,10 @@ namespace LagFreeScreenshots
                 new HarmonyMethod(AccessTools.Method(typeof(LagFreeScreenshotsMod), nameof(OnCapture))));
 
             ourSupportsWebP = WebpUtils.IsWebpSupported();
-            if (ourFormat.Value == "webp" && !ourSupportsWebP) // only when if explicitely requested
+            if (ourFormat.Value == ImageFormats.webp && !ourSupportsWebP) // only when if explicitely requested
             {
                 logger.Warning($"WebP is not properly installed in game directory. Please provide libwebp.dll libwebpmux.dll and libwebpwrapper.dll to make this work.");
-                ourFormat.Value = "auto";
+                ourFormat.Value = ImageFormats.auto;
             }
         }
 
@@ -453,10 +453,10 @@ namespace LagFreeScreenshots
 
             var format = ourFormat.Value switch
             {
-                "auto" when ourSupportsWebP => "webp",
-                "auto" when hasAlpha        => "png",
-                "auto"                      => "jpeg",
-                _                           => ourFormat.Value,
+                ImageFormats.auto when ourSupportsWebP => ImageFormats.webp,
+                ImageFormats.auto when hasAlpha        => ImageFormats.png,
+                ImageFormats.auto                      => ImageFormats.jpeg,
+                _                                      => ourFormat.Value,
             };
             var description = metadata?.ToString();
 
@@ -464,7 +464,7 @@ namespace LagFreeScreenshots
             if (description != null)
             {
                 // png description is saved as iTXt chunk manually
-                if (format == "jpeg")
+                if (format == ImageFormats.jpeg)
                 {
                     var stringBytesCount = Encoding.Unicode.GetByteCount(description);
                     var allBytes = new byte[8 + stringBytesCount];
@@ -480,7 +480,7 @@ namespace LagFreeScreenshots
                 }
             }
 
-            if (format == "jpeg")
+            if (format == ImageFormats.jpeg)
             {
                 var encoder = GetEncoder(ImageFormat.Jpeg);
                 using var parameters = new EncoderParameters(1)
@@ -490,7 +490,7 @@ namespace LagFreeScreenshots
                 filePath = Path.ChangeExtension(filePath, ".jpg");
                 bitmap.Save(filePath, encoder, parameters);
             }
-            else if (format == "webp")
+            else if (format == ImageFormats.webp)
             {
                 filePath = Path.ChangeExtension(filePath, ".webp");
                 // we had to separate this function to make webp dll dependencies optional
