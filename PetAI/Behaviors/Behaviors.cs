@@ -2,6 +2,7 @@ using ABI.CCK.Components;
 using ABI_RC.Core.Player;
 using ABI_RC.Core.Savior;
 using MelonLoader;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -44,7 +45,13 @@ public abstract class Behavior
 
     public virtual IEnumerable Run() { yield break; }
     public bool Step() => iterator.MoveNext();
-    public virtual void End() { }
+    public virtual void End()
+    {
+        foreach (var behavior in children)
+        {
+            Remove(behavior);
+        }
+    }
     public virtual string StateToString() => "";
     public override string ToString() => ToString(1);
     public string ToString(int indent)
@@ -73,6 +80,7 @@ public class LookAt : Behavior
     }
     public override void End()
     {
+        base.End();
         pet.SetSyncedParameter("lookTargetToggle", 0);
         pet.SetSyncedParameter("lookTargetSmooth", 0);
     }
@@ -111,7 +119,7 @@ public class Follow : Behavior
     public void Start() => SetNavWeight();
     public override void End()
     {
-        //pet.SetSyncedParameter("followTargetWeight", 0); // TODO: testing it
+        base.End();
         pet.SetAnimation(0);
     }
 
@@ -148,7 +156,6 @@ public class Follow : Behavior
             {
                 endReason = EndReason.reached;
                 pet.spawnable.needsUpdate = true; // one last update?
-                End();
                 yield break;
             }
 
@@ -279,6 +286,7 @@ public class PatsLover : Behavior
     }
     public override void End()
     {
+        base.End();
         this.callback.EnterListener -= OnEnter;
         this.callback.ExitListener -= OnExit;
     }
