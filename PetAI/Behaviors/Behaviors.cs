@@ -100,9 +100,9 @@ public class LookAt : Behavior
 
 public class Follow : Behavior
 {
-    public Transform following;
+    public Func<Vector3> getTarget;
     public NavMeshAgent agent;
-    public float stopDistance = 1.05f, teleportDistance = 50;
+    public float stopDistance = 1.05f, teleportDistance = 50, maxSpeed = 1;
     public bool reached = false, speedStalled = false, teleportIfTooFar = false;
     public float stuckThresholdTime = 1.5f, reachedThresholdTime = 3;
     public Vector3 toTarget = Vector3.zero, lastPosition = Vector3.zero;
@@ -111,22 +111,28 @@ public class Follow : Behavior
     public EndReason endReason = EndReason.lostTarget;
 
     // caller is responsible to stop if target becomes null
-    public Follow(PuPet pet, Transform following) : base(pet)
+    public Follow(PuPet pet, Func<Vector3> getTarget) : base(pet)
     {
-        this.following = following;
+        this.getTarget = getTarget;
         this.agent = pet.agent;
+        this.maxSpeed = pet.maxSpeed;
     }
-    public void Start() => SetNavWeight();
+    public void Start()
+    {
+        SetNavWeight();
+        agent.speed = maxSpeed;
+    }
     public override void End()
     {
         base.End();
         pet.SetAnimation(0);
+        agent.enabled = false;
     }
 
     public void SetNavWeight() => pet.SetSyncedParameter("followTargetWeight", 0.05f);
     public void SetFlyWeight() => pet.SetSyncedParameter("followTargetWeight", 0.01f);
 
-    public override string StateToString() => $"following={following?.name} velocity={velocity:0.00} stuckTime={stuckTime:0.00} reached={reached} speedStalled={speedStalled} agent.enabled={agent.enabled} toTarget.magnitude={toTarget.magnitude:F2}";
+    public override string StateToString() => $"getTarget={getTarget()} velocity={velocity:0.00} stuckTime={stuckTime:0.00} reached={reached} speedStalled={speedStalled} agent.enabled={agent.enabled} toTarget.magnitude={toTarget.magnitude:F2}";
 
     public override IEnumerable Run()
     {
@@ -145,12 +151,14 @@ public class Follow : Behavior
             speedStalled = velocity <= 0.1f;
             pet.SetAnimation(speedStalled ? 0 : 3); // hop or idle
             lastPosition = newPos;
-            toTarget = following.position - newPos;
+            toTarget = getTarget() - newPos;
 
             if (!forward.MoveNext()) break;
 
             if (reached) reachedConsecutive += Time.deltaTime;
             else         reachedConsecutive = 0;
+
+            pet.SetSyncedParameter("followTargetAimWeight", reached ? 0f : 0.05f); // avoid glitch when reached
 
             if (reachedConsecutive >= reachedThresholdTime)
             {
@@ -201,9 +209,10 @@ public class Follow : Behavior
                     agent.enabled = true; // try
                     // check navmesh bullshit, if destination is too far we don't accept it! continue flying
                     var p = new NavMeshPath();
+                    var target = getTarget();
                     if (agent.isOnNavMesh
-                        && agent.CalculatePath(following.position, p) // will be costly
-                        && (p.corners.Last() - following.position).magnitude <= stopDistance)
+                        && agent.CalculatePath(target, p) // will be costly
+                        && (p.corners.Last() - target).magnitude <= stopDistance)
                     {
                         agent.enabled = true;
                         agent.velocity = velocity * toTarget.normalized;
@@ -229,7 +238,7 @@ public class Follow : Behavior
                 || (speedStalled && toTarget.magnitude < 2f); // stuck a bit further but navmesh sux anyway
 
             if (!reached) // no need to modify path if we reached, right?
-                agent.destination = following.position;
+                agent.destination = getTarget();
             while (agent.pathPending) yield return null;
 
             yield return null;
@@ -388,28 +397,165 @@ public class PatsLover : Behavior
 public class Fond : Behavior
 {
     public Transform target;
+    public Animator animator;
+    public Transform head;
 
     // caller is responsible to stop if target becomes null
-    public Fond(PuPet pet, Transform target) : base(pet)
+    public Fond(PuPet pet, Transform target, Animator? animator = null) : base(pet)
     {
         this.target = target;
+        this.animator = animator ?? target.GetComponent<PlayerSetup>()?._animator ?? target.GetComponent<PuppetMaster>()._animator;
+        this.head = animator?.GetBoneTransform(HumanBodyBones.Head);
     }
 
     public override IEnumerable Run()
     {
-        var follow = Add(new Follow(pet, target));
-        var lookAt = Add(new LookAt(pet, target));
+        var follow = Add(new Follow(pet, () => target.position));
+        var lookAt = Add(new LookAt(pet, head ?? target));
         while (follow.Step() && lookAt.Step()) yield return null;
         Remove(follow); Remove(lookAt);
 
-        pet.SetSound(2);
-        for (var wait = 0f; wait < 3; wait += Time.deltaTime)
-            yield return null; // puur for a bit
-        pet.SetSound(0);
+        while (true) // try go into lap in loop
+        {
+            var waitDuration = 1f; // TODO: make longer
+            var lapAvailable = 0f;
+            Vector3? lapPosition = null;
+            for (var wait = 0f; wait < waitDuration; wait += Time.deltaTime)
+            {
+                var newLapPosition = GetLapPosition();
+                lapPosition = newLapPosition ?? lapPosition;
+                if (newLapPosition != null) lapAvailable += Time.deltaTime;
+                yield return null;
+            }
 
-        // TODO: do more interaction
+            if (lapPosition != null && lapAvailable / waitDuration > 0.9) // go into lap
+            {
+                // TODO: add transition to go in lap: jump + animation
+                pet.SetSyncedParameter("followTargetWeight", 0.8f); // stick to it
+                pet.SetSyncedParameter("followTargetAimWeight", 001f); // much slower
+                pet.SetSyncedParameter("lookTargetToggle", 1); // TODO: hacky
+                pet.SetSyncedParameter("lookTargetSmooth", 0.01f);
+                pet.SetSound(2);
+                pet.SetEyes(1); // happy
+                var noMoreLapAvailable = 0f;
+                while (noMoreLapAvailable < 2f)
+                {
+                    var newLapPosition = GetLapPosition();
+                    lapPosition = newLapPosition ?? lapPosition;
+                    if (newLapPosition == null)
+                    {
+                        noMoreLapAvailable += Time.deltaTime;
+                    }
+                    pet.followObject.position = lapPosition.Value;
+                    //pet.lookObject.position = -(head ?? target).right;
+                    pet.spawnable.needsUpdate = true;
+                    yield return null;
+                }
+            }
+            pet.SetSound(0);
+            pet.SetEyes(0);
+            pet.SetSyncedParameter("lookTargetToggle", 0);
+
+            // pick random position around player and go there
+            // TODO: not nice to move away from player! actually
+            var nextPosition = Vector3.zero;
+            for (var tries = 0; tries < 5; ++tries)
+            {
+                var dist = UnityEngine.Random.Range(1.5f, 5f);
+                var angle = Quaternion.Euler(0, UnityEngine.Random.Range(-75, +75), 0);
+                var forward = ((head ?? target).forward with { y = 0 }).normalized; // in front of target
+                nextPosition = target.position + angle * forward * dist;
+                // we want our next point to be visible from player
+                // and on the navmesh if possible. Try a few times
+                if (Physics.Linecast(target.position, nextPosition))
+                {
+                    continue;
+                }
+                NavMeshHit hit;
+                if (!NavMesh.SamplePosition(nextPosition, out hit, 1f, new NavMeshQueryFilter() { agentTypeID = pet.agent.agentTypeID, areaMask = NavMesh.AllAreas }))
+                {
+                    continue;
+                }
+                nextPosition = hit.position; // on navmesh
+                break; // success
+            }
+
+            // move there using Follow
+            // TODO: should only allow nav move, no fly if possible
+            follow = Add(new Follow(pet, () => nextPosition));
+            follow.reachedThresholdTime = 1;
+            follow.stuckThresholdTime = 0.5f;
+            follow.stopDistance = 0;
+            follow.maxSpeed = 0.5f; // slower
+            while (follow.Step()) yield return null;
+            Remove(follow);
+            waitDuration = UnityEngine.Random.Range(1f, 5f);
+            for (var wait = 0f; wait < waitDuration; wait += Time.deltaTime)
+                yield return null; // wait a bit there
+
+            yield return null;
+        }
+
+        /* TODO:
+        - if high energy: happy anims+noises (jumps, backflips, dance, etc), hop around player, jump on face/body
+        - if mid: walk around, rug on legs
+        - if low: sleep next to player or in lap
+        depends on player position (stand, sit, lay) and movements (compute their energy, motion quantity)
+        keep track of pet energy (distance traveled to meet player, or total overall?) and mood
+
+        detect if player looks at pet, player talks to pet
+        */
     }
     public override string StateToString() => $"target={target?.name}";
+
+    private bool isHorizontalFn(Vector3 Vn) => Mathf.Abs(Vector3.Dot(Vn, Vector3.up)) <= Mathf.Cos(Mathf.PI / 6);
+    private bool isForwardFn(Transform hips, Vector3 Vn) => Vector3.Dot(Vn, hips.forward) >= 0;
+
+    private Vector3? GetLapPosition() {
+        if (animator == null) return null;
+
+        Transform hips, thighL, thighR, legL, legR;
+        try
+        {
+            hips = animator.GetBoneTransform(HumanBodyBones.Hips);
+            thighL = animator.GetBoneTransform(HumanBodyBones.LeftUpperLeg);
+            thighR = animator.GetBoneTransform(HumanBodyBones.RightUpperLeg);
+            legL = animator.GetBoneTransform(HumanBodyBones.LeftLowerLeg);
+            legR = animator.GetBoneTransform(HumanBodyBones.RightLowerLeg);
+        }
+        catch (System.Exception ex)
+        {
+            logger.Error($"Asked GetLapPosition but target is not humanoid? {ex}");
+            return null;
+        }
+
+
+        var vecL = legL.position - thighL.position;
+        var vecR = legR.position - thighR.position;
+        var vecLn = vecL.normalized;
+        var vecRn = vecR.normalized;
+
+        var isHorizontal = isHorizontalFn(vecLn) && isHorizontalFn(vecRn);
+        var isForward = isForwardFn(hips, vecL) && isForwardFn(hips, vecR);
+        var isLapAvailable = isHorizontal && isForward;
+        if (!isLapAvailable)
+            return null;
+
+        var midThighL = (legL.position + thighL.position) / 2;
+        var midThighR = (legR.position + thighR.position) / 2;
+        var wouldFall = false; // (midThighL - midThighR).magnitude > pet.geometry.radius; // TODO: tweak
+
+        if (wouldFall)
+            return null;
+
+        var thickV = thighR.position - thighL.position;
+        var thickVn = thickV.normalized;
+        // two thighs together making a virtual surface = lap spot
+        var aboveThighV = (Vector3.Cross(thickVn, -vecLn) + Vector3.Cross(thickVn, -vecRn)).normalized;
+        var p = (midThighL + midThighR + pet.geometry.radius * aboveThighV) / 2; // lap spot is between thighs
+
+        return p;
+    }
 }
 
 public class Main : Behavior
