@@ -94,13 +94,10 @@ namespace PetAI
             }, force);
         }
 
-        public void FollowPlayer(Transform target, Animator a)
+        public void FondOfPlayer(Transform target, Animator animator)
         {
             if (target == null) logger.Warning($"Player avatar not found");
-            else AddBehavior(new Behaviors.Follow(this, target));
-            var head = a?.GetBoneTransform(HumanBodyBones.Head);
-            if (head == null) logger.Warning($"Player {target?.name} head not found");
-            if (head != null || target != null) AddBehavior(new Behaviors.LookAt(this, head ?? target));
+            else AddBehavior(new Behaviors.Fond(this, target, animator));
         }
 
 

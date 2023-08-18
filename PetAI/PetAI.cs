@@ -63,8 +63,9 @@ namespace PetAI
             private List<MenuItem> PetMenu(PuPet pet)
             {
                 return new List<MenuItem>() {
-                    Button("Dump all behaviors", pet.ShowAllBehaviors),
-                    Menu("Follow", () => FollowMenu(pet)),
+                    Button("Show all behaviors", pet.ShowAllBehaviors),
+                    Button("Stop all", pet.RemAllBehaviors),
+                    Menu("Fond of", () => FondMenu(pet)),
                     Toggle("Headpat", enable => {
                             if (enable) pet.AddBehavior(new Behaviors.PatsLover(pet));
                             else pet.RemBehavior<PatsLover>();
@@ -89,17 +90,17 @@ namespace PetAI
                 };
             }
 
-            private List<MenuItem> FollowMenu(PuPet pet)
+            private List<MenuItem> FondMenu(PuPet pet)
             {
                 var xs = new List<MenuItem>()
                 {
-                    new MenuItem("None", BuildButtonItem("none", () => pet.RemBehavior<Follow>())),
-                    new MenuItem("Me", BuildButtonItem("me", () => pet.FollowPlayer(PlayerSetup.Instance.gameObject.transform, PlayerSetup.Instance._animator))),
+                    new MenuItem("None", BuildButtonItem("none", () => pet.RemBehavior<Fond>())),
+                    new MenuItem("Me", BuildButtonItem("me", () => pet.FondOfPlayer(PlayerSetup.Instance.gameObject.transform, PlayerSetup.Instance._animator))),
                 };
                 foreach (var p in MetaPort.Instance.PlayerManager.NetworkPlayers)
                 {
                     var pm = p?.PuppetMaster;
-                    xs.Add(new MenuItem(p.Username, BuildButtonItem(p.Username, () => pet.FollowPlayer(pm?.gameObject?.transform, pm?._animator))));
+                    xs.Add(new MenuItem(p.Username, BuildButtonItem(p.Username, () => pet.FondOfPlayer(pm?.gameObject?.transform, pm?._animator))));
                 }
                 return xs.ToList();
             }
