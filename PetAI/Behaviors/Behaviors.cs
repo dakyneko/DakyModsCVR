@@ -25,9 +25,13 @@ public abstract class Behavior
     {
         this.pet = pet;
         this.logger = pet.logger;
-        this.iterator = Run().GetEnumerator();
         this.uniqueId = uniqueIdNext++;
+        ResetEnumerator();
     }
+
+    public void ResetEnumerator() => this.iterator = Run().GetEnumerator();
+
+    public void Restart() => ResetEnumerator();
 
     public T Add<T>(T behavior) where T : Behavior
     {
@@ -47,7 +51,7 @@ public abstract class Behavior
     public bool Step() => iterator.MoveNext();
     public virtual void End()
     {
-        foreach (var behavior in children)
+        foreach (var behavior in children.ToList())
         {
             Remove(behavior);
         }
