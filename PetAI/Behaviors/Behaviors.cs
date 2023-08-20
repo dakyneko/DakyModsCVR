@@ -68,13 +68,13 @@ public abstract class Behavior
 
 public class LookAt : Behavior
 {
-    public Transform lookingAt;
+    public Func<Vector3> getTarget;
     public float speed = 0.01f;
 
     // caller is responsible to stop if target becomes null
-    public LookAt(PuPet pet, Transform lookingAt) : base(pet)
+    public LookAt(PuPet pet, Func<Vector3> getTarget) : base(pet)
     {
-        this.lookingAt = lookingAt;
+        this.getTarget = getTarget;
     }
 
     public void Start()
@@ -94,7 +94,14 @@ public class LookAt : Behavior
         Start();
         while (true)
         {
-            pet.lookObject.position = lookingAt.position;
+            pet.lookObject.position = getTarget();
+            pet.spawnable.needsUpdate = true;
+            yield return null;
+        }
+    }
+    public override string StateToString() => $"getTarget={getTarget()}";
+}
+
             pet.spawnable.needsUpdate = true;
             yield return null;
         }
@@ -106,24 +113,27 @@ public class Follow : Behavior
 {
     public Func<Vector3> getTarget;
     public NavMeshAgent agent;
-    public float stopDistance = 1.05f, teleportDistance = 50, maxSpeed = 1;
+    public float stopDistance = 1.00f, reachedDistance = 1.05f, teleportDistance = 50, maxSpeed = 1;
     public bool reached = false, speedStalled = false, teleportIfTooFar = false;
     public float stuckThresholdTime = 1.5f, reachedThresholdTime = 3;
     public Vector3 toTarget = Vector3.zero, lastPosition = Vector3.zero;
     public float stuckTime = 0f, velocity = 0f;
+    public int moveAnimation;
     public enum EndReason { lostTarget, invalidPath, reached };
     public EndReason endReason = EndReason.lostTarget;
 
     // caller is responsible to stop if target becomes null
-    public Follow(PuPet pet, Func<Vector3> getTarget) : base(pet)
+    // TODO: remove AllowedLocomotion, was a bad idea
+    public Follow(PuPet pet, Func<Vector3> getTarget,
+        int moveAnimation = 3) : base(pet)
     {
         this.getTarget = getTarget;
         this.agent = pet.agent;
         this.maxSpeed = pet.maxSpeed;
+        this.moveAnimation = moveAnimation;
     }
     public void Start()
     {
-        SetNavWeight();
         agent.speed = maxSpeed;
     }
     public override void End()
@@ -142,7 +152,6 @@ public class Follow : Behavior
     {
         Start();
         endReason = EndReason.lostTarget;
-        agent.enabled = true;
         lastPosition = pet.transform.position;
         var forward = Forward().GetEnumerator();
         var reachedConsecutive = 0f;
@@ -168,7 +177,8 @@ public class Follow : Behavior
             // smooth a bit for speedStalled, so it doesn't flap
             velocity = 0.5f * velocity + 0.5f * (newPos - lastPosition).magnitude / Time.deltaTime;
             speedStalled = velocity <= 0.1f;
-            pet.SetAnimation(speedStalled ? 0 : 3); // hop or idle
+            if (moveAnimation != 0) // animation disabled
+                pet.SetAnimation(speedStalled ? 0 : moveAnimation); // hop or idle
             lastPosition = newPos;
             toTarget = getTarget() - newPos;
 
@@ -179,7 +189,8 @@ public class Follow : Behavior
 
             pet.SetSyncedParameter("followTargetAimWeight", reached ? 0f : 0.05f); // avoid glitch when reached
 
-            if (reachedConsecutive >= reachedThresholdTime)
+            // if threshold is set and arrived for long enough, we're done
+            if (reached && reachedThresholdTime >= 0 && reachedConsecutive >= reachedThresholdTime)
             {
                 logger.Msg($"reachedConsecutive done = {reachedConsecutive}");
                 endReason = EndReason.reached;
@@ -203,8 +214,6 @@ public class Follow : Behavior
             var stuckTime = 0f;
             while (byNav.MoveNext())
             {
-                pet.spawnable.needsUpdate = true;
-
                 if (speedStalled) stuckTime += Time.deltaTime;
                 else              stuckTime = 0;
 
@@ -220,10 +229,8 @@ public class Follow : Behavior
             var lastTryNav = 0f;
             while (byFly.MoveNext())
             {
-                pet.spawnable.needsUpdate = true;
-
                 // check if we can rejoin the navmesh if it's close by, reactivate agent and continue
-                var hit = new NavMeshHit();
+                NavMeshHit hit;
                 var q = new NavMeshQueryFilter() with { agentTypeID = agent.agentTypeID, areaMask = NavMesh.AllAreas };
                 // lastTryNav: only do it once in a while to prevent expensive computations every frame!
                 if (lastTryNav >= 1 && NavMesh.SamplePosition(pet.transform.position, out hit, 1, q))
@@ -258,17 +265,21 @@ public class Follow : Behavior
         SetNavWeight();
         while (true)
         {
-            reached = toTarget.magnitude <= stopDistance // all good
-                || (speedStalled && toTarget.magnitude < 2f); // stuck a bit further but navmesh sux anyway
+            reached = toTarget.magnitude <= reachedDistance // all good
+                || (speedStalled && toTarget.magnitude < 2*stopDistance); // stuck a bit further but navmesh sux anyway
 
-            if (!reached) // no need to modify path if we reached, right?
+            if (!reached)
+            {
                 agent.destination = getTarget();
+                pet.spawnable.needsUpdate = true;
+            }
             while (agent.pathPending) yield return null;
 
             yield return null;
         }
     }
 
+    // TODO: maybe refactor with Behavior FlyTo
     public IEnumerable ByFly()
     {
         logger.Msg($"Start by fly");
@@ -276,13 +287,14 @@ public class Follow : Behavior
         SetFlyWeight();
         while (true)
         {
-            reached = toTarget.magnitude <= stopDistance;
+            reached = toTarget.magnitude <= reachedDistance;
 
             var direction = toTarget.normalized;
             // 0.95 to ensure we reach stopDistance or reachedConsecutive will wait a long time!
             var toDestination = toTarget - 0.95f * stopDistance * direction;
-            var v = Mathf.Min(1.5f, toDestination.magnitude);
+            var v = Mathf.Min(maxSpeed, toDestination.magnitude);
             pet.followObject.position = pet.transform.position + v * direction;
+            pet.spawnable.needsUpdate = true;
 
             yield return null;
         }
@@ -439,7 +451,7 @@ public class Fond : Behavior
     public override IEnumerable Run()
     {
         var follow = Add(new Follow(pet, () => target.position));
-        var lookAt = Add(new LookAt(pet, head ?? target));
+        var lookAt = Add(new LookAt(pet, () => (head ?? target).position));
         while (follow.Step() && lookAt.Step()) yield return null;
         Remove(follow); Remove(lookAt);
 
