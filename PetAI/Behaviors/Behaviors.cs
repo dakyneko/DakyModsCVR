@@ -498,6 +498,7 @@ public class Fond : Behavior
         this.animator = animator ?? target.GetComponent<PlayerSetup>()?._animator ?? target.GetComponent<PuppetMaster>()._animator;
         this.head = animator?.GetBoneTransform(HumanBodyBones.Head);
     }
+    public override string StateToString() => $"target={target?.name} animator={animator?.name} head={head?.name}";
 
     public override IEnumerable Run()
     {
@@ -506,7 +507,7 @@ public class Fond : Behavior
         while (follow.Step() && lookAt.Step()) yield return null;
         Remove(follow); Remove(lookAt);
 
-        while (true) // try go into lap in loop
+        while (true)
         {
             logger.Msg($"loop lap");
             var waitDuration = 1f; // TODO: make longer
@@ -524,8 +525,8 @@ public class Fond : Behavior
             if (lapPosition != null && lapAvailable / waitDuration > 0.9) // go into lap
             {
                 // TODO: add transition to go in lap: jump + animation
-                pet.SetSyncedParameter("followTargetWeight", 0.8f); // stick to it
                 logger.Msg($"Lap {target.name} available");
+                pet.SetSyncedParameter("followTargetWeight", 0.9f); // stick to it
                 pet.SetSyncedParameter("followTargetAimWeight", 001f); // much slower
                 pet.SetSyncedParameter("lookTargetToggle", 1); // TODO: hacky
                 pet.SetSyncedParameter("lookTargetSmooth", 0.01f);
@@ -541,53 +542,112 @@ public class Fond : Behavior
                         logger.Msg($"lap {target.name} counting not avail: {newLapPosition} : {noMoreLapAvailable} / 2");
                         noMoreLapAvailable += Time.deltaTime;
                     }
-                    pet.followObject.position = lapPosition.Value;
-                    //pet.lookObject.position = -(head ?? target).right;
+                    if ((pet.followObject.position - lapPosition.Value).magnitude >= 0.05f) // avoid jitter?
+                        pet.followObject.position = lapPosition.Value;
                     pet.spawnable.needsUpdate = true;
                     yield return null;
                 }
                 logger.Msg($"lap {target.name} no more available");
             }
-            pet.SetSound(0);
-            pet.SetEyes(0);
-            pet.SetSyncedParameter("lookTargetToggle", 0);
 
-            // pick random position around player and go there
-            // TODO: not nice to move away from player! actually
-            var nextPosition = Vector3.zero;
-            for (var tries = 0; tries < 5; ++tries)
+            // lap not available, climp up the player and go on shoulder :3
+            if (animator != null)
             {
-                var dist = UnityEngine.Random.Range(1.5f, 5f);
-                var angle = Quaternion.Euler(0, UnityEngine.Random.Range(-75, +75), 0);
-                var forward = ((head ?? target).forward with { y = 0 }).normalized; // in front of target
-                nextPosition = target.position + angle * forward * dist;
-                // we want our next point to be visible from player
-                // and on the navmesh if possible. Try a few times
-                if (Physics.Linecast(target.position, nextPosition))
-                {
-                    continue;
-                }
-                NavMeshHit hit;
-                if (!NavMesh.SamplePosition(nextPosition, out hit, 1f, new NavMeshQueryFilter() { agentTypeID = pet.agent.agentTypeID, areaMask = NavMesh.AllAreas }))
-                {
-                    continue;
-                }
-                nextPosition = hit.position; // on navmesh
-                break; // success
-            }
+                logger.Msg($"Gonna climb on player");
+                pet.SetSyncedParameter("lookTargetToggle", 1);
+                pet.SetSyncedParameter("lookTargetSmooth", 0.1f);
+                pet.SetSyncedParameter("followTargetWeight", 0.05f);
+                pet.lookObject.position = head.position;
+                pet.spawnable.needsUpdate = true;
 
-            // move there using Follow
-            // TODO: should only allow nav move, no fly if possible
-            follow = Add(new Follow(pet, () => nextPosition));
-            follow.reachedThresholdTime = 1;
-            follow.stuckThresholdTime = 0.5f;
-            follow.stopDistance = 0;
-            follow.maxSpeed = 0.5f; // slower
-            while (follow.Step()) yield return null;
-            Remove(follow);
-            waitDuration = UnityEngine.Random.Range(1f, 5f);
-            for (var wait = 0f; wait < waitDuration; wait += Time.deltaTime)
-                yield return null; // wait a bit there
+                var footL = animator.GetBoneTransform(HumanBodyBones.LeftFoot);
+                Vector3 nextPosition = footL.position + 0.1f * footL.up + 0.05f * -footL.forward;
+                // TODO: add crawling/climb animation instead
+                var flyto = Add(new FlyTo(pet, () => nextPosition));
+                flyto.reachedThresholdTime = 0;
+                flyto.stopDistance = 0;
+                flyto.reachedDistance = 0.02f;
+                flyto.maxSpeed = 0.05f; // slower
+
+                // TODO: improve follow so we don't need to check reach ourself!
+                while (flyto.Step()) yield return null;
+
+                // TODO: are the orientations of bone correct, to climb from front?
+                logger.Msg($"climb leg");
+                var legL = animator.GetBoneTransform(HumanBodyBones.LeftLowerLeg);
+                nextPosition = legL.position + 0.1f * -legL.forward; // TODO: how thick?
+                flyto.Restart();
+                while (flyto.Step()) yield return null;
+
+                logger.Msg($"climb thigh");
+                var thighL = animator.GetBoneTransform(HumanBodyBones.LeftUpperLeg);
+                nextPosition = thighL.position + 0.1f * -thighL.forward;
+                flyto.Restart();
+                while (flyto.Step()) yield return null;
+
+                logger.Msg($"climb chest");
+                var chest = animator.GetBoneTransform(HumanBodyBones.Chest);
+                nextPosition = chest.position + 0.1f * chest.forward;
+                flyto.Restart();
+                while (flyto.Step()) yield return null;
+
+                logger.Msg($"climb neck");
+                var neck = animator.GetBoneTransform(HumanBodyBones.Neck);
+                nextPosition = neck.position + 0.1f * neck.forward;
+                flyto.Restart();
+                while (flyto.Step()) yield return null;
+
+                pet.lookObject.position = head.position + 5f * head.forward; // look forward now
+                pet.spawnable.needsUpdate = true;
+
+                logger.Msg($"climb arm");
+                var armR = animator.GetBoneTransform(HumanBodyBones.RightUpperArm);
+                nextPosition = armR.position + 0.1f * Vector3.up;
+                flyto.Restart();
+                while (flyto.Step()) yield return null;
+
+                // now pet stay on the arm (middle of upper arm), will look at different things
+                // TODO: could go on top of head instead, especially if arm isn't available (not horizontal)
+                var elbowR = animator.GetBoneTransform(HumanBodyBones.RightLowerArm);
+                flyto.getTarget = () => (armR.position + elbowR.position)/2 + 0.1f * Vector3.up + 0.01f * neck.forward; // rotate forward now
+                flyto.maxSpeed = 10; // follow lock
+                flyto.moveAnimation = 0; // no animation
+                pet.SetAnimation(0);
+                flyto.reachedThresholdTime = -1; // never stop
+                flyto.Restart();
+                pet.SetSyncedParameter("followTargetWeight", 0.9f); // stick to it
+                pet.SetSyncedParameter("followTargetAimWeight", 0.3f); // much slower
+                lookAt = Add(new LookAt(pet, () => head.position));
+                var bistate = 0;
+                while (true) // TODO: add stop condition
+                {
+                    waitDuration = UnityEngine.Random.Range(3f, 15f);
+                    bistate = (bistate + 1) % 2;
+                    logger.Msg(bistate == 1 ? $"look at player" : $"look forward");
+                    if (bistate == 1)
+                        lookAt.getTarget = () => head.position; // look at player again
+                    else
+                        lookAt.getTarget = () => head.position + 5f * head.forward; // look forward now
+
+                    for (var wait = 0f; wait < waitDuration; wait += Time.deltaTime)
+                    {
+                        if (target == null || head == null) yield break;
+
+                        flyto.Step();
+                        //pet.followObject.position = elbowR.position;
+                        lookAt.Step();
+
+                        yield return null;
+                    }
+
+                    yield return null;
+                }
+
+                Remove(flyto);
+                Remove(lookAt);
+            }
+            else
+                logger.Warning($"Animator null, what to do?");
 
             yield return null;
         }
@@ -602,7 +662,62 @@ public class Fond : Behavior
         detect if player looks at pet, player talks to pet
         */
     }
-    public override string StateToString() => $"target={target?.name}";
+
+    // TODO: where to use WanderAround?
+    private IEnumerable WanderAround(float distMin = 1.5f, float distMax = 5f, float angleMax = 75,
+        bool stayInSight = true, bool stayOnNav = true, int sampleTries = 5)
+    {
+        pet.SetSound(0);
+        pet.SetEyes(0);
+        pet.SetSyncedParameter("lookTargetToggle", 0);
+
+        while (true)
+        {
+
+            // pick random position around player and go there
+            // TODO: not nice to move away from player! actually
+            logger.Msg($"wander around player");
+            var nextPosition = Vector3.zero;
+            for (var tries = 0; tries < sampleTries; ++tries)
+            {
+                var dist = UnityEngine.Random.Range(distMin, distMax);
+                var angle = Quaternion.Euler(0, UnityEngine.Random.Range(-angleMax, +angleMax), 0);
+                var forward = ((head ?? target).forward with { y = 0 }).normalized; // in front of target
+                nextPosition = target.position + angle * forward * dist;
+                // we want our next point to be visible from player
+                // and on the navmesh if possible. Try a few times
+                if (stayInSight && Physics.Linecast(target.position, nextPosition))
+                {
+                    logger.Msg($"wander sample #{tries} fails by linecast");
+                    continue;
+                }
+                if (!stayOnNav)
+                    break; // success
+                NavMeshHit hit;
+                if (!NavMesh.SamplePosition(nextPosition, out hit, 1f, new NavMeshQueryFilter() { agentTypeID = pet.agent.agentTypeID, areaMask = NavMesh.AllAreas }))
+                {
+                    logger.Msg($"wander sample #{tries} fails by navmesh");
+                    continue;
+                }
+                logger.Msg($"found position with NavMesh to wander around player");
+                nextPosition = hit.position; // on navmesh
+                break; // success
+            }
+
+            // move there using Follow
+            // TODO: should only allow nav move, no fly if possible
+            var follow = Add(new Follow(pet, () => nextPosition));
+            follow.reachedThresholdTime = 1;
+            follow.stuckThresholdTime = 0.5f;
+            follow.stopDistance = 0;
+            follow.maxSpeed = 0.5f; // slower
+            while (follow.Step()) yield return null;
+            Remove(follow);
+            var waitDuration = UnityEngine.Random.Range(1f, 5f);
+            for (var wait = 0f; wait < waitDuration; wait += Time.deltaTime)
+                yield return null; // wait a bit there
+        }
+    }
 
     private bool isHorizontalFn(Vector3 Vn) => Mathf.Abs(Vector3.Dot(Vn, Vector3.up)) <= Mathf.Cos(Mathf.PI / 6);
     private bool isForwardFn(Transform hips, Vector3 Vn) => Vector3.Dot(Vn, hips.forward) >= 0;
