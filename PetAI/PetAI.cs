@@ -8,6 +8,7 @@ using ABI_RC.Core.Savior;
 using ABI_RC.Systems.GameEventSystem;
 using ABI_RC.Core.Player;
 using PetAI.Behaviors;
+using ABI.CCK.Components;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
 [assembly:MelonInfo(typeof(PetAI.PetAIMod), "PetAI", "1.0.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
@@ -35,7 +36,7 @@ namespace PetAI
                 if (t == null) return;
 
                 var pet = t.gameObject.AddComponent<PuPet>();
-                pet.Init(this, logger);
+                pet.Init(logger);
             });
         }
 		
@@ -64,8 +65,14 @@ namespace PetAI
             {
                 return new List<MenuItem>() {
                     Button("Show all behaviors", pet.ShowAllBehaviors),
+                    Button("Show Spawnable parameters", () => {
+                        logger.Msg($"Spawnable parameters");
+                        foreach (var x in pet.spawnable.syncValues)
+                            logger.Msg($"- {x.name}: {x.currentValue}");
+                    }),
                     Button("Stop all", pet.RemAllBehaviors),
                     Menu("Fond of", () => FondMenu(pet)),
+                    Menu("Fetch", () => FetchMenu(pet)),
                     Toggle("Headpat", enable => {
                             if (enable) pet.AddBehavior(new Behaviors.PatsLover(pet));
                             else pet.RemBehavior<PatsLover>();
@@ -103,6 +110,16 @@ namespace PetAI
                     xs.Add(new MenuItem(p.Username, BuildButtonItem(p.Username, () => pet.FondOfPlayer(pm?.gameObject?.transform, pm?._animator))));
                 }
                 return xs.ToList();
+            }
+
+            private List<MenuItem> FetchMenu(PuPet pet)
+            {
+                var pos = PlayerSetup.Instance._avatar.transform.position;
+                return GameObject.FindObjectsOfType<CVRPickupObject>()
+                    .OrderBy(p => (p.transform.position - pos).magnitude) // closest first
+                    .Take(8) // max
+                    .Select((p, i) => Button($"{p.name} #{i}", () => pet.AddBehavior(new Fetch(pet, p))))
+                    .ToList();
             }
         }
 

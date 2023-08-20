@@ -4,8 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.AI;
-using System;
-using Common = Daky.Dakytils;
 
 using NavMeshTools = Kafe.NavMeshTools.API;
 using Behavior = PetAI.Behaviors.Behavior;
@@ -26,7 +24,7 @@ namespace PetAI
         public NavMeshBuildSettings navSettings;
         public TriggerCallback headTriggerCallback;
 
-        public void Init(PetAIMod mod, MelonLogger.Instance logger)
+        public void Init(MelonLogger.Instance logger)
         {
             this.logger = logger;
 
@@ -42,12 +40,7 @@ namespace PetAI
             // TODO: add config for name suffix?
             headObject = transform.Find("Armature_Kitsune/Root_Kitsune/Pivot_Kitsune/Kitsune_Root.003/Kitsune_Head_Rotate/Kitsune_Head");
             if (headObject != null)
-            {
-                var cb = headTriggerCallback = headObject.gameObject.AddComponent<TriggerCallback>();
-                // TODO: debug to remove?
-                cb.EnterListener += other => logger.Msg($"head trigger enter {other.name} {other}");
-                cb.ExitListener += other => logger.Msg($"head trigger exit {other.name} {other}");
-            }
+                headTriggerCallback = headObject.gameObject.AddComponent<TriggerCallback>();
             else
                 logger.Warning($"Failed to find pet head object");
 
@@ -127,9 +120,6 @@ namespace PetAI
             var name = typeof(T).Name;
             if (behaviors.ContainsKey(name))
                 logger.Warning($"Behavior {name} already exist, overwriting");
-            behavior.pet = this;
-            behavior.logger = logger;
-            behavior.iterator = behavior.Run().GetEnumerator();
             behaviors[name] = behavior;
             logger.Msg($"Added behavior {name}({behavior.uniqueId})");
         }
@@ -166,7 +156,7 @@ namespace PetAI
 
         public bool HasBehavior<T>() where T : Behavior => behaviors.ContainsKey(typeof(T).Name);
 
-        public void FixedUpdate()
+        public void Update() // TODO: vs FixedUpdate
         {
             foreach (var kv in behaviors.ToList())
             {
