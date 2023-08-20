@@ -47,12 +47,8 @@ namespace PetAI
 
             protected override void OnGlobalMenuLoaded(Menus menus)
             {
-                ModsMainMenu(menus).Add(new MenuItem()
-                {
-                    name = modName,
-                    icon = modIcon,
-                    action = BuildCallbackMenu(modName, modMenuItems), // dynamic menu
-                });
+                ModsMainMenu(menus).Add(
+                    Menu(modName, modMenuItems, modIcon));
             }
 
             protected override List<MenuItem> modMenuItems()
@@ -101,13 +97,13 @@ namespace PetAI
             {
                 var xs = new List<MenuItem>()
                 {
-                    new MenuItem("None", BuildButtonItem("none", () => pet.RemBehavior<Fond>())),
-                    new MenuItem("Me", BuildButtonItem("me", () => pet.FondOfPlayer(PlayerSetup.Instance.gameObject.transform, PlayerSetup.Instance._animator))),
+                    Button("None", () => pet.RemBehavior<Fond>()),
+                    Button("Me", () => pet.FondOfPlayer(PlayerSetup.Instance.gameObject.transform, PlayerSetup.Instance._animator)),
                 };
                 foreach (var p in MetaPort.Instance.PlayerManager.NetworkPlayers)
                 {
                     var pm = p?.PuppetMaster;
-                    xs.Add(new MenuItem(p.Username, BuildButtonItem(p.Username, () => pet.FondOfPlayer(pm?.gameObject?.transform, pm?._animator))));
+                    xs.Add(Button(p.Username, () => pet.FondOfPlayer(pm?.gameObject?.transform, pm?._animator)));
                 }
                 return xs.ToList();
             }
