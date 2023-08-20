@@ -142,9 +142,24 @@ public class Follow : Behavior
         lastPosition = pet.transform.position;
         var forward = Forward().GetEnumerator();
         var reachedConsecutive = 0f;
+        logger.Msg($"Follow Run start");
+
+        // TODO: debug stuff
+        var triggerReached = TriggerOnChange(() => reached, (v1, v2) => logger.Msg($"reached: {v1} -> {v2}"));
+        var triggerAgentEnabled = TriggerOnChange(() => agent.enabled, (v1, v2) => logger.Msg($"agent.enabled: {v1} -> {v2}"));
+        var triggerSpeedStalled = TriggerOnChange(() => speedStalled, (v1, v2) => logger.Msg($"speedStalled: {v1} -> {v2}"));
+        var triggerReachedConsecutive = TriggerOnChange(() => Mathf.Round(reachedConsecutive), (v1, v2) => logger.Msg($"reachedConsecutive: {v1} -> {v2}"));
+        var triggerAnimation = TriggerOnChange(() => pet.GetSyncedParameter("animation"), (v1, v2) => logger.Msg($"GetSyncedParameter=animation: {v1} -> {v2}"));
 
         while (true)
         {
+            // TODO: debug stuff
+            triggerReached();
+            triggerAgentEnabled();
+            triggerSpeedStalled();
+            triggerReachedConsecutive();
+            triggerAnimation();
+
             var newPos = pet.transform.position;
             // smooth a bit for speedStalled, so it doesn't flap
             velocity = 0.5f * velocity + 0.5f * (newPos - lastPosition).magnitude / Time.deltaTime;
@@ -162,6 +177,7 @@ public class Follow : Behavior
 
             if (reachedConsecutive >= reachedThresholdTime)
             {
+                logger.Msg($"reachedConsecutive done = {reachedConsecutive}");
                 endReason = EndReason.reached;
                 pet.spawnable.needsUpdate = true; // one last update?
                 yield break;
@@ -175,6 +191,7 @@ public class Follow : Behavior
     {
         while (true)
         {
+            logger.Msg($"Forward loop");
             if (teleportIfTooFar && toTarget.magnitude >= teleportDistance)
                 logger.Warning($"Pet too far, should teleport"); // TODO: implement
 
@@ -189,6 +206,7 @@ public class Follow : Behavior
 
                 if (!reached && stuckTime >= stuckThresholdTime)
                 {
+                    logger.Msg($"by nav stuck");
                     break; // try by fly
                 }
                 yield return null;
@@ -214,6 +232,7 @@ public class Follow : Behavior
                         && agent.CalculatePath(target, p) // will be costly
                         && (p.corners.Last() - target).magnitude <= stopDistance)
                     {
+                        logger.Msg($"fly detected can go by nav now");
                         agent.enabled = true;
                         agent.velocity = velocity * toTarget.normalized;
                         agent.Warp(hit.position); // TODO: should move slowly, not teleport
@@ -230,6 +249,7 @@ public class Follow : Behavior
 
     public IEnumerable ByNavMesh()
     {
+        logger.Msg($"Start by nav");
         agent.enabled = true;
         SetNavWeight();
         while (true)
@@ -247,6 +267,7 @@ public class Follow : Behavior
 
     public IEnumerable ByFly()
     {
+        logger.Msg($"Start by fly");
         agent.enabled = false;
         SetFlyWeight();
         while (true)
@@ -352,6 +373,7 @@ public class PatsLover : Behavior
                 if (pat.inside)
                 {
                     var dist = (pat.lastPosition - newPos).magnitude;
+                    logger.Msg($"Headpatter candidate {pat.collider.name}, inside={pat.inside} score={pat.score:0.00} dist={dist:0.00} count={pat.count}");
                     pat.score += dist;
                     pat.count += 1;
                     if (pat.score > scoreThreshold)
@@ -367,6 +389,7 @@ public class PatsLover : Behavior
                                 var player = MetaPort.Instance.PlayerManager.NetworkPlayers.FirstOrDefault(p => p.Uuid == pickup.grabbedBy);
                                 playerDesc = player?.PlayerDescriptor;
                             }
+                            logger.Msg($"Found player from pickup grabbed by: {playerDesc} <- {pickup.grabbedBy} <- {pickup}");
                         }
                         // otherwise it's on a player directly
                         playerDesc ??= pat.collider.gameObject.GetComponentInParent<PlayerDescriptor>();
@@ -376,6 +399,7 @@ public class PatsLover : Behavior
                             pats.Remove(name);
                             continue;
                         }
+                        logger.Msg($"Headpatter winner {playerDesc.userName} <- {pat.collider.name}, score={pat.score} count={pat.count}");
                         winner = playerDesc;
                         yield break;
                     }
@@ -417,6 +441,7 @@ public class Fond : Behavior
 
         while (true) // try go into lap in loop
         {
+            logger.Msg($"loop lap");
             var waitDuration = 1f; // TODO: make longer
             var lapAvailable = 0f;
             Vector3? lapPosition = null;
@@ -427,11 +452,13 @@ public class Fond : Behavior
                 if (newLapPosition != null) lapAvailable += Time.deltaTime;
                 yield return null;
             }
+            logger.Msg($"Lap {target.name} availability: {lapAvailable} / {waitDuration}");
 
             if (lapPosition != null && lapAvailable / waitDuration > 0.9) // go into lap
             {
                 // TODO: add transition to go in lap: jump + animation
                 pet.SetSyncedParameter("followTargetWeight", 0.8f); // stick to it
+                logger.Msg($"Lap {target.name} available");
                 pet.SetSyncedParameter("followTargetAimWeight", 001f); // much slower
                 pet.SetSyncedParameter("lookTargetToggle", 1); // TODO: hacky
                 pet.SetSyncedParameter("lookTargetSmooth", 0.01f);
@@ -444,6 +471,7 @@ public class Fond : Behavior
                     lapPosition = newLapPosition ?? lapPosition;
                     if (newLapPosition == null)
                     {
+                        logger.Msg($"lap {target.name} counting not avail: {newLapPosition} : {noMoreLapAvailable} / 2");
                         noMoreLapAvailable += Time.deltaTime;
                     }
                     pet.followObject.position = lapPosition.Value;
@@ -451,6 +479,7 @@ public class Fond : Behavior
                     pet.spawnable.needsUpdate = true;
                     yield return null;
                 }
+                logger.Msg($"lap {target.name} no more available");
             }
             pet.SetSound(0);
             pet.SetEyes(0);

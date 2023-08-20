@@ -131,7 +131,7 @@ namespace PetAI
             behavior.logger = logger;
             behavior.iterator = behavior.Run().GetEnumerator();
             behaviors[name] = behavior;
-            logger.Msg($"Added behavior {name}");
+            logger.Msg($"Added behavior {name}({behavior.uniqueId})");
         }
 
         public void RemBehavior<T>() where T : Behavior
@@ -145,7 +145,7 @@ namespace PetAI
             var behavior = behaviors[name];
             behaviors.Remove(name);
             behavior.End();
-            logger.Msg($"Removed behavior {name}");
+            logger.Msg($"Removed behavior {name}({behavior.uniqueId})");
         }
 
         public void RemAllBehaviors()
@@ -154,6 +154,7 @@ namespace PetAI
             {
                 behaviors.Remove(kv.Key);
                 kv.Value.End(); // also for non standalone, is that ok?
+                logger.Msg($"Removed behavior {kv.Key}({kv.Value.uniqueId})");
             }
         }
 
