@@ -1008,11 +1008,14 @@ namespace ActionMenu
             if (show && menuCollider?.enabled == true)
                 UpdatePositionToAnchor();
 
-            if (!vr && handleDesktopInputs)
+            if (!vr)
             {
                 moveSys.disableCameraControl = show;
-                CVRInputManager.Instance.inputEnabled = !show;
-                RootLogic.Instance.ToggleMouse(show);
+                if (handleDesktopInputs) // TODO: investigate
+                {
+                    RootLogic.Instance.ToggleMouse(show);
+                    CVRInputManager.Instance.inputEnabled = !show;
+                }
             }
         }
 
@@ -1439,7 +1442,9 @@ namespace ActionMenu
             if (menuTransform != null)
                 UpdatePositionToAnchor();
 
-            var keyboardGrabbed = ViewManager.Instance?.textInputFocused == true;
+            var keyboardGrabbed = ViewManager.Instance?.textInputFocused == true
+                || CVRInputManager.Instance?.textInputFocused == true
+                || CVR_MenuManager.Instance?.textInputFocused == true;
             if (keyboardGrabbed) return;
 
             if (Input.GetKeyDown(reloadKeyBinding.Value)) {
