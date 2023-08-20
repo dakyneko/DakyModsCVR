@@ -14,6 +14,7 @@ using MelonLoader;
 using UnityEngine;
 using UnityEngine.Rendering;
 using LagFreeScreenshots.API;
+using System.Linq;
 
 using Object = UnityEngine.Object;
 using PlayerSetup = ABI_RC.Core.Player.PlayerSetup;
@@ -44,16 +45,16 @@ namespace LagFreeScreenshots
         private const string SettingCustomResolutionX = "CustomResolutionX";
         private const string SettingCustomResolutionY = "CustomResolutionY";
 
-        private static MelonPreferences_Entry<bool> ourEnabled;
-        private static MelonPreferences_Entry<PresetScreenshotSizes> ourResolution;
-        private static MelonPreferences_Entry<ImageFormats> ourFormat;
-        private static MelonPreferences_Entry<int> ourJpegPercent;
-        private static MelonPreferences_Entry<int> ourWebpPercent;
-        private static MelonPreferences_Entry<int> ourCustomResolutionX;
-        private static MelonPreferences_Entry<int> ourCustomResolutionY;
-        private static MelonPreferences_Entry<bool> ourAutorotation;
-        private static MelonPreferences_Entry<bool> ourMetadata;
-        private static MelonPreferences_Entry<int> ourRecommendedMaxFb;
+        internal static MelonPreferences_Entry<bool> ourEnabled;
+        internal static MelonPreferences_Entry<PresetScreenshotSizes> ourResolution;
+        internal static MelonPreferences_Entry<ImageFormats> ourFormat;
+        internal static MelonPreferences_Entry<int> ourJpegPercent;
+        internal static MelonPreferences_Entry<int> ourWebpPercent;
+        internal static MelonPreferences_Entry<int> ourCustomResolutionX;
+        internal static MelonPreferences_Entry<int> ourCustomResolutionY;
+        internal static MelonPreferences_Entry<bool> ourAutorotation;
+        internal static MelonPreferences_Entry<bool> ourMetadata;
+        internal static MelonPreferences_Entry<int> ourRecommendedMaxFb;
 
         private static bool ourSupportsWebP = false;
 
@@ -85,6 +86,11 @@ namespace LagFreeScreenshots
             {
                 logger.Warning($"WebP is not properly installed in game directory. Please provide libwebp.dll libwebpmux.dll and libwebpwrapper.dll to make this work.");
                 ourFormat.Value = ImageFormats.auto;
+            }
+
+            // Check for BTKUILib
+            if (RegisteredMelons.Any(m => m.Info.Name == "BTKUILib")) {
+                BTKUILibIntegration.Init(category);
             }
         }
 
