@@ -1,7 +1,10 @@
+using ABI_RC.Core.Player;
+using ABI_RC.Core.Savior;
 using ABI_RC.Systems.Camera;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEngine;
 
 namespace Daky
@@ -105,7 +108,7 @@ namespace Daky
             }
         }
 
-        // retruns a function that check if the value changed (returned by get) if so calls action with old and new value
+        // returns a function that check if the value changed (returned by get) if so calls action with old and new value
         public static Action TriggerOnChange<T>(Func<T> get, Action<T, T> action)
         {
             var v = get();
@@ -116,6 +119,26 @@ namespace Daky
                     action(v, newV);
                 v = newV;
             };
+        }
+        // almost the same but the action function is passed afterward
+        public static Action<Action<T, T>> TriggerOnChange<T>(Func<T> get)
+        {
+            var v = get();
+            return (action) =>
+            {
+                var newV = get();
+                if (!EqualityComparer<T>.Default.Equals(v, newV))
+                    action(v, newV);
+                v = newV;
+            };
+        }
+
+        public static PlayerDescriptor GetPlayerById(string id)
+        {
+            if (MetaPort.Instance.ownerId == id)
+                return PlayerSetup.Instance.gameObject.GetComponent<PlayerDescriptor>();
+            else
+                return MetaPort.Instance.PlayerManager.NetworkPlayers.First(p => p.Uuid == id).PlayerDescriptor;
         }
     }
 }
