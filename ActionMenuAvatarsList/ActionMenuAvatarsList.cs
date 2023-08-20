@@ -46,7 +46,9 @@ namespace ActionMenuAvatarsList
                 {
                     name = "Props list", // TODO: separate mod?
                     icon = "../CVRTest/gfx/btn-props.svg",
-                    action = BuildCallbackMenu("props", () => ViewManager.Instance._spawneables.Select(s => new MenuItem()
+                    action = BuildCallbackMenu("props", () => ViewManager.Instance._spawneables
+                        .Where(s => s.SpawnableId != "" && s.SpawnableName != "")
+                        .Select(s => new MenuItem()
                     {
                         name = s.SpawnableName,
                         icon = s.SpawnableImageUrl,
