@@ -7,6 +7,8 @@ using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
 using HarmonyLib;
 using LagFreeScreenshots;
@@ -78,8 +80,12 @@ namespace LagFreeScreenshots
             ourCustomResolutionY = category.CreateEntry(SettingCustomResolutionY, 1080, "Custom screenshot resolution (Y)");
             
             HarmonyInstance.Patch(
-                typeof(PortableCamera).GetMethod(nameof(PortableCamera.Capture),  RefFlags.Instance | RefFlags.NonPublic),
+                SymbolExtensions.GetMethodInfo(() => default(PortableCamera).Capture()),
                 new HarmonyMethod(AccessTools.Method(typeof(LagFreeScreenshotsMod), nameof(OnCapture))));
+            HarmonyInstance.Patch(
+                SymbolExtensions.GetMethodInfo(() => default(PortableCamera).ApplyPostMaterial(default(Material))),
+                new HarmonyMethod(AccessTools.Method(typeof(LagFreeScreenshotsMod), nameof(OnApplyPostMaterial))));
+
 
             ourSupportsWebP = WebpUtils.IsWebpSupported();
             if (ourFormat.Value == ImageFormats.webp && !ourSupportsWebP) // only when if explicitely requested
@@ -114,14 +120,14 @@ namespace LagFreeScreenshots
             return ScreenshotRotation.NoRotation;
         }
 
-        private static MulticastDelegate preImageTaken = null;
-        private static MulticastDelegate postImageTaken = null;
+        private static FieldInfo preImageTaken = null, postImageTaken = null, applyPostMaterial = null;
 
         private static void CVRPreImageTaken(PortableCamera __instance)
         {
             // and raise event
-            preImageTaken ??= (MulticastDelegate)typeof(PortableCamera).GetField(nameof(PortableCamera.PreImageTaken), RefFlags.Static | RefFlags.NonPublic).GetValue(null);
-            preImageTaken?.GetInvocationList().Do(f => f.Method.Invoke(f.Target, new object[] { __instance, new Events.PreImageTakenEventArgs() }));
+            preImageTaken ??= typeof(PortableCamera).GetField(nameof(PortableCamera.PreImageTaken), RefFlags.Static | RefFlags.NonPublic);
+            var f = preImageTaken?.GetValue(null) as EventHandler<Events.PreImageTakenEventArgs>;
+            f?.Invoke(__instance, new Events.PreImageTakenEventArgs());
         }
 
         private static void CVRPostImageTaken(PortableCamera __instance)
@@ -134,8 +140,26 @@ namespace LagFreeScreenshots
             AudioEffects.InterfaceAudio.Play(AudioEffects.AudioClipField.CameraShutter);
 
             // and raise event
-            postImageTaken ??= (MulticastDelegate)typeof(PortableCamera).GetField(nameof(PortableCamera.PostImageTaken), RefFlags.Static | RefFlags.NonPublic ).GetValue(null);
-            postImageTaken?.GetInvocationList().Do(f => f.Method.Invoke(f.Target, new object[] { __instance, new Events.PostImageTakenEventArgs() }));
+            postImageTaken ??= typeof(PortableCamera).GetField(nameof(PortableCamera.PostImageTaken), RefFlags.Static | RefFlags.NonPublic);
+            var f = postImageTaken?.GetValue(null) as EventHandler<Events.PostImageTakenEventArgs>;
+            f?.Invoke(__instance, new Events.PostImageTakenEventArgs());
+        }
+
+        private static volatile bool catchApplyPostMaterial = false;
+        private static volatile List<Material> postMaterials = new();
+        private static void CVRApplyPostMaterial(PortableCamera __instance) {
+            // and raise event
+            applyPostMaterial ??= typeof(PortableCamera).GetField(nameof(PortableCamera.ProcessImageEvent), RefFlags.Static | RefFlags.NonPublic);
+            var f = applyPostMaterial?.GetValue(null) as EventHandler<Events.ProcessImageEventArgs>;
+            f?.Invoke(__instance, new Events.ProcessImageEventArgs());
+        }
+
+        private static bool OnApplyPostMaterial(PortableCamera __instance, Material mat)
+        {
+            if (!catchApplyPostMaterial) return true;
+
+            postMaterials.Add(mat);
+            return false;
         }
 
         private static bool OnCapture(PortableCamera __instance) {
@@ -156,7 +180,7 @@ namespace LagFreeScreenshots
             CVRPreImageTaken(__instance);
 
             var settings = new ImageSettings { Width = resX, Height = resY, HasAlpha = hasAlpha };
-            TakeScreenshot(camera, settings).ContinueWith(async t =>
+            TakeScreenshot(__instance, camera, settings).ContinueWith(async t =>
             {
                 if (t.IsFaulted)
                     logger.Warning($"Free-floating task failed with exception: {t.Exception}");
@@ -210,7 +234,7 @@ namespace LagFreeScreenshots
             return (int) maxMsaa;
         }
 
-        public static (RenderTexture, ScreenshotRotation) PrepareCameraAndRender(Camera camera, ref ImageSettings settings)
+        public static (RenderTexture, ScreenshotRotation) PrepareCameraAndRender(PortableCamera __instance, Camera camera, ref ImageSettings settings)
         {
             var w = settings.Width;
             var h = settings.Height;
@@ -274,6 +298,19 @@ namespace LagFreeScreenshots
             camera.allowMSAA = oldAllowMsaa;
             QualitySettings.antiAliasing = oldGraphicsMsaa;
 
+            // apply PortableCamera effects mods, we need to catch their materials and we'll apply them ourself
+            catchApplyPostMaterial = true;
+            CVRApplyPostMaterial(__instance);
+            catchApplyPostMaterial = false;
+            if (postMaterials.Count > 0)
+            {
+                logger.Msg($"Applying {postMaterials.Count} post-processing filters: {string.Join(", ", postMaterials.Select(m => m.name))}");
+                foreach (var m in postMaterials)
+                    // dangerous as we use same texture in and out, but it works
+                    UnityEngine.Graphics.Blit(renderTexture, renderTexture, m);
+                postMaterials.Clear();
+            }
+
             return (renderTexture, shotRotation);
         }
 
@@ -334,12 +371,12 @@ namespace LagFreeScreenshots
             return data;
         }
 
-        public static async Task TakeScreenshot(Camera camera, ImageSettings settings)
+        public static async Task TakeScreenshot(PortableCamera __instance, Camera camera, ImageSettings settings)
         {
             await TaskUtilities.YieldToFrameEnd();
 
             // pass settings by reference because we modify width+height for auto rotation
-            var (renderTexture, rotationQuarters) = PrepareCameraAndRender(camera, ref settings);
+            var (renderTexture, rotationQuarters) = PrepareCameraAndRender(__instance, camera, ref settings);
             
             renderTexture.ResolveAntiAliasedSurface();
             LfsApi.InvokeScreenshotTexture(renderTexture);
