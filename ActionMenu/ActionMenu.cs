@@ -998,6 +998,8 @@ namespace ActionMenu
                 else if (vm?.isGameMenuOpen() == true) vm.UiStateToggle(false);
             }
 
+            // TODO: experiment
+            cohtmlView.FPSLimit = show ? 90 : 2; // open=reasonable FPS limit for VR
             cohtmlView.View.TriggerEvent<bool>("ToggleActionMenu", show);
             cohtmlView.enabled = show; // TODO: doesn this reload cohtml each time? careful
             menuAnimator.SetBool("Open", show);
