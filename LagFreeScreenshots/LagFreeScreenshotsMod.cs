@@ -362,7 +362,7 @@ namespace LagFreeScreenshots
 
                     var bytes = newTexture.GetRawTextureData<byte>();
                     data = (Marshal.AllocHGlobal(bytes.Length), bytes.Length);
-                    Buffer.MemoryCopy((void*) data.Item1, bytes.m_Buffer, bytes.Length, bytes.Length);
+                    Buffer.MemoryCopy(bytes.m_Buffer, data.Item1.ToPointer(), bytes.Length, bytes.Length);
 
                     Object.Destroy(newTexture);
                 }
