@@ -50,12 +50,15 @@ public class FlyTo : Behavior
                 yield break; // done
             }
 
-            var direction = toTarget.normalized;
-            // 0.95 to ensure we reach stopDistance or reachedConsecutive will wait a long time!
-            var toDestination = toTarget - stopDistance * direction;
-            var v = Mathf.Min(maxSpeed, toDestination.magnitude);
-            pet.followObject.position = pet.transform.position + v * direction;
-            pet.spawnable.needsUpdate = true;
+            var dist = toTarget.magnitude;
+            if (dist > stopDistance)
+            {
+                var direction = toTarget.normalized;
+                var toDestination = toTarget - stopDistance * direction;
+                var v = Mathf.Min(maxSpeed * Time.deltaTime, toDestination.magnitude);
+                pet.followObject.position += v * direction;
+                pet.spawnable.needsUpdate = true;
+            }
 
             yield return null;
         }

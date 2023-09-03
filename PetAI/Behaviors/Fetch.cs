@@ -79,12 +79,15 @@ public class Fetch : Behavior
         lookAt.getTarget = follow.getTarget = () => thrower.transform.position;
         lookAt.speed = 0.05f;
         follow.stopDistance = 1;
+        follow.reachedDistance = 1.2f;
         follow.reachedThresholdTime = 3;
         follow.Restart();
         while (follow.Step())
         {
             // TODO: this won't work with world props
-            spawnable.needsUpdate = true;
+            // TODO: do we even need to set this since we're grabbing it?
+            if (spawnable != null)
+                spawnable.needsUpdate = true;
             yield return null;
         }
 

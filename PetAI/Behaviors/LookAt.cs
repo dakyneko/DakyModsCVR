@@ -17,14 +17,14 @@ public class LookAt : Behavior
 
     public void Start()
     {
-        pet.SetSyncedParameter("lookTargetToggle", 1);
-        pet.SetSyncedParameter("lookTargetSmooth", speed);
+        pet.SetLookTargetToggle(1);
+        pet.SetLookTargetSmooth(speed);
     }
     public override void End()
     {
         base.End();
-        pet.SetSyncedParameter("lookTargetToggle", 0);
-        pet.SetSyncedParameter("lookTargetSmooth", 0);
+        pet.SetLookTargetToggle(0);
+        pet.SetLookTargetSmooth(0);
     }
 
     public override IEnumerable Run()

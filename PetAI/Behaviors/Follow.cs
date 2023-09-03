@@ -41,8 +41,8 @@ public class Follow : Behavior
         agent.enabled = false;
     }
 
-    public void SetNavWeight() => pet.SetSyncedParameter("followTargetWeight", 0.05f);
-    public void SetFlyWeight() => pet.SetSyncedParameter("followTargetWeight", 0.01f);
+    public void SetNavWeight() => pet.SetFollowTargetWeight(0.05f);
+    public void SetFlyWeight() => pet.SetFollowTargetWeight(0.05f);
 
     public override string StateToString() => $"getTarget={getTarget()} velocity={velocity:0.00} stuckTime={stuckTime:0.00} reached={reached} speedStalled={speedStalled} agent.enabled={agent.enabled} toTarget.magnitude={toTarget.magnitude:F2}";
 
@@ -85,7 +85,7 @@ public class Follow : Behavior
             if (reached) reachedConsecutive += Time.deltaTime;
             else         reachedConsecutive = 0;
 
-            pet.SetSyncedParameter("followTargetAimWeight", reached ? 0f : 0.05f); // avoid glitch when reached
+            pet.SetFollowTargetAimWeight(reached ? 0f : 0.05f); // avoid glitch when reached
 
             // if threshold is set and arrived for long enough, we're done
             if (reached && reachedThresholdTime >= 0 && reachedConsecutive >= reachedThresholdTime)
@@ -160,11 +160,11 @@ public class Follow : Behavior
     {
         logger.Msg($"Start by nav");
         agent.enabled = true;
+        agent.stoppingDistance = stopDistance;
         SetNavWeight();
         while (true)
         {
-            reached = toTarget.magnitude <= reachedDistance // all good
-                || (speedStalled && toTarget.magnitude < 2*stopDistance); // stuck a bit further but navmesh sux anyway
+            reached = toTarget.magnitude <= reachedDistance;
 
             if (!reached)
             {
@@ -185,14 +185,17 @@ public class Follow : Behavior
         SetFlyWeight();
         while (true)
         {
-            reached = toTarget.magnitude <= reachedDistance;
+            var dist = toTarget.magnitude;
+            reached = dist <= reachedDistance;
 
-            var direction = toTarget.normalized;
-            // 0.95 to ensure we reach stopDistance or reachedConsecutive will wait a long time!
-            var toDestination = toTarget - 0.95f * stopDistance * direction;
-            var v = Mathf.Min(maxSpeed, toDestination.magnitude);
-            pet.followObject.position = pet.transform.position + v * direction;
-            pet.spawnable.needsUpdate = true;
+            if (dist > stopDistance)
+            {
+                var direction = toTarget.normalized;
+                var toDestination = toTarget - stopDistance * direction;
+                var v = Mathf.Min(maxSpeed * Time.deltaTime, toDestination.magnitude);
+                pet.followObject.position += v * direction;
+                pet.spawnable.needsUpdate = true;
+            }
 
             yield return null;
         }

@@ -1,5 +1,7 @@
 using ABI_RC.Core.Player;
+using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -20,6 +22,13 @@ public class Fond : Behavior
     }
     public override string StateToString() => $"target={target?.name} animator={animator?.name} head={head?.name}";
 
+    public override void End()
+    {
+        base.End();
+        pet.SetSound(0);
+        pet.SetEyes(0); // is this responsability of caller instead?
+    }
+
     public override IEnumerable Run()
     {
         var follow = Add(new Follow(pet, () => target.position));
@@ -29,6 +38,7 @@ public class Fond : Behavior
 
         while (true)
         {
+            // try to go on lap if available
             logger.Msg($"loop lap");
             var waitDuration = 1f; // TODO: make longer
             var lapAvailable = 0f;
@@ -46,10 +56,10 @@ public class Fond : Behavior
             {
                 // TODO: add transition to go in lap: jump + animation
                 logger.Msg($"Lap {target.name} available");
-                pet.SetSyncedParameter("followTargetWeight", 0.9f); // stick to it
-                pet.SetSyncedParameter("followTargetAimWeight", 001f); // much slower
-                pet.SetSyncedParameter("lookTargetToggle", 1); // TODO: hacky
-                pet.SetSyncedParameter("lookTargetSmooth", 0.01f);
+                pet.SetFollowTargetWeight(0.9f); // stick to it
+                pet.SetFollowTargetAimWeight(0.01f); // much slower
+                pet.SetLookTargetToggle(1); // TODO: hacky
+                pet.SetLookTargetSmooth(0.01f);
                 pet.SetSound(2);
                 pet.SetEyes(1); // happy
                 var noMoreLapAvailable = 0f;
@@ -74,9 +84,9 @@ public class Fond : Behavior
             if (animator != null)
             {
                 logger.Msg($"Gonna climb on player");
-                pet.SetSyncedParameter("lookTargetToggle", 1);
-                pet.SetSyncedParameter("lookTargetSmooth", 0.1f);
-                pet.SetSyncedParameter("followTargetWeight", 0.05f);
+                pet.SetLookTargetToggle(1);
+                pet.SetLookTargetSmooth(0.1f);
+                pet.SetFollowTargetWeight(0.9f); // stick to it
                 pet.lookObject.position = head.position;
                 pet.spawnable.needsUpdate = true;
 
@@ -84,59 +94,54 @@ public class Fond : Behavior
                 Vector3 nextPosition = footL.position + 0.1f * footL.up + 0.05f * -footL.forward;
                 // TODO: add crawling/climb animation instead
                 var flyto = Add(new FlyTo(pet, () => nextPosition));
-                flyto.reachedThresholdTime = 0;
-                flyto.stopDistance = 0;
-                flyto.reachedDistance = 0.02f;
-                flyto.maxSpeed = 0.05f; // slower
+                flyto.reachedThresholdTime = 0.2f;
+                flyto.stopDistance = 0.02f;
+                flyto.reachedDistance = 0.2f;
+                flyto.maxSpeed = 0.8f; // slower
 
-                // TODO: improve follow so we don't need to check reach ourself!
-                while (flyto.Step()) yield return null;
-
-                // TODO: are the orientations of bone correct, to climb from front?
-                logger.Msg($"climb leg");
                 var legL = animator.GetBoneTransform(HumanBodyBones.LeftLowerLeg);
-                nextPosition = legL.position + 0.1f * -legL.forward; // TODO: how thick?
-                flyto.Restart();
-                while (flyto.Step()) yield return null;
-
-                logger.Msg($"climb thigh");
                 var thighL = animator.GetBoneTransform(HumanBodyBones.LeftUpperLeg);
-                nextPosition = thighL.position + 0.1f * -thighL.forward;
-                flyto.Restart();
-                while (flyto.Step()) yield return null;
-
-                logger.Msg($"climb chest");
                 var chest = animator.GetBoneTransform(HumanBodyBones.Chest);
-                nextPosition = chest.position + 0.1f * chest.forward;
-                flyto.Restart();
-                while (flyto.Step()) yield return null;
-
-                logger.Msg($"climb neck");
                 var neck = animator.GetBoneTransform(HumanBodyBones.Neck);
-                nextPosition = neck.position + 0.1f * neck.forward;
-                flyto.Restart();
-                while (flyto.Step()) yield return null;
-
-                pet.lookObject.position = head.position + 5f * head.forward; // look forward now
-                pet.spawnable.needsUpdate = true;
-
-                logger.Msg($"climb arm");
                 var armR = animator.GetBoneTransform(HumanBodyBones.RightUpperArm);
-                nextPosition = armR.position + 0.1f * Vector3.up;
-                flyto.Restart();
-                while (flyto.Step()) yield return null;
+                var climbs = new List<(string, Func<Vector3>)>() {
+                    ("legL", () => legL.position + 0.1f * -legL.forward),
+                    ("thighL", () => thighL.position + 0.1f * -thighL.forward),
+                    ("chest", () => chest.position + 0.1f * chest.forward),
+                    ("neck", () => neck.position + 0.1f * neck.forward),
+                    ("armR", () => armR.position + 0.1f * Vector3.up),
+                };
+                var climbPlayer = ClimbPlayer(flyto, climbs).GetEnumerator();
+                var sticky = false;
+                var sticker = StickToPlayer().GetEnumerator();
+                while ((!sticky || sticker.MoveNext()) && climbPlayer.MoveNext())
+                {
+                    switch (climbPlayer.Current)
+                    {
+                        case "thighL":
+                            flyto.maxSpeed = 0.25f; // much slower
+                            flyto.stopDistance = 0; // on target
+                            sticky = true; // start to stick
+                            break;
+                        case "armR":
+                            pet.lookObject.position = head.position + 5f * head.forward; // look forward now
+                            pet.spawnable.needsUpdate = true;
+                            break;
+                    }
+                    yield return null;
+                }
 
                 // now pet stay on the arm (middle of upper arm), will look at different things
                 // TODO: could go on top of head instead, especially if arm isn't available (not horizontal)
                 var elbowR = animator.GetBoneTransform(HumanBodyBones.RightLowerArm);
-                flyto.getTarget = () => (armR.position + elbowR.position)/2 + 0.1f * Vector3.up + 0.01f * neck.forward; // rotate forward now
-                flyto.maxSpeed = 10; // follow lock
+                flyto.getTarget = () => 0.2f*armR.position + 0.8f*elbowR.position + 0.1f * Vector3.up + 0.01f * neck.forward; // rotate forward now
+                flyto.maxSpeed = 1200; // follow lock
                 flyto.moveAnimation = 0; // no animation
                 pet.SetAnimation(0);
                 flyto.reachedThresholdTime = -1; // never stop
                 flyto.Restart();
-                pet.SetSyncedParameter("followTargetWeight", 0.9f); // stick to it
-                pet.SetSyncedParameter("followTargetAimWeight", 0.3f); // much slower
+                pet.SetFollowTargetWeight(0.9f); // stick to it
+                pet.SetFollowTargetAimWeight(0.3f); // much slower
                 lookAt = Add(new LookAt(pet, () => head.position));
                 var bistate = 0;
                 while (true) // TODO: add stop condition
@@ -154,7 +159,6 @@ public class Fond : Behavior
                         if (target == null || head == null) yield break;
 
                         flyto.Step();
-                        //pet.followObject.position = elbowR.position;
                         lookAt.Step();
 
                         yield return null;
@@ -183,13 +187,41 @@ public class Fond : Behavior
         */
     }
 
+    private IEnumerable<string?> ClimbPlayer(FlyTo flyto, List<(string name, Func<Vector3> f)> getTargets)
+    {
+        foreach (var (name, getTarget) in getTargets) {
+
+            yield return name;
+            var pos = getTarget();
+            if (pet.transform.position.y > pos.y) continue; // skip if pet is above already
+
+            logger.Msg($"climbing player's {name}");
+            flyto.getTarget = getTarget;
+            flyto.Restart();
+            while (flyto.Step()) yield return null;
+        }
+    }
+    private IEnumerable StickToPlayer()
+    {
+        var lastTargetPosition = target.transform.position;
+        while (true)
+        {
+            var dist = target.transform.position - lastTargetPosition;
+            lastTargetPosition = target.transform.position;
+            pet.followObject.position += dist; // stick on player even while they're moving
+            pet.spawnable.needsUpdate = true;
+            // we can't use pet.transform.position but this is best we can do
+            yield return null;
+        }
+    }
+
     // TODO: where to use WanderAround?
     private IEnumerable WanderAround(float distMin = 1.5f, float distMax = 5f, float angleMax = 75,
         bool stayInSight = true, bool stayOnNav = true, int sampleTries = 5)
     {
         pet.SetSound(0);
         pet.SetEyes(0);
-        pet.SetSyncedParameter("lookTargetToggle", 0);
+        pet.SetLookTargetToggle(0);
 
         while (true)
         {

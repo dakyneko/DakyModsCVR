@@ -102,7 +102,11 @@ namespace PetAI
         public void SetEyes(int code, float intensity = 1) => SetSyncedParameterIntensity("eyes", code, intensity);
         public void SetMouth(int code, float intensity = 1) => SetSyncedParameterIntensity("mouth", code, intensity);
         public void SetAnimation(int code) => SetSyncedParameter("animation", code);
-        
+        public void SetFollowTargetWeight(float v) => SetSyncedParameter("followTargetWeight", v);
+        public void SetFollowTargetAimWeight(float v) => SetSyncedParameter("followTargetAimWeight", v);
+        public void SetLookTargetToggle(float v) => SetSyncedParameter("lookTargetToggle", v);
+        public void SetLookTargetSmooth(float v) => SetSyncedParameter("lookTargetSmooth", v);
+
 
         public void Animate(int code)
         {
