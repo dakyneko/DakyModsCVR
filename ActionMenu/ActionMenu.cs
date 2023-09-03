@@ -21,7 +21,7 @@ using ABI_RC.Systems.InputManagement;
 using ABI_RC.Systems.GameEventSystem;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
-[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.3", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.4", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 
 namespace ActionMenu
 {
