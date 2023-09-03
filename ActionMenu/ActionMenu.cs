@@ -753,10 +753,10 @@ namespace ActionMenu
             foreach (var e_ in melonPrefs.Entries)
                 switch (e_) {
                     case MelonPreferences_Entry<bool> e: // all bool prefs impact the menu deeply = need reload
-                        e.OnValueChanged += (_, _) => {
+                        e.OnEntryValueChanged.Subscribe((_, _) => {
                             BuildOurMelonPrefsMenus(); // rebuild and send it back
                             FullReload();
-                        };
+                        });
                         break;
 
                     default:
@@ -764,9 +764,9 @@ namespace ActionMenu
                 }
 
             // some need custom handling
-            menuSize.OnValueChanged += (_, v) => {
+            menuSize.OnEntryValueChanged.Subscribe((_, v) => {
                 UpdateMenuScale();
-            };
+            });
 
             CVRGameEventSystem.MainMenu.OnOpen.AddListener(() => ToggleMenu(false, handleDesktopInputs: false));
             CVRGameEventSystem.QuickMenu.OnOpen.AddListener(() => ToggleMenu(false, handleDesktopInputs: false));
@@ -1209,7 +1209,7 @@ namespace ActionMenu
             {
                 fromFile = File.ReadAllText(@"ChilloutVR_Data\StreamingAssets\Cohtml\UIResources\ActionMenu\actionmenu.json");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 logger.Error($"Cannot read main json file. Erase your melon preference for ActionMenu and try reinstalling the mod.");
                 return;
