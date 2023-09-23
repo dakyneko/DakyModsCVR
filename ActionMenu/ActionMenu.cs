@@ -19,9 +19,10 @@ using PlayerSetup = ABI_RC.Core.Player.PlayerSetup;
 using SettingsType = ABI.CCK.Scripts.CVRAdvancedSettingsEntry.SettingsType;
 using ABI_RC.Systems.InputManagement;
 using ABI_RC.Systems.GameEventSystem;
+using ABI_RC.Core.UI;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
-[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.4", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.5", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 
 namespace ActionMenu
 {
@@ -866,7 +867,7 @@ namespace ActionMenu
             CohtmlUISystem cohtmlUISystem;
             while ((cwv = GameObject.Find("/Cohtml/CohtmlWorldView")) == null)
                 yield return null;
-            while ((cohtmlUISystem = GameObject.Find("/Cohtml/CohtmlUISystem").GetComponent<CohtmlUISystem>()) == null)
+            while ((cohtmlUISystem = GameObject.Find("/Cohtml/CohtmlDefaultUISystem")?.GetComponent<CohtmlControlledUISystem>()) == null)
                 yield return null;
 #if DEBUG
             logger.Msg($"WaitCohtmlSpawned start {cwv}");
@@ -998,8 +999,6 @@ namespace ActionMenu
                 else if (vm?.isGameMenuOpen() == true) vm.UiStateToggle(false);
             }
 
-            // TODO: experiment
-            cohtmlView.FPSLimit = show ? 90 : 2; // open=reasonable FPS limit for VR
             cohtmlView.View.TriggerEvent<bool>("ToggleActionMenu", show);
             cohtmlView.enabled = show; // TODO: doesn this reload cohtml each time? careful
             menuAnimator.SetBool("Open", show);
