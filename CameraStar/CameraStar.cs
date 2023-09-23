@@ -1,20 +1,12 @@
-﻿using HarmonyLib;
+using ABI.CCK.Components;
+using ABI_RC.Systems.Camera;
+using Daky;
+using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
-using ABI_RC.Systems.Camera;
-using ABI.CCK.Components;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Daky;
 
-using OpCodes = System.Reflection.Emit.OpCodes;
-using RefFlags = System.Reflection.BindingFlags;
-using System.Reflection.Emit;
-using System.Reflection;
-
-[assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
-[assembly:MelonInfo(typeof(CameraStar.CameraStarMod), "CameraStar", "1.1.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly: MelonGame("Alpha Blend Interactive", "ChilloutVR")]
+[assembly: MelonInfo(typeof(CameraStar.CameraStarMod), "CameraStar", "1.1.1", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 
 namespace CameraStar
 {
@@ -33,41 +25,14 @@ namespace CameraStar
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(CameraStarMod), nameof(OnPortableCameraStart))));
             HarmonyInstance.Patch(
                 SymbolExtensions.GetMethodInfo(() => default(PortableCamera).Update()),
-                transpiler: new HarmonyMethod(AccessTools.Method(typeof(CameraStarMod), nameof(DisableFadoutTranspiler))));
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(CameraStarMod), nameof(OnPortableCameraUpdate))));
         }
         // TODO: there are too many built-in mods, we should have options to hide them or group them (like vrc)
-        // TODO: add option to disable PortableCamera fading transparent when 'inactive' so annoying
 
-        private static IEnumerable<CodeInstruction> DisableFadoutTranspiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        private static void OnPortableCameraUpdate(PortableCamera __instance)
         {
-            var codes = new List<CodeInstruction>(instructions);
-            var idx = codes.FindIndex(x => x.StoresField(typeof(PortableCamera).GetField("_fadeOutDistance", RefFlags.NonPublic | RefFlags.Instance)));
-            idx -= 7; // jump to first ldarg.0
-            switch (true) {
-                case true:
-                    if (idx < 0) goto case false;
-                    if (codes.ElementAt(idx).opcode != OpCodes.Ldarg_0) goto case false;
-                    if (codes.ElementAt(idx + 1).opcode != OpCodes.Ldarg_0) goto case false;
-                    if (codes.ElementAt(idx + 121).opcode != OpCodes.Ret) goto case false; // check there is nothing else at the end
-
-                    var f = typeof(CameraStarMod).GetField(nameof(disableCameraFadeout), RefFlags.Static | RefFlags.Public);
-                    if (f == null) goto case false;
-
-                    var l = generator.DefineLabel();
-                    codes.ElementAt(idx).labels.Add(l);
-
-                    codes.InsertRange(idx, new[] {
-                        new CodeInstruction(OpCodes.Ldsfld, (FieldInfo)f),
-                        new CodeInstruction(OpCodes.Brfalse_S, l),
-                        new CodeInstruction(OpCodes.Ret),
-                        });
-                    break;
-
-                case false:
-                    logger.Warning("DisableFadoutTranspiler failure");
-                    break;
-            }
-            return codes.AsEnumerable();
+            if (disableCameraFadeout)
+                __instance.cameraCanvasGroup.alpha = 1; // override
         }
 
         private static void OnPortableCameraStart(PortableCamera __instance)
