@@ -15,13 +15,14 @@ using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Events;
-using WebPWrapper; // TODO: webp should be optional
 using Bitmap = System.Drawing.Bitmap;
 using LfsApi = LagFreeScreenshots.API.LfsApi;
 using PortableCamera = ABI_RC.Systems.Camera.PortableCamera;
 
 [assembly: MelonGame("Alpha Blend Interactive", "ChilloutVR")]
 [assembly: MelonInfo(typeof(CameraInstants.CameraInstantsMod), "CameraInstants", "2.0.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonAdditionalDependencies("LagFreeScreenshots")]
+[assembly:MelonOptionalDependencies("libwebpwrapper")]
 
 namespace CameraInstants;
 
@@ -32,6 +33,7 @@ public class CameraInstantsMod : MelonMod
     private MelonPreferences_Entry<float> autoSpawnPropSize;
     private MelonPreferences_Entry<string> uploadUsername, uploadKey;
     private Queue<string> autoSpawnPropsGids = new();
+    private static bool isWebPInstalled = false;
 
     public override void OnInitializeMelon()
     {
@@ -60,6 +62,8 @@ public class CameraInstantsMod : MelonMod
             SymbolExtensions.GetMethodInfo(() => default(MetaPort).Awake()),
             new HarmonyMethod(AccessTools.Method(typeof(CameraInstantsMod), nameof(MetaPortAwake))));
         UnityDragAndDropHook.OnDroppedFiles += OnDropFiles;
+
+        isWebPInstalled = LagFreeScreenshots.WebpUtils.IsWebpSupported();
 
         // Check for BTKUILib and add settings UI
         if (RegisteredMelons.Any(m => m.Info.Name == "BTKUILib"))
@@ -123,14 +127,14 @@ public class CameraInstantsMod : MelonMod
         var supported = mime switch
         {
             "image/jpeg" or "image/png" or "image/bmp" => true,
-            "image/webp" => true,
-            "application/octet-stream" => filepath.EndsWith(".webp"), // seems .net is stupid and doesn't detect webp properly
+            "image/webp" => isWebPInstalled,
+            "application/octet-stream" => filepath.EndsWith(".webp") && isWebPInstalled, // seems .net is stupid and doesn't detect webp properly
             // TODO: add gifs, maybe tiff?
             _ => false,
         };
         if (!supported)
         {
-            logger.Warning($"Format {mime} probably not supported");
+            logger.Warning($"Format {mime} ({Path.GetExtension(filepath)}) probably not supported");
             return;
         }
 
@@ -251,7 +255,7 @@ public class CameraInstantsMod : MelonMod
         if (templateBundle == null) throw new Exception($"Missing bundle template");
 
         using var bitmap = imagePath.EndsWith(".webp") ?
-            new WebP().Load(imagePath) :
+            LoadWebP(imagePath) :
             new Bitmap(imagePath);
         // TODO: should resize the image so it uploads faster (CVR API is slow)
         logger.Msg($"Upload step #2 make thumbnail + build prop");
@@ -276,6 +280,9 @@ public class CameraInstantsMod : MelonMod
 
         logger.Msg($"AutoPropTask done ({watch.ElapsedMilliseconds} msec)");
     }
+
+    // WebPWrapper may not be installed, so we need to isolate it
+    private static Bitmap LoadWebP(string imagePath) => new WebPWrapper.WebP().Load(imagePath);
 
     public override void OnUpdate()
     {
