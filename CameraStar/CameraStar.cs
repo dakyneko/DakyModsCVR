@@ -14,7 +14,7 @@ namespace CameraStar
     public class CameraStarMod : MelonMod
     {
         private static MelonLogger.Instance logger;
-        public static bool disableCameraFadeout = true; // this field is grabbed by name with reflection below
+        public static bool disableCameraFadeout = true;
 
         public override void OnInitializeMelon()
         {
