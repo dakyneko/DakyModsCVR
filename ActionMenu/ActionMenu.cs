@@ -23,6 +23,7 @@ using ABI_RC.Core.UI;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
 [assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.5", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonAdditionalDependencies("VRBinding")]
 
 namespace ActionMenu
 {
