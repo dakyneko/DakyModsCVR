@@ -69,15 +69,15 @@ namespace LagFreeScreenshots
 
             var category = MelonPreferences.CreateCategory(SettingsCategory, "Lag Free Screenshots");
             ourEnabled = category.CreateEntry(SettingEnableMod, true, "Enabled");
-            ourResolution = category.CreateEntry( SettingScreenshotResolution, PresetScreenshotSizes.Default, "Screenshot resolution override");
-            ourFormat = category.CreateEntry( SettingScreenshotFormat, ImageFormats.png, "Screenshot format");
-            ourJpegPercent = category.CreateEntry(SettingJpegPercent, 95, "JPEG quality (0-100)");
-            ourWebpPercent = category.CreateEntry(SettingWebpPercent, 85, "WebP quality (0-100)");
-            ourAutorotation = category.CreateEntry(SettingAutorotation, true, "Rotate picture to match camera");
-            ourMetadata = category.CreateEntry(SettingMetadata, false, "Save metadata in picture");
-            ourRecommendedMaxFb = category.CreateEntry(SettingRecommendedMaximumFb, 1024, "Try to keep framebuffer below (MB) by reducing MSAA");
-            ourCustomResolutionX = category.CreateEntry(SettingCustomResolutionX, 1920, "Custom screenshot resolution (X)");
-            ourCustomResolutionY = category.CreateEntry(SettingCustomResolutionY, 1080, "Custom screenshot resolution (Y)");
+            ourResolution = category.CreateEntry(SettingScreenshotResolution, PresetScreenshotSizes.Default, "Resolution", "Overrides the game default");
+            ourFormat = category.CreateEntry(SettingScreenshotFormat, ImageFormats.png, "Format: JPG/PNG/WebP", "The format/extension of the image saved to disk. Note: WebP requires installing extra dll");
+            ourAutorotation = category.CreateEntry(SettingAutorotation, true, "Auto rotate", "Rotate the picture to match the camera orientation (think: auto landscape and portrait modes)");
+            ourMetadata = category.CreateEntry(SettingMetadata, false, "Embed metadata", "Save metadata into picture file (EXIF / iTxT blocks)");
+            ourJpegPercent = category.CreateEntry(SettingJpegPercent, 95, "Advanced: JPEG quality", "0 is lowest, 100 is highest, 85 is good");
+            ourWebpPercent = category.CreateEntry(SettingWebpPercent, 85, "Advanced: WebP quality", "0 is lowest, 100 is highest, 75 is good");
+            ourCustomResolutionX = category.CreateEntry(SettingCustomResolutionX, 1920, "Advanced: custom width", "Set the width when using custom resolution");
+            ourCustomResolutionY = category.CreateEntry(SettingCustomResolutionY, 1080, "Advanced: custom height", "Set the height when using custom resolution");
+            ourRecommendedMaxFb = category.CreateEntry(SettingRecommendedMaximumFb, 1024, "Expert: framebuffer size", "Try to keep framebuffer below (MB) by reducing MSAA");
             
             HarmonyInstance.Patch(
                 SymbolExtensions.GetMethodInfo(() => default(PortableCamera).Capture()),
@@ -94,10 +94,9 @@ namespace LagFreeScreenshots
                 ourFormat.Value = ImageFormats.auto;
             }
 
-            // Check for BTKUILib
-            if (RegisteredMelons.Any(m => m.Info.Name == "BTKUILib")) {
-                BTKUILibIntegration.Init(category);
-            }
+            // Check for BTKUILib and add settings UI
+            if (RegisteredMelons.Any(m => m.Info.Name == "BTKUILib"))
+                Daky.DakyBTKUI.AutoGenerateCategory(category);
         }
 
         // FIXME: Those 2 were imported from UIExpansionKit and should be refactored somewhere else?
