@@ -4,6 +4,8 @@ obj/
 /packages
 ManagedLibs/*.dll
 ManagedLibs/*.db
+ModLibs/*.dll
+ModLibs/*.db
 *.user
 /Output
 IKTweaks/FinalIK
