@@ -39,6 +39,12 @@ internal class DakyBTKUI
                     break;
                 }
 
+                case MelonPreferences_Entry<float> entry: {
+                    var b = category.AddButton(entry.DisplayName, "", entry.Description ?? "");
+                    b.OnPress = () => BTKUILib.QuickMenuAPI.OpenKeyboard(entry.Value.ToString(), v => entry.Value = float.Parse(v));
+                    break;
+                }
+
                 case MelonPreferences_Entry<string> entry: {
                     var b = category.AddButton(entry.DisplayName, "", entry.Description ?? "");
                     b.OnPress = () => BTKUILib.QuickMenuAPI.OpenKeyboard(entry.Value, v => entry.Value = v);

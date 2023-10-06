@@ -2,7 +2,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <ItemGroup>
+      <Reference Include="AssetsTools.NET"><HintPath>$(MsBuildThisFileDirectory)\Libs\AssetsTools.NET.dll</HintPath><Private>False</Private></Reference>
+      <Reference Include="AssetsTools.NET.Texture"><HintPath>$(MsBuildThisFileDirectory)\Libs\AssetsTools.NET.Texture.dll</HintPath><Private>False</Private></Reference>
+	  <Reference Include="BTKUILib"><HintPath>..\ModLibs\BTKUILib.dll</HintPath><Private>false</Private></Reference>
       <ProjectReference Include="..\LagFreeScreenshots\LagFreeScreenshots.csproj" />
     </ItemGroup>
+	
+    <ItemGroup>
+        <EmbeddedResource Include="Resources\cvrspawnable_00000000-0000-0000-0000-000000000000.cvrprop" />
+	</ItemGroup>
 
 </Project>

@@ -11,11 +11,16 @@ namespace Daky
 {
     public static class Dakytils
     {
-        public static byte[]? BytesFromAssembly(string namespace_, string filename)
-        {
-            using var stream = System.Reflection.Assembly.GetExecutingAssembly()
+        public static Stream? StreamFromAssembly(string namespace_, string filename) {
+            var stream = System.Reflection.Assembly.GetExecutingAssembly()
                 .GetManifestResourceStream(namespace_ + "." + filename);
             if (stream == null || stream.Length == 0) return null;
+            return stream;
+        }
+        public static byte[]? BytesFromAssembly(string namespace_, string filename)
+        {
+            using var stream = StreamFromAssembly(namespace_, filename);
+            if (stream == null) return null;
 
             using var memStream = new MemoryStream((int)stream.Length);
             stream.CopyTo(memStream);
