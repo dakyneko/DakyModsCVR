@@ -11,6 +11,8 @@ namespace Daky
 {
     public static class Dakytils
     {
+        public static T NN<T>(this T go) where T : UnityEngine.Object => go == null ? null : go;
+
         public static Stream? StreamFromAssembly(string namespace_, string filename) {
             var stream = System.Reflection.Assembly.GetExecutingAssembly()
                 .GetManifestResourceStream(namespace_ + "." + filename);

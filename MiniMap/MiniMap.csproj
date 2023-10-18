@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+	<ItemGroup>
+      <ProjectReference Include="..\ActionMenu\ActionMenu.csproj" />
+      <EmbeddedResource Include="Resources\stereo_shader.bundle" />
+	</ItemGroup>
+</Project>
