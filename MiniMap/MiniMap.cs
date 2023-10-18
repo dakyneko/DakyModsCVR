@@ -9,7 +9,7 @@ using System.Collections.Generic;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
 [assembly:MelonInfo(typeof(MiniMap.MiniMapMod), "MiniMap", "1.0.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
-[assembly:MelonOptionalDependencies("BTKUILib")]
+[assembly:MelonAdditionalDependencies("Action Menu")]
 
 namespace MiniMap;
 using static Daky.Dakytils;
@@ -61,7 +61,7 @@ public class MiniMapMod : MelonMod
 
     private void LoadShaders()
     {
-        var ns = instance.GetType().Namespace + ".Resources";
+        var ns = GetType().Namespace + ".Resources";
         var bundleBytes = BytesFromAssembly(ns, "stereo_shader.bundle");
         var bundle = AssetBundle.LoadFromMemory(bundleBytes);
         stereoShader = bundle.LoadAsset<Shader>("assets/stereotexture/stereo.shader");
