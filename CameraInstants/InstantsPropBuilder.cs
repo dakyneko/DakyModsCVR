@@ -15,7 +15,7 @@ namespace CameraInstants;
 
 public class InstantsPropBuilder
 {
-    public static string Build(Stream templateBundle, Bitmap bitmap, string gid, float propSize = 0.1f)
+    public static string Build(Stream templateBundle, Bitmap bitmap, string gid, float propSize = 0.6f)
     {
         var gidLen = 36;
         if (gid.Length != gidLen) throw new Exception($"gid should be {gidLen} long");
@@ -25,7 +25,6 @@ public class InstantsPropBuilder
         var bundlei = manager.LoadBundleFile(templateBundle, "cvrspawnable_00000000-0000-0000-0000-000000000000.cvrprop");
         var bundle = bundlei.file;
         var info = bundle.BlockAndDirInfo;
-        if (info.DirectoryInfos.Count() != 1) throw new Exception($"Doesn't support fragmented bundle");
 
         var assetIndex = 0;
         var loadDeps = false; // seems not necessary
@@ -44,19 +43,24 @@ public class InstantsPropBuilder
         // change root GameObject name to match the provided gid (optional)
         SetString(manager, asseti, go, "m_Name", $"CVRSpawnable_{gid}");
 
-        // replace image in texture
+        // replace image in Texture
         int width = bitmap.Width, height = bitmap.Height;
         var tex = asset.GetAssetsOfType(AssetClassID.Texture2D)?[0];
         if (tex == null) throw new Exception($"Couldn't find Texture2D asset");
         ReplaceImage(manager, asseti, tex, bitmap);
+
+        // adjust the RenderTexture
+        var rtex = asset.GetAssetsOfType(AssetClassID.CustomRenderTexture)[0];
+        SetInt(manager, asseti, rtex, "m_Width", width);
+        SetInt(manager, asseti, rtex, "m_Height", height);
 
         // fit object size to image aspect ratio: XZ
         var aspect = 1f * width / height;
         var (objectWidth, objectHeight) = aspect > 1 ?
             (propSize, propSize / aspect) :
             (propSize * aspect, propSize);
-        SetVectorf(manager, asseti, transform, "m_LocalScale", new float[] { objectWidth, 0.1f, objectHeight }); // rescale
-        SetVectorf(manager, asseti, transform, "m_LocalRotation", new float[] { 0.707f, 0, 0, 0.707f }); // enforce orientation
+        SetVectorf(manager, asseti, transform, "m_LocalScale", new float[] { objectWidth, objectHeight, 0.1f }); // rescale
+        SetVectorf(manager, asseti, transform, "m_LocalRotation", new float[] { 0, 1, 0, 0 }); // enforce orientation
 
         // compression: it's weird, we have to write it, read and write again
         info.DirectoryInfos[assetIndex].SetNewData(asset);
@@ -118,6 +122,16 @@ public class InstantsPropBuilder
         i.SetNewData(fields);
     }
 
+    static void SetInt(AssetsManager manager, AssetsFileInstance asseti, AssetFileInfo i, string field, int value)
+    {
+        var fields = manager.GetBaseField(asseti, i);
+        var f = fields[field];
+        if (f == null) throw new Exception($"Couldn't find field {field} in {i}");
+
+        f.AsInt = value;
+        i.SetNewData(fields);
+    }
+
     private static void SetVectorf(AssetsManager manager, AssetsFileInstance asseti, AssetFileInfo transform, string field, float[] vs)
     {
         var fields = manager.GetBaseField(asseti, transform);
@@ -154,6 +168,7 @@ public class InstantsPropBuilder
         outputHandle.Free();
         t.SetTextureDataRaw(outputBytes, width, height); // BGRA32 format
         t.WriteTo(fields);
+        fields["m_TextureFormat"].AsInt = (int)UnityEngine.TextureFormat.BGRA32;
         tex.SetNewData(fields);
     }
 

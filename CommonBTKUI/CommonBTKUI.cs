@@ -6,7 +6,7 @@ using System.Reflection;
 
 namespace Daky;
 
-internal class DakyBTKUI
+public class DakyBTKUI
 {
     public static void AutoGenerateCategory(MelonPreferences_Category prefs, string? name = null)
     {

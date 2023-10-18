@@ -43,7 +43,7 @@ public class CameraInstantsMod : MelonMod
         myInstantsEnabled = category.CreateEntry("InstantsEnabled", true, "Spawn instants locally", "When shooting with the camera, spawn the image in the world (local only)");
         captureAutoPropUpload = category.CreateEntry("CaptureAutoPropUpload", false, "Instants props", "When shooting with the camera, spawn the image in the world (for everybody). This builds a prop and upload it to CVR (requires upload username and key).");
         autoSpawnProp = category.CreateEntry("AutoSpawnProp", false, "Spawn instant props", "Spawn instants props automatically");
-        autoSpawnPropSize = category.CreateEntry("AutoSpawnPropSize", 0.1f, "Size of Instant props", "Maximum length (width or height) in game dimension");
+        autoSpawnPropSize = category.CreateEntry("AutoSpawnPropSize", 0.6f, "Size of Instant props", "Maximum length (width or height) in game dimension");
         uploadUsername = category.CreateEntry("UploadUserName", "", "CCK Username", "Necessary for instants props");
         uploadKey = category.CreateEntry("UploadKey", "", "CCK Key", "Necessary for instants props");
         // TODO: should listen to events on myInstantsEnabled change and add/rem listener instead
