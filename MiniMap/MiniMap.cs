@@ -40,18 +40,18 @@ public class MiniMapMod : MelonMod
 
         var ns = typeof(MiniMapMod).Namespace;
         var category = MelonPreferences.CreateCategory(ns, ns);
-        iconsEnabled = category.CreateEntry("icons", true, "Display player icons above their head");
-        iconWidth = category.CreateEntry("iconWidth", 0.1f, "Player's icon width");
-        iconAbove = category.CreateEntry("iconAbove", 1f, "Player's icon height offset");
-        cutAbove = category.CreateEntry("cutAbove", 1f, "Minimap cutting height"); // cut a little higher than viewpoint
+        iconsEnabled = category.CreateEntry("icons", true, "Icons", "Display player icons above their head");
+        iconWidth = category.CreateEntry("iconWidth", 0.1f, "Icons size", "Width");
+        iconAbove = category.CreateEntry("iconAbove", 1f, "Icons offset", "Height offset above player");
+        cutAbove = category.CreateEntry("cutAbove", 2f, "Cut above", "View cuts everything above that height"); // cut a little higher than viewpoint
         cutAbove.OnEntryValueChanged.Subscribe((_, v) => RecomputeProjectionMatrix());
-        azimuth = category.CreateEntry("azimuth", 0f, "Viewpoint angle around you");
+        azimuth = category.CreateEntry("azimuth", -150f, "View azimuth", "Viewpoint angle around you");
         azimuth.OnEntryValueChanged.Subscribe((_, v) => RecomputeProjectionMatrix());
-        elevation = category.CreateEntry("elevation", 45f, "Viewpoint angle above the ground");
+        elevation = category.CreateEntry("elevation", 45f, "View elevation", "Viewpoint angle above the ground");
         elevation.OnEntryValueChanged.Subscribe((_, v) => RecomputeProjectionMatrix());
-        fovScale = category.CreateEntry("fovScale", 3f, "Camera distance"); // view width = distance
-        fovScale.OnEntryValueChanged.Subscribe((_, v) => { RecomputeFov(); RecomputeProjectionMatrix(); } );
-        stereoScale = category.CreateEntry("stereoScale", 1f, "Stereo camera width"); // 3D effect = VR stereo render
+        fovScale = category.CreateEntry("fovScale", 2.4f, "Distance", "Proportional to camera fov"); // view width = distance
+        fovScale.OnEntryValueChanged.Subscribe((_, v) => RecomputeProjectionMatrix() );
+        stereoScale = category.CreateEntry("stereoScale", 0.094f, "3D depth",  "Stereo camera width"); // 3D effect = VR stereo render
 
         // Action menu
         new SettingsMenu();
@@ -130,32 +130,31 @@ public class MiniMapMod : MelonMod
         var go = new GameObject("MiniMap Camera");
         go.transform.SetParent(player.transform.root, false);
         camera = go.AddComponent<Camera>();
+        camera.stereoTargetEye = StereoTargetEyeMask.None;
         camera.clearFlags = CameraClearFlags.SolidColor;
         camera.backgroundColor = Color.clear;
         camera.enabled = false; // manual rendering
 
         UpdatePosition();
-        RecomputeFov();
         RecomputeProjectionMatrix();
-    }
-
-    private void RecomputeFov()
-    {
-        if (camera == null) return;
-        camera.fieldOfView = Mathf.Exp(fovScale.Value); // exp makes it easier to adjust
-        cameraHalfWidth = Mathf.Tan(camera.fieldOfView/2 * Mathf.PI / 180) * cameraDistance;
     }
 
     private void RecomputeProjectionMatrix()
     {
         if (camera == null) return;
+
+        // fov part first
+        var fov = Mathf.Exp(fovScale.Value);
+        camera.fieldOfView = fov; // exp makes it easier to adjust
+        cameraHalfWidth = Mathf.Tan(fov/2 * Mathf.PI / 180) * cameraDistance;
+
         // camera projection matrix cuts open the world to see inside from above
         var n = Vector3.up;
         var pos = GetViewer().position + cutAbove.Value * Vector3.up; // cut a little higher than viewpoint
         var worldSpace = (Vector4) n; // vector3 normal + w=distance
         worldSpace.w = -Vector3.Dot(n, pos); // distance from camera to cut plane projected on normal
         var cameraSpace = Matrix4x4.Transpose(camera.cameraToWorldMatrix) * worldSpace;
-        camera.ResetProjectionMatrix();
+        camera.ResetProjectionMatrix(); // take fov in consideration
         camera.projectionMatrix = camera.CalculateObliqueMatrix(cameraSpace);
     }
 
@@ -262,8 +261,8 @@ public class MiniMapMod : MelonMod
                     defaultValue: m.fovScale.Value, minValue: 0.005f, maxValue: 5f),
             };
             if (instance.inStereo) {
-                xs.Add(Radial("Stereo", v => m.stereoScale.Value = v,
-                    defaultValue: m.stereoScale.Value, minValue: -0.2f, maxValue: 0.2f));
+                xs.Add(Radial("3D depth", v => m.stereoScale.Value = v,
+                    defaultValue: m.stereoScale.Value, minValue: -0.3f, maxValue: 0.3f));
             }
             else {
                 xs.Add(Toggle("Fullscreen", m.ToggleFullscreen));
