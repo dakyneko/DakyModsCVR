@@ -9,7 +9,7 @@
     </ItemGroup>
 	
     <ItemGroup>
-    <Compile Include="../CommonBTKUI/*.cs" />
+		<Compile Include="../CommonBTKUI/*.cs" />
     </ItemGroup>
 
 </Project>
