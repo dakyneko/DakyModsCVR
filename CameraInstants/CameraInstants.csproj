@@ -6,6 +6,7 @@
       <Reference Include="AssetsTools.NET.Texture"><HintPath>$(MsBuildThisFileDirectory)\Libs\AssetsTools.NET.Texture.dll</HintPath><Private>False</Private></Reference>	  
 	  <Reference Include="BTKUILib"><HintPath>..\ModLibs\BTKUILib.dll</HintPath><Private>false</Private></Reference>
       <ProjectReference Include="..\LagFreeScreenshots\LagFreeScreenshots.csproj" />
+	  <Compile Include="../CommonBTKUI/*.cs" />
     </ItemGroup>
 	
     <ItemGroup>
