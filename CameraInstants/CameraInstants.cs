@@ -22,7 +22,9 @@ using PortableCamera = ABI_RC.Systems.Camera.PortableCamera;
 [assembly: MelonGame("Alpha Blend Interactive", "ChilloutVR")]
 [assembly: MelonInfo(typeof(CameraInstants.CameraInstantsMod), "CameraInstants", "2.0.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly:MelonAdditionalDependencies("LagFreeScreenshots")]
-[assembly:MelonOptionalDependencies("libwebpwrapper")]
+[assembly:MelonOptionalDependencies("libwebpwrapper",
+    // just to silent MelonLoader warnings, those are dependencies of AssetsTools, it works anyway
+    "AssetRipper.TextureDecoder", "System.Half")]
 
 namespace CameraInstants;
 
@@ -247,8 +249,7 @@ public class CameraInstantsMod : MelonMod
         logger.Msg($"AutoPropTask starting");
         var upload = CreateUploadTask(propName);
         upload.gid = await InstantsPropUploader.NewPropGid(upload);
-        logger.Msg($"Upload step #1 got gid ({watch.ElapsedMilliseconds} msec)");
-        watch.Restart();
+        logger.Msg($"Requested gid in {watch.ElapsedMilliseconds} msec"); watch.Restart();
 
         var ns = this.GetType().Namespace + ".Resources";
         var templateBundle = Dakytils.StreamFromAssembly(ns, "cvrspawnable_00000000-0000-0000-0000-000000000000.cvrprop");
@@ -258,27 +259,21 @@ public class CameraInstantsMod : MelonMod
             LoadWebP(imagePath) :
             new Bitmap(imagePath);
         // TODO: should resize the image so it uploads faster (CVR API is slow)
-        logger.Msg($"Upload step #2 make thumbnail + build prop");
+        logger.Msg($"Loaded template and image in {watch.ElapsedMilliseconds}"); watch.Restart();
         var thumbnail = InstantsPropBuilder.MakeThumbnail(bitmap, ImageFormat.Jpeg);
-        logger.Msg($"Made thumbnail ({watch.ElapsedMilliseconds} msec)");
-        watch.Restart();
+        logger.Msg($"Prepared thumbnail in {watch.ElapsedMilliseconds} msec"); watch.Restart();
         var bundle = InstantsPropBuilder.Build(templateBundle, bitmap, upload.gid, propSize: autoSpawnPropSize.Value);
         bitmap.Dispose();
 
-        logger.Msg($"Upload step #3 upload ({watch.ElapsedMilliseconds} msec)");
-        watch.Restart();
+        logger.Msg($"Prepared prop bundle in {watch.ElapsedMilliseconds} msec"); watch.Restart();
         upload.bundle = bundle;
         upload.thumbnail = thumbnail;
-        logger.Msg($"temp file: bundle={bundle} thumbnail={thumbnail} ({watch.ElapsedMilliseconds} msec)");
-        watch.Restart();
         await InstantsPropUploader.UploadPropBundle(upload);
         File.Delete(upload.bundle); // cleaning up
         File.Delete(upload.thumbnail);
 
-        logger.Msg($"Queue prop for spawning");
-        autoSpawnPropsGids.Enqueue(upload.gid);
-
-        logger.Msg($"AutoPropTask done ({watch.ElapsedMilliseconds} msec)");
+        autoSpawnPropsGids.Enqueue(upload.gid); // queue prop for spawning
+        logger.Msg($"Done upload in {watch.ElapsedMilliseconds} msec");
     }
 
     // WebPWrapper may not be installed, so we need to isolate it

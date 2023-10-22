@@ -86,7 +86,7 @@ public class InstantsPropUploader
         void FormStream(string field, Stream stream, string filename) =>
             form.Add(new StreamContent(stream), field, filename); // TODO: is filename necessary?
         var manifestStream = new MemoryStream(Encoding.ASCII.GetBytes("ManifestFileVersion: 0\nDependencies: []\n"));
-        FormStream("AssetManifestFile", manifestStream, $"{basename}.manifest"); // TODO: is this working?
+        FormStream("AssetManifestFile", manifestStream, $"{basename}.manifest");
         req = await client.PostAsync($"https://{location}/v1/upload-file", form);
         if (req.StatusCode != HttpStatusCode.OK) throw new Exception($"Step 3 API error: {req}");
 
