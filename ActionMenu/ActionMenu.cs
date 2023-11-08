@@ -22,7 +22,7 @@ using ABI_RC.Systems.GameEventSystem;
 using ABI_RC.Core.UI;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
-[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.5", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.6", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly:MelonAdditionalDependencies("VRBinding")]
 
 namespace ActionMenu
@@ -866,7 +866,7 @@ namespace ActionMenu
         {
             GameObject cwv;
             CohtmlUISystem cohtmlUISystem;
-            while ((cwv = GameObject.Find("/Cohtml/CohtmlWorldView")) == null)
+            while ((cwv = GameObject.Find("/Cohtml/MainMenuParent/Offset/CohtmlWorldView")) == null)
                 yield return null;
             while ((cohtmlUISystem = GameObject.Find("/Cohtml/CohtmlDefaultUISystem")?.GetComponent<CohtmlControlledUISystem>()) == null)
                 yield return null;
@@ -875,7 +875,7 @@ namespace ActionMenu
 #endif
             menuManager = CVR_MenuManager.Instance;
 
-            var parent = cwv.transform.parent;
+            var parent = cohtmlUISystem.transform.parent;
             var animator = cwv.GetComponent<Animator>().runtimeAnimatorController;
 
             var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -1004,7 +1004,7 @@ namespace ActionMenu
             cohtmlView.enabled = show; // TODO: doesn this reload cohtml each time? careful
             menuAnimator.SetBool("Open", show);
 
-            var vr = !menuManager._desktopMouseMode || MetaPort.Instance.isUsingVr;
+            var vr = MetaPort.Instance.isUsingVr;
             var moveSys = PlayerSetup.Instance._movementSystem;
 
             if (show && menuCollider?.enabled == true)
@@ -1031,7 +1031,7 @@ namespace ActionMenu
 
             var joystick = Vector2.zero;
             var trigger = 0f;
-            if (menuManager._desktopMouseMode && !MetaPort.Instance.isUsingVr) // Desktop mode
+            if (!MetaPort.Instance.isUsingVr) // Desktop mode
             {
                 if (menuManager._camera == null)
                     menuManager._camera = PlayerSetup.Instance.desktopCamera.GetComponent<Camera>();
@@ -1202,7 +1202,8 @@ namespace ActionMenu
 
         private void OnActionMenuReady()
         {
-            var view = cohtmlView.View;
+            var view = cohtmlView?.View;
+            if (cohtmlView == null) return; // cannot proceed
 #if DEBUG
             logger.Msg($"OnActionMenuReady for view {view}");
 #endif
@@ -1463,10 +1464,8 @@ namespace ActionMenu
         private void UpdateMenuScale()
         {
             var vr = MetaPort.Instance.isUsingVr;
-            var scale = vr ? menuBaseSizeVr : menuBaseSizeDesktop;
-            var viewman = ViewManager.Instance;
-            // TODO: experiment
-            var avatarScale = vr ? (viewman?.cachedAvatarHeight ?? 1.8f) / 1.8f : 1f;
+            var scale = vr ? menuBaseSizeVr : menuBaseSizeDesktop; // TODO: experiment
+            var avatarScale = vr ? PlayerSetup.Instance.GetAvatarHeight() / 1.8f : 1f;
             menuTransform.localScale = scale * avatarScale * menuSize.Value * Vector3.one;
         }
 
