@@ -22,7 +22,7 @@ using ABI_RC.Systems.GameEventSystem;
 using ABI_RC.Core.UI;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
-[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.6", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.7", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly:MelonAdditionalDependencies("VRBinding")]
 
 namespace ActionMenu
@@ -881,7 +881,7 @@ namespace ActionMenu
             var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
             go.SetActive(false);
             go.name = "ActionMenu";
-            go.layer = LayerMask.NameToLayer("UI");
+            go.layer = LayerMask.NameToLayer("UI Internal");
 
             var t = menuTransform = go.transform;
             t.SetParent(parent, false);
