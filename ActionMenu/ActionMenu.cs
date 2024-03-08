@@ -1,7 +1,6 @@
 ﻿using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
-using ABI_RC.Core;
 using ABI_RC.Core.Savior;
 using ABI_RC.Core.InteractionSystem;
 using ABI.CCK.Scripts;
@@ -23,7 +22,7 @@ using MovementSystem = ABI_RC.Systems.Movement.BetterBetterCharacterController;
 using ABI_RC.Core.Player;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
-[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.8", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.9", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly:MelonAdditionalDependencies("VRBinding")]
 
 namespace ActionMenu
@@ -702,6 +701,7 @@ namespace ActionMenu
         private static CVR_MenuManager menuManager;
         private static Animator menuAnimator;
         private static int cohtmlReadyState = 0; // 0=startup, 1=binding ready, 2=ActionMenuReady
+        private static bool anchorToLeftHand = true;
         private static Lib ourLib;
 
         // our melon prefs
@@ -825,9 +825,15 @@ namespace ActionMenu
 
             VRBindingMod.RegisterBinding("ActionMenuOpen", "Open Action Menu", VRBindingMod.Requirement.optional, a =>
             {
-                if (a.GetStateDown(SteamVR_Input_Sources.Any) == true)
+                if (a.GetStateDown(SteamVR_Input_Sources.Any))
                 {
-                    ToggleMenu(!cohtmlView.enabled);
+                    var side = SteamVR_Input_Sources.Any;
+                    // the side of the button used determines where the menu is attached to
+                    if (a.GetStateDown(SteamVR_Input_Sources.LeftHand))
+                        side = SteamVR_Input_Sources.LeftHand;
+                    else if (a.GetStateDown(SteamVR_Input_Sources.RightHand))
+                        side = SteamVR_Input_Sources.RightHand;
+                    ToggleMenu(!cohtmlView.enabled, side: side);
                 }
             });
         }
@@ -986,19 +992,23 @@ namespace ActionMenu
             public float trigger;
         }
 
-        private void ToggleMenu(bool show, bool handleDesktopInputs = true)
+        private void ToggleMenu(bool show, bool handleDesktopInputs = true, SteamVR_Input_Sources side = SteamVR_Input_Sources.Any)
         {
 #if DEBUG
             logger.Msg($"ToggleMenu show={show} , cohtmlView.enabled={cohtmlView.enabled} collider={menuCollider?.enabled} vr={MetaPort.Instance.isUsingVr}");
 #endif
             if (cohtmlView == null || cohtmlView.View == null) return;
 
-            if (show) // need to close down quick + main menu
+            if (show)
             {
+                // need to close down quick + main menu
                 var mm = CVR_MenuManager.Instance;
                 var vm = ViewManager.Instance;
                 if (mm?._quickMenuOpen == true) mm.ToggleQuickMenu(false);
                 else if (vm?.isGameMenuOpen() == true) vm.UiStateToggle(false);
+
+                // remember which hand served to open the menu
+                anchorToLeftHand = side != SteamVR_Input_Sources.RightHand; // only support hands (toes buttons when?!)
             }
 
             cohtmlView.View.TriggerEvent<bool>("ToggleActionMenu", show);
@@ -1045,9 +1055,11 @@ namespace ActionMenu
                 if (menuCollider.enabled)
                     UpdatePositionToAnchor();
 
-                var movVect = menuManager._inputManager.movementVector;
-                joystick = new Vector2(movVect.x, movVect.z); // y is 0 and irrelevant
-                trigger = menuManager._inputManager.interactLeftValue; // TODO: auto detect side
+                var im = menuManager._inputManager;
+                joystick = anchorToLeftHand ?
+                    new Vector2(im.movementVector.x, im.movementVector.z) : // y is 0 and irrelevant
+                    new Vector2(im.rawLookVector.x, -im.rawLookVector.y); // vertical is inverted
+                trigger = anchorToLeftHand ? menuManager._inputManager.interactLeftValue : menuManager._inputManager.interactRightValue;
             }
 
             if (cohtmlReadyState < 2) return;
@@ -1065,8 +1077,7 @@ namespace ActionMenu
 
             var vr = MetaPort.Instance.isUsingVr;
             var t = vr
-                // TODO: auto detect left or right anchor for VR
-                ? menuManager._leftVrAnchor.transform
+                ? (anchorToLeftHand ? menuManager._leftVrAnchor : menuManager._rightVrAnchor).transform
                 : MovementSystem.Instance.RotationPivot;
 
             // TODO: weight by avatar scale
