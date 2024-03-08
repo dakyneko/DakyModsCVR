@@ -276,6 +276,7 @@
     <Reference Include="VivoxUnity"><HintPath>$(MsBuildThisFileDirectory)\ManagedLibs\VivoxUnity.dll</HintPath><Private>False</Private></Reference>
     <Reference Include="cohtml.Net"><HintPath>$(MsBuildThisFileDirectory)\ManagedLibs\cohtml.Net.dll</HintPath><Private>False</Private></Reference>
     <Reference Include="endel.nativewebsocket"><HintPath>$(MsBuildThisFileDirectory)\ManagedLibs\endel.nativewebsocket.dll</HintPath><Private>False</Private></Reference>
+    <Reference Include="ECM2"><HintPath>$(MsBuildThisFileDirectory)\ManagedLibs\ECM2.dll</HintPath><Private>False</Private></Reference>
     <Reference Include="libwebpwrapper"><HintPath>$(MsBuildThisFileDirectory)\ManagedLibs\libwebpwrapper.dll</HintPath><Private>False</Private></Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />

@@ -4,7 +4,6 @@ using UnityEngine;
 using ABI_RC.Core;
 using ABI_RC.Core.Savior;
 using ABI_RC.Core.InteractionSystem;
-using ABI_RC.Systems.MovementSystem;
 using ABI.CCK.Scripts;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,12 +13,14 @@ using Newtonsoft.Json;
 using System.IO;
 using Valve.VR;
 using VRBinding;
-
-using PlayerSetup = ABI_RC.Core.Player.PlayerSetup;
-using SettingsType = ABI.CCK.Scripts.CVRAdvancedSettingsEntry.SettingsType;
 using ABI_RC.Systems.InputManagement;
 using ABI_RC.Systems.GameEventSystem;
 using ABI_RC.Core.UI;
+
+using PlayerSetup = ABI_RC.Core.Player.PlayerSetup;
+using SettingsType = ABI.CCK.Scripts.CVRAdvancedSettingsEntry.SettingsType;
+using MovementSystem = ABI_RC.Systems.Movement.BetterBetterCharacterController;
+using ABI_RC.Core.Player;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
 [assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.7", "daky", "https://github.com/dakyneko/DakyModsCVR")]
@@ -948,7 +949,7 @@ namespace ActionMenu
             instance.SendItemUpdate(action);
         }
 
-        private static void OnCVRSeatedToggle(PlayerSetup __instance)
+        private static void OnCVRSeatedToggle(PlayerSetup __instance, bool seated)
         {
             if (cohtmlReadyState < 2) return; // not ready for events
 #if DEBUG
@@ -958,7 +959,7 @@ namespace ActionMenu
             {
                 type = "system call",
                 event_ = "AppToggleSeatedPlay",
-                value = __instance.seatedPlay,
+                value = seated,
             };
             instance.SendItemUpdate(action);
         }
@@ -973,7 +974,7 @@ namespace ActionMenu
             {
                 type = "system call",
                 event_ = "AppToggleFLightMode",
-                value = __instance.flying,
+                value = __instance.IsFlying(),
             };
             instance.SendItemUpdate(action);
         }
@@ -1004,19 +1005,15 @@ namespace ActionMenu
             cohtmlView.enabled = show; // TODO: doesn this reload cohtml each time? careful
             menuAnimator.SetBool("Open", show);
 
-            var vr = MetaPort.Instance.isUsingVr;
-            var moveSys = PlayerSetup.Instance._movementSystem;
-
             if (show && menuCollider?.enabled == true)
                 UpdatePositionToAnchor();
 
+            var vr = MetaPort.Instance.isUsingVr;
             if (!vr)
             {
-                moveSys.disableCameraControl = show;
-                if (handleDesktopInputs) // TODO: investigate
+                if (handleDesktopInputs)
                 {
-                    RootLogic.Instance.ToggleMouse(show);
-                    CVRInputManager.Instance.inputEnabled = !show;
+                    InputManager.SetDesktopMouseMode(show);
                 }
             }
         }
@@ -1070,7 +1067,7 @@ namespace ActionMenu
             var t = vr
                 // TODO: auto detect left or right anchor for VR
                 ? menuManager._leftVrAnchor.transform
-                : PlayerSetup.Instance._movementSystem.rotationPivot;
+                : MovementSystem.Instance.RotationPivot;
 
             // TODO: weight by avatar scale
             var offset = 0.75f * (menuPositionOffset.Value - 0.5f * Vector2.one); // first value can be tweaked
