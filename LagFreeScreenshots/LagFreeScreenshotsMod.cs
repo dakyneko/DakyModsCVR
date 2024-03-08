@@ -27,7 +27,7 @@ using RefFlags = System.Reflection.BindingFlags;
 using Events = ABI_RC.Systems.Camera.Events;
 using AudioEffects = ABI_RC.Core.AudioEffects;
 
-[assembly:MelonInfo(typeof(LagFreeScreenshotsMod), "Lag Free Screenshots", "2.2.3", "Daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(LagFreeScreenshotsMod), "Lag Free Screenshots", "2.2.4", "Daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
 [assembly:MelonOptionalDependencies("libwebpwrapper", "BTKUILib")]
 
@@ -404,7 +404,7 @@ namespace LagFreeScreenshots
                     new API.CurrentPlayerInfo
                     {
                         Uuid = metaport.ownerId,
-                        Username = AuthManager.username,
+                        Username = AuthManager.Username,
                         Transform = localPlayerObject.transform,
                     },
                     new API.CurrentInstanceInfo
