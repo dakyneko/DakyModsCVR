@@ -125,22 +125,23 @@ public class CameraInstantsMod : MelonMod
         }
 
         var filepath = paths[0];
-        var mime = System.Web.MimeMapping.GetMimeMapping(filepath);
-        var supported = mime switch
+        var ext = Path.GetExtension(filepath).Substring(1).ToLower(); // ext without .
+        var supported = ext switch
         {
-            "image/jpeg" or "image/png" or "image/bmp" => true,
-            "image/webp" => isWebPInstalled,
-            "application/octet-stream" => filepath.EndsWith(".webp") && isWebPInstalled, // seems .net is stupid and doesn't detect webp properly
+            "jpg" or "jpeg" or "jpe" or "jif" or "jfif" => true, // who came up with so many?!
+            "png" => true,
+            "bmp" => true,
+            "webp" => isWebPInstalled,
             // TODO: add gifs, maybe tiff?
             _ => false,
         };
         if (!supported)
         {
-            logger.Warning($"Format {mime} ({Path.GetExtension(filepath)}) probably not supported");
+            logger.Warning($"Format {ext} ({Path.GetExtension(filepath)}) probably not supported");
             return;
         }
 
-        logger.Msg($"OnDropFiles start AsyncPropUploader {filepath} (mime: {mime}, extension: {Path.GetExtension(filepath)})");
+        logger.Msg($"OnDropFiles start AsyncPropUploader {filepath} (extension: {ext})");
         var propName = Path.ChangeExtension(Path.GetFileName(filepath), "");
         CheckUploadConfiguration();
         Task.Run(() => AutoPropTask(filepath, propName));
@@ -272,7 +273,8 @@ public class CameraInstantsMod : MelonMod
         File.Delete(upload.bundle); // cleaning up
         File.Delete(upload.thumbnail);
 
-        autoSpawnPropsGids.Enqueue(upload.gid); // queue prop for spawning
+        if (autoSpawnProp.Value)
+            autoSpawnPropsGids.Enqueue(upload.gid); // queue prop for spawning
         logger.Msg($"Done upload in {watch.ElapsedMilliseconds} msec");
     }
 
