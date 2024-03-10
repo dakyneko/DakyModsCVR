@@ -22,7 +22,7 @@ using MovementSystem = ABI_RC.Systems.Movement.BetterBetterCharacterController;
 using ABI_RC.Core.Player;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
-[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.9", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.10", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly:MelonAdditionalDependencies("VRBinding")]
 
 namespace ActionMenu
@@ -823,18 +823,15 @@ namespace ActionMenu
             }
             MelonCoroutines.Start(WaitCohtmlSpawned());
 
-            VRBindingMod.RegisterBinding("ActionMenuOpen", "Open Action Menu", VRBindingMod.Requirement.optional, a =>
+            VRBindingMod.RegisterBinding("ActionMenuOpen", "Open Action Menu (left hand)", VRBindingMod.Requirement.optional, a =>
             {
                 if (a.GetStateDown(SteamVR_Input_Sources.Any))
-                {
-                    var side = SteamVR_Input_Sources.Any;
-                    // the side of the button used determines where the menu is attached to
-                    if (a.GetStateDown(SteamVR_Input_Sources.LeftHand))
-                        side = SteamVR_Input_Sources.LeftHand;
-                    else if (a.GetStateDown(SteamVR_Input_Sources.RightHand))
-                        side = SteamVR_Input_Sources.RightHand;
-                    ToggleMenu(!cohtmlView.enabled, side: side);
-                }
+                    ToggleMenu(!cohtmlView.enabled, leftSide: true);
+            });
+            VRBindingMod.RegisterBinding("ActionMenuOpenRight", "Open Action Menu (right hand)", VRBindingMod.Requirement.optional, a =>
+            {
+                if (a.GetStateDown(SteamVR_Input_Sources.Any))
+                    ToggleMenu(!cohtmlView.enabled, leftSide: false);
             });
         }
 
@@ -992,7 +989,7 @@ namespace ActionMenu
             public float trigger;
         }
 
-        private void ToggleMenu(bool show, bool handleDesktopInputs = true, SteamVR_Input_Sources side = SteamVR_Input_Sources.Any)
+        private void ToggleMenu(bool show, bool handleDesktopInputs = true, bool leftSide = true)
         {
 #if DEBUG
             logger.Msg($"ToggleMenu show={show} , cohtmlView.enabled={cohtmlView.enabled} collider={menuCollider?.enabled} vr={MetaPort.Instance.isUsingVr}");
@@ -1008,7 +1005,7 @@ namespace ActionMenu
                 else if (vm?.isGameMenuOpen() == true) vm.UiStateToggle(false);
 
                 // remember which hand served to open the menu
-                anchorToLeftHand = side != SteamVR_Input_Sources.RightHand; // only support hands (toes buttons when?!)
+                anchorToLeftHand = leftSide;
             }
 
             cohtmlView.View.TriggerEvent<bool>("ToggleActionMenu", show);
