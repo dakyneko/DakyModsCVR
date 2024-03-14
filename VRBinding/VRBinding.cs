@@ -8,7 +8,7 @@ using Newtonsoft.Json;
 using System;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
-[assembly:MelonInfo(typeof(VRBinding.VRBindingMod), "VRBinding", "1.0.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(VRBinding.VRBindingMod), "VRBinding", "1.0.1", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 
 namespace VRBinding
 {
@@ -149,8 +149,10 @@ namespace VRBinding
             }
 
             // may not be necessary but won't hurt?
-            SteamVR_Input.actionsByPath.Add(action.fullPath, action);
-            SteamVR_Input.actionsByPathLowered.Add(action.fullPath.ToLower(), action);
+            try { SteamVR_Input.actionsByPath.Add(action.fullPath, action); }
+            catch (ArgumentException) { } // already exists
+            try { SteamVR_Input.actionsByPathLowered.Add(action.fullPath.ToLower(), action); }
+            catch (ArgumentException) { } // already exists
         }
 
         private static void SteamVR_Initialize()
