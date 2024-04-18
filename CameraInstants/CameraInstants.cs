@@ -20,7 +20,7 @@ using LfsApi = LagFreeScreenshots.API.LfsApi;
 using PortableCamera = ABI_RC.Systems.Camera.PortableCamera;
 
 [assembly: MelonGame("Alpha Blend Interactive", "ChilloutVR")]
-[assembly: MelonInfo(typeof(CameraInstants.CameraInstantsMod), "CameraInstants", "2.0.1", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly: MelonInfo(typeof(CameraInstants.CameraInstantsMod), "CameraInstants", "2.0.2", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly:MelonAdditionalDependencies("LagFreeScreenshots")]
 [assembly:MelonOptionalDependencies("libwebpwrapper",
     // just to silent MelonLoader warnings, those are dependencies of AssetsTools, it works anyway
@@ -196,8 +196,8 @@ public class CameraInstantsMod : MelonMod
         var pickup = plane.AddComponent<CVRPickupObject>();
         pickup.gripType = CVRPickupObject.GripType.Free;
         bool grabbed = false;
-        pickup.drop.AddListener(() => grabbed = false);
-        pickup.grab.AddListener(() =>
+        pickup.onDrop.AddListener(() => grabbed = false);
+        pickup.onGrab.AddListener(() =>
         {
             t.SetParent(null, true);
             grabbed = true;
