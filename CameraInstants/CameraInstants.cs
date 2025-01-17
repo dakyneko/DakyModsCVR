@@ -168,6 +168,7 @@ public class CameraInstantsMod : MelonMod
         RenderTexture.active = null;
 
         var plane = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        plane.SetActive(false);
         var t = plane.transform;
         t.SetParent(portableCamera.transform.parent, false); // to CVR Camera 2.0
         t.localPosition = 150 * Vector3.left;
@@ -196,8 +197,8 @@ public class CameraInstantsMod : MelonMod
         var pickup = plane.AddComponent<CVRPickupObject>();
         pickup.gripType = CVRPickupObject.GripType.Free;
         bool grabbed = false;
-        pickup.onDrop.AddListener(() => grabbed = false);
-        pickup.onGrab.AddListener(() =>
+        pickup.onDrop.AddListener((_) => grabbed = false);
+        pickup.onGrab.AddListener((_) =>
         {
             t.SetParent(null, true);
             grabbed = true;
@@ -220,6 +221,14 @@ public class CameraInstantsMod : MelonMod
                 },
             }
         };
+
+        var cleanup = plane.AddComponent<CleanableContentEmpty>(); // empty but makes CVR happy
+        plane.SetActive(true);
+    }
+
+    private class CleanableContentEmpty : MonoBehaviour, ICleanableContent {
+        public HashSet<UnityEngine.Object> ObjectsToDestroy { get; } = new HashSet<UnityEngine.Object>();
+        public event Action<ICleanableContent> OnCleanup;
     }
 
     private static UnityEvent UnityEventWithAction(UnityAction f)
