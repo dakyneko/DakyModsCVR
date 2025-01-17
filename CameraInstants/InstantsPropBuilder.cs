@@ -192,7 +192,7 @@ public class InstantsPropBuilder
         return -1;
     }
 
-    public static string MakeThumbnail(Bitmap bitmap, ImageFormat format, int quality = 80, int maxSize = 250)
+    public static Bitmap ResizeImage(Bitmap bitmap, int maxSize)
     {
         // make the asset thumbnail
         // resize thumb largest dimension respecting aspect ratio
@@ -200,9 +200,13 @@ public class InstantsPropBuilder
         var (thumbWidth, thumbHeight) = aspect > 1 ?
             (maxSize, (int)Mathf.Floor(maxSize / aspect)) :
             ((int)Mathf.Floor(maxSize * aspect), maxSize);
-        var thumb = new Bitmap(bitmap, thumbWidth, thumbHeight); // nice allocations
+        return new Bitmap(bitmap, thumbWidth, thumbHeight); // nice allocations
+    }
 
-        //var thumbStream = new MemoryStream();
+    public static string MakeThumbnail(Bitmap bitmap, ImageFormat format, int quality = 80, int maxSize = 250)
+    {
+        var thumb = ResizeImage(bitmap, maxSize);
+
         var tmpFile = Path.GetTempFileName();
         thumb.Save(tmpFile,
             ImageCodecInfo.GetImageEncoders().First(x => x.FormatID == format.Guid), // c# libs are fun
