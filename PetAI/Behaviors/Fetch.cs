@@ -1,6 +1,7 @@
 using ABI.CCK.Components;
 using ABI_RC.Core.InteractionSystem;
 using ABI_RC.Core.Player;
+using ABI_RC.Core.Savior;
 using System.Collections;
 using UnityEngine;
 
@@ -50,9 +51,9 @@ public class Fetch : Behavior
             || (t.position - thrower.transform.position).magnitude < throwDistance) // wait until object is thrown
         {
             lookAt.Step();
-            if (pickup.grabbedBy != "" && pickup.grabbedBy != lastGrabberId)
-                thrower = GetPlayerById(pickup.grabbedBy); // pickup changed hand
-            lastGrabberId = pickup.grabbedBy;
+            if (pickup.GrabbedBy != "" && pickup.GrabbedBy != lastGrabberId)
+                thrower = GetPlayerById(pickup.GrabbedBy); // pickup changed hand
+            lastGrabberId = pickup.GrabbedBy;
             triggerThrower((v1, v2) => logger.Msg($"thrower: {v1} -> {v2}, lastGrabberId={lastGrabberId}"));
             yield return null;
         }
@@ -74,7 +75,8 @@ public class Fetch : Behavior
         cr._enableHighlight = false;
         cr.Start(); // maybe create it earlier so it's ready
         logger.Msg($"Gonna grab pickup with {cr.name} <- {cr}");
-        pickup.Grab(cr.transform, cr, holdingObject.position);
+        var grabContext = new InteractionContext(cr, MetaPort.Instance.ownerId);
+        pickup.Grab(grabContext, cr, cr.transform.position);
 
         lookAt.getTarget = follow.getTarget = () => thrower.transform.position;
         lookAt.speed = 0.05f;
@@ -92,6 +94,7 @@ public class Fetch : Behavior
         }
 
         logger.Msg($"finish fetch");
-        pickup.Drop();
+        var dropContext = new InteractionContext();
+        pickup.Drop(dropContext);
     }
 }

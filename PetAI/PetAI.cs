@@ -11,7 +11,7 @@ using PetAI.Behaviors;
 using ABI.CCK.Components;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
-[assembly:MelonInfo(typeof(PetAI.PetAIMod), "PetAI", "1.0.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(PetAI.PetAIMod), "PetAI", "1.0.1", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly:MelonAdditionalDependencies("ActionMenu")]
 
 namespace PetAI

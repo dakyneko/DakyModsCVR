@@ -105,14 +105,14 @@ public class PatsLover : Behavior
                         var pickup = pat.collider.gameObject.GetComponentInParent<CVRPickupObject>();
                         if (pickup != null)
                         {
-                            if (MetaPort.Instance.ownerId == pickup.grabbedBy) // local
+                            if (MetaPort.Instance.ownerId == pickup.GrabbedBy) // local
                                 playerDesc = PlayerSetup.Instance.gameObject.GetComponent<PlayerDescriptor>();
                             else
                             {
-                                var player = MetaPort.Instance.PlayerManager.NetworkPlayers.FirstOrDefault(p => p.Uuid == pickup.grabbedBy);
+                                var player = MetaPort.Instance.PlayerManager.NetworkPlayers.FirstOrDefault(p => p.Uuid == pickup.GrabbedBy);
                                 playerDesc = player?.PlayerDescriptor;
                             }
-                            logger.Msg($"Found player from pickup grabbed by: {playerDesc} <- {pickup.grabbedBy} <- {pickup}");
+                            logger.Msg($"Found player from pickup grabbed by: {playerDesc} <- {pickup.GrabbedBy} <- {pickup}");
                         }
                         // otherwise it's on a player directly
                         playerDesc ??= pat.collider.gameObject.GetComponentInParent<PlayerDescriptor>();
