@@ -12,7 +12,7 @@ using RefFlags = System.Reflection.BindingFlags;
 using VisualMods = ABI_RC.Systems.Camera.VisualMods;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
-[assembly:MelonInfo(typeof(CameraRemote.CameraRemoteMod), "CameraRemote", "1.1.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(CameraRemote.CameraRemoteMod), "CameraRemote", "1.1.1", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 
 namespace CameraRemote
 {
@@ -103,14 +103,14 @@ namespace CameraRemote
             body.isKinematic = true;
             var pickup = cube.AddComponent<CVRPickupObject>();
             pickup.gripType = CVRPickupObject.GripType.Free; // TODO: check
-            pickup.drop.AddListener(() =>
+            pickup.onDrop.AddListener((_) =>
             {
                 var t = cube.transform;
                 t.localPosition = Vector3.zero;
                 t.localRotation = Quaternion.identity;
                 _grabbed = false;
             });
-            pickup.grab.AddListener(() => {
+            pickup.onGrab.AddListener((_) => {
                 _grabbed = true;
             });
 
