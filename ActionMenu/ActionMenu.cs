@@ -22,7 +22,7 @@ using MovementSystem = ABI_RC.Systems.Movement.BetterBetterCharacterController;
 using ABI_RC.Core.Player;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
-[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.10", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.11", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly:MelonAdditionalDependencies("VRBinding")]
 
 namespace ActionMenu
@@ -1001,8 +1001,8 @@ namespace ActionMenu
                 // need to close down quick + main menu
                 var mm = CVR_MenuManager.Instance;
                 var vm = ViewManager.Instance;
-                if (mm?._quickMenuOpen == true) mm.ToggleQuickMenu(false);
-                else if (vm?.isGameMenuOpen() == true) vm.UiStateToggle(false);
+                if (mm?.IsQuickMenuOpen == true) mm.ToggleQuickMenu(false);
+                else if (vm?.IsMainMenuOpen == true) vm.UiStateToggle(false);
 
                 // remember which hand served to open the menu
                 anchorToLeftHand = leftSide;
@@ -1020,7 +1020,7 @@ namespace ActionMenu
             {
                 if (handleDesktopInputs)
                 {
-                    InputManager.SetDesktopMouseMode(show);
+                    CursorLockManager.Instance.SetUnlockWithId(show, "actionmenu");
                 }
             }
         }
