@@ -20,7 +20,7 @@ using LfsApi = LagFreeScreenshots.API.LfsApi;
 using PortableCamera = ABI_RC.Systems.Camera.PortableCamera;
 
 [assembly: MelonGame("Alpha Blend Interactive", "ChilloutVR")]
-[assembly: MelonInfo(typeof(CameraInstants.CameraInstantsMod), "CameraInstants", "2.0.3", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly: MelonInfo(typeof(CameraInstants.CameraInstantsMod), "CameraInstants", "2.0.4", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly:MelonAdditionalDependencies("LagFreeScreenshots")]
 [assembly:MelonOptionalDependencies("libwebpwrapper",
     // just to silent MelonLoader warnings, those are dependencies of AssetsTools, it works anyway
@@ -224,13 +224,7 @@ public class CameraInstantsMod : MelonMod
             }
         };
 
-        var cleanup = plane.AddComponent<CleanableContentEmpty>(); // empty but makes CVR happy
         plane.SetActive(true);
-    }
-
-    private class CleanableContentEmpty : MonoBehaviour, ICleanableContent {
-        public HashSet<UnityEngine.Object> ObjectsToDestroy { get; } = new HashSet<UnityEngine.Object>();
-        public event Action<ICleanableContent> OnCleanup;
     }
 
     private static UnityEvent UnityEventWithAction(UnityAction f)
