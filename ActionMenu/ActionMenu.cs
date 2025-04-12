@@ -568,6 +568,8 @@ namespace ActionMenu
         {
             var item = new MenuItem();
 
+            if (s.name.EndsWith("<hidden>")) return null;
+
             // build the items in the menu
             switch (s.type)
             {
