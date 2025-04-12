@@ -510,7 +510,7 @@ namespace ActionMenu
                         continue;
 
                     case MenuItem item:
-                        item.name = s.name;
+                        item.name = StripMenuNameTags(s.name);
 #if DEBUG
                         logger.Msg($"OnAvatarAdvancedSettings parameter {item.name}: {s.type}");
 #endif
@@ -577,7 +577,7 @@ namespace ActionMenu
                     {
                         type = "avatar parameter",
                         parameter = s.machineName,
-                        control = "toggle",
+                        control = s.machineName.EndsWith("Impulse") || s.name.EndsWith("<impulse>") ? "impulse" : "toggle",
                         value = 1f,
                     };
                     break;
@@ -586,25 +586,25 @@ namespace ActionMenu
                 case SettingsType.GameObjectDropdown: {
                     var submenuName = Path(menuPrefix, s.name);
                     // if parameter name has suffix Impulse, adapt control type
-                    var isImpulse = s.machineName.EndsWith("Impulse");
+                    var isImpulse = s.machineName.EndsWith("Impulse") || submenuName.EndsWith("<impulse>");
                     var dd = s.dropDownSettings;
                     var selectedValue = animator?.GetInteger(s.machineName) ?? dd?.defaultValue;
 
                     item.action = new ItemAction
                     {
                         type = "menu",
-                        menu = submenuName,
+                        menu = StripMenuNameTags(submenuName),
                     };
 
                     List<MenuItem> sitems = dd.options.Select((o, index) => new MenuItem
                     {
-                        name = o.name,
+                        name = StripMenuNameTags(o.name),
                         enabled = index == selectedValue,
                         action = new ItemAction
                         {
                             type = "avatar parameter",
                             parameter = s.machineName,
-                            control = isImpulse ? "impulse" : "toggle",
+                            control = isImpulse || o.name.EndsWith("<impulse>") ? "impulse" : "toggle",
                             value = index,
                             exclusive_option = !isImpulse,
                         },
@@ -687,6 +687,11 @@ namespace ActionMenu
             };
 
             return item;
+        }
+
+        private static string StripMenuNameTags(string menuName)
+        {
+            return menuName.Replace("<impulse>", "");
         }
 
 
