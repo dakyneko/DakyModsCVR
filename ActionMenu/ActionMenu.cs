@@ -566,6 +566,8 @@ namespace ActionMenu
             // Menus is used in case of nested menus like drop down
             string menuPrefix, Menus m)
         {
+            if (s.name.EndsWith("<hidden>")) return null;
+
             var item = new MenuItem();
 
             // build the items in the menu
