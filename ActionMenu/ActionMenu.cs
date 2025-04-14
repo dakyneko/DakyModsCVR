@@ -574,12 +574,14 @@ namespace ActionMenu
             switch (s.type)
             {
                 case SettingsType.GameObjectToggle: {
+                    var (isImpulse, duration) = ParseImpulseTag(s.machineName);
                     item.enabled = animator?.GetBool(s.machineName) ?? s.toggleSettings?.defaultValue ?? false;
                     item.action = new ItemAction
                     {
                         type = "avatar parameter",
                         parameter = s.machineName,
-                        control = "toggle",
+                        control = isImpulse ? "impulse" : "toggle",
+                        duration = duration,
                         value = 1f,
                     };
                     break;
@@ -588,7 +590,7 @@ namespace ActionMenu
                 case SettingsType.GameObjectDropdown: {
                     var submenuName = Path(menuPrefix, s.name);
                     // if parameter name has suffix Impulse, adapt control type
-                    var isImpulse = s.machineName.EndsWith("Impulse");
+                    var (isImpulse, duration) = ParseImpulseTag(s.machineName);
                     var dd = s.dropDownSettings;
                     var selectedValue = animator?.GetInteger(s.machineName) ?? dd?.defaultValue;
 
@@ -598,18 +600,21 @@ namespace ActionMenu
                         menu = submenuName,
                     };
 
-                    List<MenuItem> sitems = dd.options.Select((o, index) => new MenuItem
-                    {
-                        name = o.name,
-                        enabled = index == selectedValue,
-                        action = new ItemAction
+                    List<MenuItem> sitems = dd.options.Select((o, index) => {
+                        return new MenuItem
                         {
-                            type = "avatar parameter",
-                            parameter = s.machineName,
-                            control = isImpulse ? "impulse" : "toggle",
-                            value = index,
-                            exclusive_option = !isImpulse,
-                        },
+                            name = o.name,
+                            enabled = index == selectedValue,
+                            action = new ItemAction
+                            {
+                                type = "avatar parameter",
+                                parameter = s.machineName,
+                                control = isImpulse ? "impulse" : "toggle",
+                                duration = duration,
+                                value = index,
+                                exclusive_option = !isImpulse,
+                            },
+                        };
                     }).ToList();
 
                     m.Add(submenuName, sitems);
@@ -689,6 +694,26 @@ namespace ActionMenu
             };
 
             return item;
+        }
+
+        private static readonly System.Text.RegularExpressions.Regex impulseTagRegex = new System.Text.RegularExpressions.Regex(
+            @"\s*<impulse(?:=(?<duration>\d+(?:\.?\d*)))>$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled
+            );
+
+        private static (bool isImpulse, float? duration) ParseImpulseTag(string machineName)
+        {
+            if (machineName.EndsWith("Impulse")) return (isImpulse: true, duration: null);
+            var match = impulseTagRegex.Match(machineName);
+            if (!match.Success) return (isImpulse: false, duration: null);
+            var durationStr = match.Groups["duration"].Value;
+            float? duration = null;
+            if (durationStr != string.Empty)
+                if (float.TryParse(durationStr, out var value))
+                    duration = value;
+                else
+                    logger.Warning($"Avatar parameter {machineName} is impulse but invalid duration format: {durationStr}");
+            return (isImpulse: true, duration: duration);
         }
 
 

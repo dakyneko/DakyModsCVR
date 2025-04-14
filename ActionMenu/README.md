@@ -18,8 +18,9 @@ Possibly in the future, custom bindings may be possible wit [DynamicOpenVR](http
 The avatar submenu is automatically generated from the avatar CVR "Advanced Settings". If you're the owner of the avatar there are two things you can do to help the Action Menu to look nice:
 
 - You can use slashes `/` in the parameter "Name" text field to make submenu. For example let's say you have two parameters `Clothing/Dress/Long` and `Clothing/Dress/Short`. That means the submenus will be: Avatar > Clothing > Dress which will contain two items: Long and Short.
-- You can append "Impulse" in the "Parameter" text field to make it a temporary trigger type. Meaning it will set its value for a second only. Useful to trigger things.
-- You can append "&lt;hidden>&gt;" to the "Name" text field to hide it from the menu.
+- You can append `<impulse>` (or `Impulse`) in the "Parameter" text field to make it a temporary trigger type. Meaning it will set its value for a second only. Useful to trigger things.
+    - If you want to specify the duration, instead append `<impulse=0.5>` where 0.5 seconds is the duration.
+- You can append `<hidden>` to the "Parameter" text field to hide it from the menu.
 
 If you aren't the owner of the avatar you can still customize through JSON overrides, see below.
  
