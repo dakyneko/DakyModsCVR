@@ -523,7 +523,7 @@ namespace ActionMenu
             return ReifyHierarchyInNames(m);
         }
 
-        public static Menus SplitOverCrowdedMenus(Menus m, uint overcrowdedMenuValue = 7)
+        public static Menus SplitOverCrowdedMenus(Menus m, uint overcrowdedMenuValue = 8)
         {
             var pagePrefix = "page-";
             var keys = m.Keys.OrderBy(n => -n.Length).ToArray(); // process bottom-up (deepest first)
