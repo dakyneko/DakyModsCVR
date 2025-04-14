@@ -22,6 +22,10 @@ The avatar submenu is automatically generated from the avatar CVR "Advanced Sett
 
 If you aren't the owner of the avatar you can still customize through JSON overrides, see below.
  
+## Custom code: CSS and JS
+
+Especially for developpers and designers, you can add your own CSS rules and Javascript code to extend the style and behavior of ActionMenu: you'll find those files UIResources/custom.css and UIResources/custom.js feel free to edit them.
+
 ## Avatar Overrides (JSON)
 
 Even though the avatar menu is auto-generated, it can be patched with a json file afterward. By edited we mean adding menu items, remove some, replacing (eg: to add icons) / moving menus altogether (restructuring) once it's been generated on the fly. Changes are not persistent, menus are all built on the fly.
