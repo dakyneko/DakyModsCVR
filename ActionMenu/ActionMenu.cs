@@ -510,7 +510,7 @@ namespace ActionMenu
                         continue;
 
                     case MenuItem item:
-                        item.name = s.name;
+                        item.name = StripMenuNameTags(s.name);
 #if DEBUG
                         logger.Msg($"OnAvatarAdvancedSettings parameter {item.name}: {s.type}");
 #endif
@@ -572,12 +572,14 @@ namespace ActionMenu
             switch (s.type)
             {
                 case SettingsType.GameObjectToggle: {
+                    var (control, duration) = DetectImpulseToggle(s);
                     item.enabled = animator?.GetBool(s.machineName) ?? s.toggleSettings?.defaultValue ?? false;
                     item.action = new ItemAction
                     {
                         type = "avatar parameter",
                         parameter = s.machineName,
-                        control = "toggle",
+                        control = control,
+                        duration = duration,
                         value = 1f,
                     };
                     break;
@@ -586,28 +588,37 @@ namespace ActionMenu
                 case SettingsType.GameObjectDropdown: {
                     var submenuName = Path(menuPrefix, s.name);
                     // if parameter name has suffix Impulse, adapt control type
-                    var isImpulse = s.machineName.EndsWith("Impulse");
+                    var (parentControl, parentDuration) = DetectImpulseToggle(s);
                     var dd = s.dropDownSettings;
                     var selectedValue = animator?.GetInteger(s.machineName) ?? dd?.defaultValue;
 
                     item.action = new ItemAction
                     {
                         type = "menu",
-                        menu = submenuName,
+                        menu = StripMenuNameTags(submenuName),
                     };
 
-                    List<MenuItem> sitems = dd.options.Select((o, index) => new MenuItem
-                    {
-                        name = o.name,
-                        enabled = index == selectedValue,
-                        action = new ItemAction
+                    List<MenuItem> sitems = dd.options.Select((o, index) => {
+                        var (control, duration) = DetectImpulseToggle(o);
+                        if (control == "toggle")
                         {
-                            type = "avatar parameter",
-                            parameter = s.machineName,
-                            control = isImpulse ? "impulse" : "toggle",
-                            value = index,
-                            exclusive_option = !isImpulse,
-                        },
+                            control = parentControl;
+                            duration = parentDuration;
+                        }
+                        return new MenuItem
+                        {
+                            name = StripMenuNameTags(o.name),
+                            enabled = index == selectedValue,
+                            action = new ItemAction
+                            {
+                                type = "avatar parameter",
+                                parameter = s.machineName,
+                                control = control,
+                                duration = duration,
+                                value = index,
+                                exclusive_option = control != "impulse",
+                            },
+                        };
                     }).ToList();
 
                     m.Add(submenuName, sitems);
@@ -687,6 +698,29 @@ namespace ActionMenu
             };
 
             return item;
+        }
+
+        private static readonly System.Text.RegularExpressions.Regex impulseRe = new System.Text.RegularExpressions.Regex(
+            @"\s*<impulse(?:=(?<duration>\d+(?:\.?\d*)))>$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled
+            );
+
+        private static (string control, float? duration) DetectImpulseToggle(CVRAdvancedSettingsEntry s)
+        {
+            if (s.machineName.EndsWith("Impulse")) return (control: "impulse", duration: null);
+            var match = impulseRe.Match(s.name);
+            if (!match.Success) return (control: "toggle", duration: null);
+            var durationStr = match.Groups["duration"].Value;
+            if (durationStr != string.Empty && float.TryParse(durationStr, out var duration))
+            {
+                return (control: "impulse", duration: duration);
+            }
+            return (control: "impulse", duration: null);
+        }
+
+        private static string StripMenuNameTags(string menuName)
+        {
+            return impulseRe.Replace(menuName, "");
         }
 
 
