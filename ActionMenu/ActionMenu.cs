@@ -22,7 +22,7 @@ using MovementSystem = ABI_RC.Systems.Movement.BetterBetterCharacterController;
 using ABI_RC.Core.Player;
 
 [assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
-[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.11", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.12", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly:MelonAdditionalDependencies("VRBinding")]
 
 namespace ActionMenu
@@ -600,24 +600,22 @@ namespace ActionMenu
                         menu = submenuName,
                     };
 
-                    List<MenuItem> sitems = dd.options.Select((o, index) => {
-                        return new MenuItem
+                    List<MenuItem> sitems = dd.options.Select((o, index) => new MenuItem
+                    {
+                        name = o.name,
+                        enabled = index == selectedValue,
+                        action = new ItemAction
                         {
-                            name = o.name,
-                            enabled = index == selectedValue,
-                            action = new ItemAction
-                            {
-                                type = "avatar parameter",
-                                parameter = s.machineName,
-                                control = isImpulse ? "impulse" : "toggle",
-                                duration = duration,
-                                value = index,
-                                exclusive_option = !isImpulse,
-                            },
-                        };
+                            type = "avatar parameter",
+                            parameter = s.machineName,
+                            control = isImpulse ? "impulse" : "toggle",
+                            duration = duration,
+                            value = index,
+                            exclusive_option = !isImpulse,
+                        },
                     }).ToList();
 
-                    m.Add(submenuName, sitems);
+                        m.Add(submenuName, sitems);
                     break;
                 }
 
