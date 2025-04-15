@@ -599,7 +599,7 @@ namespace ActionMenu
                     };
 
                     List<MenuItem> sitems = dd.options.Select((o, index) => {
-                        var (control, duration) = DetectImpulseToggle(s);
+                        var (control, duration) = DetectImpulseToggle(o);
                         if (control == "toggle")
                         {
                             control = parentControl;
