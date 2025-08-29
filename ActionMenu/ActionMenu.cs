@@ -19,9 +19,9 @@ using ABI_RC.Core.UI;
 using PlayerSetup = ABI_RC.Core.Player.PlayerSetup;
 using SettingsType = ABI.CCK.Scripts.CVRAdvancedSettingsEntry.SettingsType;
 using MovementSystem = ABI_RC.Systems.Movement.BetterBetterCharacterController;
-using ABI_RC.Core.Player;
+using ABI_RC.Core.UI.UIRework.Managers;
 
-[assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
+[assembly:MelonGame(null, "ChilloutVR")]
 [assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.12", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly:MelonAdditionalDependencies("VRBinding")]
 
@@ -981,7 +981,7 @@ namespace ActionMenu
         {
             if (cohtmlReadyState < 2) return; // not ready for events
 #if DEBUG
-            MelonLogger.Msg($"OnCVRSeatedToggle {__instance.seatedPlay}");
+            MelonLogger.Msg($"OnCVRSeatedToggle {seated}");
 #endif
             var action = new ItemAction()
             {
@@ -996,7 +996,7 @@ namespace ActionMenu
         {
             if (cohtmlReadyState < 2) return; // not ready for events
 #if DEBUG
-            MelonLogger.Msg($"OnCVRFlyToggle {__instance.flying}");
+            MelonLogger.Msg($"OnCVRFlyToggle {__instance.IsFlying()}");
 #endif
             var action = new ItemAction()
             {
@@ -1026,8 +1026,8 @@ namespace ActionMenu
                 // need to close down quick + main menu
                 var mm = CVR_MenuManager.Instance;
                 var vm = ViewManager.Instance;
-                if (mm?.IsQuickMenuOpen == true) mm.ToggleQuickMenu(false);
-                else if (vm?.IsMainMenuOpen == true) vm.UiStateToggle(false);
+                if (mm?.IsViewShown == true) mm.ToggleQuickMenu(false);
+                else if (vm?.IsViewShown == true) vm.UiStateToggle(false);
 
                 // remember which hand served to open the menu
                 anchorToLeftHand = leftSide;
@@ -1121,8 +1121,8 @@ namespace ActionMenu
         private static Menus? avatarMenus;
         private static void OnAvatarAdvancedSettings(PlayerSetup __instance)
         {
-            var animator = __instance._animator;
-            var advSettings = __instance._avatarDescriptor.avatarSettings.settings;
+            var animator = __instance.Animator;
+            var advSettings = __instance.AvatarDescriptor.avatarSettings.settings;
             var menuPrefix = avatarMenuName;
             var m = avatarMenus = AvatarAdvancedSettingsToMenus(advSettings, animator, menuPrefix);
 
@@ -1134,7 +1134,7 @@ namespace ActionMenu
                 m = SplitOverCrowdedMenus(m);
 
             // add avatar emotes
-            var emoteNames = __instance?.GetEmoteNames();
+            var emoteNames = __instance?.AnimatorManager.GetLegacyEmoteNames();
             if (emoteNames != null && emoteNames.Length > 0)
             {
                 var parents = Path(menuPrefix, "emotes");
@@ -1207,7 +1207,7 @@ namespace ActionMenu
             }
 
             // let mods modify the avatar menu
-            var avatarGuid = __instance?._avatarDescriptor?.avatarSettings?._avatarGuid ?? "default";
+            var avatarGuid = __instance?.AvatarDescriptor?.avatarSettings?._avatarGuid ?? "default";
             API.InvokeOnAvatarMenuLoaded(avatarGuid, m);
 
             // avatar menu override from json file
@@ -1475,10 +1475,8 @@ namespace ActionMenu
             if (menuTransform != null)
                 UpdatePositionToAnchor();
 
-            var keyboardGrabbed = ViewManager.Instance?.textInputFocused == true
-                || CVRInputManager.Instance?.textInputFocused == true
-                || CVR_MenuManager.Instance?.textInputFocused == true;
-            if (keyboardGrabbed) return;
+            // Ignore if keyboard view is not initialized, or it is opened
+            if (KeyboardManager.Instance == null || KeyboardManager.Instance.IsViewShown) return;
 
             if (Input.GetKeyDown(reloadKeyBinding.Value)) {
                 var shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);

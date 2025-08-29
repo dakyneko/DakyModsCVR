@@ -28,7 +28,7 @@ using Events = ABI_RC.Systems.Camera.Events;
 using AudioEffects = ABI_RC.Core.AudioEffects;
 
 [assembly:MelonInfo(typeof(LagFreeScreenshotsMod), "Lag Free Screenshots", "2.2.4", "Daky", "https://github.com/dakyneko/DakyModsCVR")]
-[assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
+[assembly:MelonGame(null, "ChilloutVR")]
 [assembly:MelonOptionalDependencies("libwebpwrapper", "BTKUILib")]
 
 namespace LagFreeScreenshots

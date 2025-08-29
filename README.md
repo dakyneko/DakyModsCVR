@@ -52,9 +52,10 @@ Always skip Chillout intro when game starts, roughly take 10 seconds.
 ## Building
 To build yourself:
 
- - (1) Install NStrip.exe from https://github.com/BepInEx/NStrip into this directory (or into your PATH). This tools converts all assembly symbols to public ones. Make life easy!
- - (2) Create a new Windows environnment variable `%CVRPATH%` which should point to your game path (folder where `ChilloutVR.exe` resides). In Windows, look for Settings > Advanced system settings > Advanced > Environment Variables, add a new one there, it should point to something like `C:\Program Files (x86)\Steam\steamapps\common\ChilloutVR` or similar.
- - (3) Run `copy_and_nstrip_dll.bat` this will copy the game + MelonLoader .dll into this project and run NStrip.exe to make them public (easier developpers).
+ - (1) Ensure to compile with .net sdk 7 or lower (current ILRepack is not compatible with .net sdk 8 and above)
+ - (2) Install NStrip.exe from https://github.com/BepInEx/NStrip into this directory (or into your PATH). This tools converts all assembly symbols to public ones. Make life easy!
+ - (3) Create a new Windows environnment variable `%CVRPATH%` which should point to your game path (folder where `ChilloutVR.exe` resides). In Windows, look for Settings > Advanced system settings > Advanced > Environment Variables, add a new one there, it should point to something like `C:\Program Files (x86)\Steam\steamapps\common\ChilloutVR` or similar.
+ - (4) Run `copy_and_nstrip_dll.bat` this will copy the game + MelonLoader .dll into this project and run NStrip.exe to make them public (easier developers).
 
 Use Visual Studio 2019 or your IDE of choice to build. Enjoy. Feel free to join the the Discord server for support (in case of errors or questions). Thanks.
 

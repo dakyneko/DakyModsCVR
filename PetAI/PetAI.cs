@@ -10,7 +10,7 @@ using ABI_RC.Core.Player;
 using PetAI.Behaviors;
 using ABI.CCK.Components;
 
-[assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
+[assembly:MelonGame(null, "ChilloutVR")]
 [assembly:MelonInfo(typeof(PetAI.PetAIMod), "PetAI", "1.0.1", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly:MelonAdditionalDependencies("ActionMenu")]
 
@@ -98,19 +98,19 @@ namespace PetAI
                 var xs = new List<MenuItem>()
                 {
                     Button("None", () => pet.RemBehavior<Fond>()),
-                    Button("Me", () => pet.FondOfPlayer(PlayerSetup.Instance.gameObject.transform, PlayerSetup.Instance._animator)),
+                    Button("Me", () => pet.FondOfPlayer(PlayerSetup.Instance.gameObject.transform, PlayerSetup.Instance.Animator)),
                 };
                 foreach (var p in MetaPort.Instance.PlayerManager.NetworkPlayers)
                 {
                     var pm = p?.PuppetMaster;
-                    xs.Add(Button(p.Username, () => pet.FondOfPlayer(pm?.gameObject?.transform, pm?._animator)));
+                    xs.Add(Button(p.Username, () => pet.FondOfPlayer(pm?.gameObject?.transform, pm?.Animator)));
                 }
                 return xs.ToList();
             }
 
             private List<MenuItem> FetchMenu(PuPet pet)
             {
-                var pos = PlayerSetup.Instance._avatar.transform.position;
+                var pos = PlayerSetup.Instance.AvatarTransform.position;
                 return GameObject.FindObjectsOfType<CVRPickupObject>()
                     .OrderBy(p => (p.transform.position - pos).magnitude) // closest first
                     .Take(8) // max

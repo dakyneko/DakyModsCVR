@@ -7,7 +7,7 @@ using UnityEngine;
 using ActionMenu;
 using System.Collections.Generic;
 
-[assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
+[assembly:MelonGame(null, "ChilloutVR")]
 [assembly:MelonInfo(typeof(MiniMap.MiniMapMod), "MiniMap", "1.0.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly:MelonAdditionalDependencies("ActionMenu")]
 
@@ -161,7 +161,7 @@ public class MiniMapMod : MelonMod
     private Transform GetViewer()
     {
         return viewer = viewer.NN()
-            ?? PlayerSetup.Instance._animator?.GetBoneTransform(HumanBodyBones.Head)
+            ?? PlayerSetup.Instance.Animator?.GetBoneTransform(HumanBodyBones.Head)
             ?? PlayerSetup.Instance.transform;
     }
 

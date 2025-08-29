@@ -2,7 +2,7 @@ using ActionMenu;
 using MelonLoader;
 using System.Collections.Generic;
 
-[assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
+[assembly:MelonGame(null, "ChilloutVR")]
 [assembly:MelonInfo(typeof(ActionMenuExample.ActionMenuExampleMod), "ActionMenuExample", "1.0.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly: MelonAdditionalDependencies("ActionMenu")]
 
