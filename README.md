@@ -50,13 +50,15 @@ Add new buttons and settings for the camera. So far:
 Always skip Chillout intro when game starts, roughly take 10 seconds.
 
 ## Building
-To build yourself:
+To build yourself follow those instructions and make sure to use .NET SDK 7 or lower[^1]:
 
  - (1) Install NStrip.exe from https://github.com/BepInEx/NStrip into this directory (or into your PATH). This tools converts all assembly symbols to public ones. Make life easy!
  - (2) Create a new Windows environnment variable `%CVRPATH%` which should point to your game path (folder where `ChilloutVR.exe` resides). In Windows, look for Settings > Advanced system settings > Advanced > Environment Variables, add a new one there, it should point to something like `C:\Program Files (x86)\Steam\steamapps\common\ChilloutVR` or similar.
- - (3) Run `copy_and_nstrip_dll.bat` this will copy the game + MelonLoader .dll into this project and run NStrip.exe to make them public (easier developpers).
+ - (3) Run `copy_and_nstrip_dll.bat` this will copy the game + MelonLoader .dll into this project and run NStrip.exe to make them public (easier developers).
 
 Use Visual Studio 2019 or your IDE of choice to build. Enjoy. Feel free to join the the Discord server for support (in case of errors or questions). Thanks.
+
+[^1]: The reason is that ILRepack is not compatible with higher version (> 8 and above).
 
 
 # License
