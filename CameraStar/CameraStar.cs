@@ -5,7 +5,7 @@ using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonGame("Alpha Blend Interactive", "ChilloutVR")]
+[assembly: MelonGame(null, "ChilloutVR")]
 [assembly: MelonInfo(typeof(CameraStar.CameraStarMod), "CameraStar", "1.1.1", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 
 namespace CameraStar

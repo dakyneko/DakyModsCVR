@@ -1,6 +1,6 @@
 ﻿using MelonLoader;
 
-[assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
+[assembly:MelonGame(null, "ChilloutVR")]
 [assembly:MelonInfo(typeof(NoIntro.NoIntroMod), "NoIntro", "1.0.2", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 
 namespace NoIntro

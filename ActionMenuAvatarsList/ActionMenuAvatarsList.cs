@@ -5,7 +5,7 @@ using ABI_RC.Core.InteractionSystem;
 using ABI_RC.Core.EventSystem;
 using ABI_RC.Core.Player;
 
-[assembly:MelonGame("Alpha Blend Interactive", "ChilloutVR")]
+[assembly:MelonGame(null, "ChilloutVR")]
 [assembly:MelonInfo(typeof(ActionMenuAvatarsList.ActionMenuAvatarsListMod), "ActionMenuAvatarsList", "1.0.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly: MelonAdditionalDependencies("ActionMenu")]
 
