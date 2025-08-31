@@ -98,6 +98,7 @@ namespace VRBinding
             HarmonyInstance.Patch(
                 AccessTools.Method(typeof(Valve.VR.SteamVR_Input_Source), nameof(Valve.VR.SteamVR_Input_Source.Initialize)),
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(VRBindingMod), nameof(SteamVR_Initialize))));
+            // TODO: can we use CVRGameEventSystem.VRModeSwitch.OnPreSwitch instead?
         }
 
         // call this only if you know what you're doing!
