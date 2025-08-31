@@ -161,7 +161,7 @@ public class MiniMapMod : MelonMod
     private Transform GetViewer()
     {
         return viewer = viewer.NN()
-            ?? PlayerSetup.Instance._animator?.GetBoneTransform(HumanBodyBones.Head)
+            ?? PlayerSetup.Instance.Animator?.GetBoneTransform(HumanBodyBones.Head)
             ?? PlayerSetup.Instance.transform;
     }
 

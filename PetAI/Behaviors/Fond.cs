@@ -17,7 +17,7 @@ public class Fond : Behavior
     public Fond(PuPet pet, Transform target, Animator? animator = null) : base(pet)
     {
         this.target = target;
-        this.animator = animator ?? target.GetComponent<PlayerSetup>()?._animator ?? target.GetComponent<PuppetMaster>()._animator;
+        this.animator = animator ?? target.GetComponent<PlayerSetup>()?.Animator ?? target.GetComponent<PuppetMaster>().Animator;
         this.head = animator?.GetBoneTransform(HumanBodyBones.Head);
     }
     public override string StateToString() => $"target={target?.name} animator={animator?.name} head={head?.name}";

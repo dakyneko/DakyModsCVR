@@ -1,10 +1,7 @@
 using ABI.CCK.Components;
-using ABI_RC.Core.Base;
 using ABI_RC.Core.Player;
-using ABI_RC.Core.Savior;
-using B83.Win32;
+using ABI_RC.Core.IO.FileDragDrop;
 using Daky;
-using HarmonyLib;
 using MelonLoader;
 using System;
 using System.Collections.Generic;
@@ -37,6 +34,7 @@ public class CameraInstantsMod : MelonMod
     private MelonPreferences_Entry<int> uploadMaxSize;
     private Queue<string> autoSpawnPropsGids = new();
     private static bool isWebPInstalled = false;
+    private static FileDragDropListener? FileDragDropListener;
 
     public override void OnInitializeMelon()
     {
@@ -62,42 +60,25 @@ public class CameraInstantsMod : MelonMod
         // - allowed action like delete
         // TODO: implement delete on disk (move into trash bin)
 
-        HarmonyInstance.Patch(
-            SymbolExtensions.GetMethodInfo(() => default(MetaPort).Awake()),
-            new HarmonyMethod(AccessTools.Method(typeof(CameraInstantsMod), nameof(MetaPortAwake))));
-        UnityDragAndDropHook.OnDroppedFiles += OnDropFiles;
+        FileDragDropListener = new FileDragDropListener
+        {
+            Priority = -1,
+            AcceptingDrops = true,
+            ValidExtensions = {
+                "jpg", "jpeg", "jpe", "jif", "jfif", // who came up with so many?!
+                "png",
+                "bmp",
+                "webp",
+            },
+            OnFileDrop = OnDropFile,
+        };
+        FileDragDropHandler.AddListener(FileDragDropListener);
 
         isWebPInstalled = LagFreeScreenshots.WebpUtils.IsWebpSupported();
 
         // Check for BTKUILib and add settings UI
         if (RegisteredMelons.Any(m => m.Info.Name == "BTKUILib"))
             Daky.DakyBTKUI.AutoGenerateCategory(category);
-    }
-
-    public static void MetaPortAwake(MetaPort __instance)
-    {
-        // receiving windows events is overwhelming, let's only add it when unfocused = file drop may happen
-        var cb = __instance.gameObject.AddComponentIfMissing<OnApplicationFocusCallback>();
-        cb.onFocus += focus => { if (focus) UnityDragAndDropHook.UninstallHook(); else UnityDragAndDropHook.InstallHook(); };
-    }
-
-    public override void OnApplicationQuit()
-    {
-        UnityDragAndDropHook.UninstallHook(); // just in case
-    }
-
-    // Warning: if we throw an exception in this win32 callback, the game will crash
-    // therefore we protect from everything, just in case
-    private void OnDropFiles(List<string> paths, POINT point)
-    {
-        try
-        {
-            OnDropFilesInternal(paths, point);
-        }
-        catch (Exception ex)
-        {
-            logger.Error(ex);
-        }
     }
 
     private void CheckUploadConfiguration()
@@ -117,33 +98,10 @@ public class CameraInstantsMod : MelonMod
         };
     }
 
-    private void OnDropFilesInternal(List<string> paths, POINT point)
+    private void OnDropFile(String filepath)
     {
-        if (paths.Count == 0) return;
-        if (paths.Count > 1)
-        {
-            logger.Warning($"OnDropFiles allows only 1 file for now");
-            return;
-        }
-
-        var filepath = paths[0];
-        var ext = Path.GetExtension(filepath).Substring(1).ToLower(); // ext without .
-        var supported = ext switch
-        {
-            "jpg" or "jpeg" or "jpe" or "jif" or "jfif" => true, // who came up with so many?!
-            "png" => true,
-            "bmp" => true,
-            "webp" => isWebPInstalled,
-            // TODO: add gifs, maybe tiff?
-            _ => false,
-        };
-        if (!supported)
-        {
-            logger.Warning($"Format {ext} ({Path.GetExtension(filepath)}) probably not supported");
-            return;
-        }
-
-        logger.Msg($"OnDropFiles start AsyncPropUploader {filepath} (extension: {ext})");
+        var ext = Path.GetExtension(filepath);
+        logger.Msg($"OnDropFile start AsyncPropUploader {filepath} (extension: {ext})");
         var propName = Path.ChangeExtension(Path.GetFileName(filepath), "");
         CheckUploadConfiguration();
         Task.Run(() => AutoPropTask(filepath, propName));
