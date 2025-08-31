@@ -17,7 +17,7 @@ using LfsApi = LagFreeScreenshots.API.LfsApi;
 using PortableCamera = ABI_RC.Systems.Camera.PortableCamera;
 
 [assembly: MelonGame(null, "ChilloutVR")]
-[assembly: MelonInfo(typeof(CameraInstants.CameraInstantsMod), "CameraInstants", "2.0.4", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly: MelonInfo(typeof(CameraInstants.CameraInstantsMod), "CameraInstants", "2.0.5", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly:MelonAdditionalDependencies("LagFreeScreenshots")]
 [assembly:MelonOptionalDependencies("libwebpwrapper",
     // just to silent MelonLoader warnings, those are dependencies of AssetsTools, it works anyway

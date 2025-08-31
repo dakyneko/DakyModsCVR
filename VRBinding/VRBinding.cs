@@ -8,7 +8,7 @@ using Newtonsoft.Json;
 using System;
 
 [assembly:MelonGame(null, "ChilloutVR")]
-[assembly:MelonInfo(typeof(VRBinding.VRBindingMod), "VRBinding", "1.0.1", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(VRBinding.VRBindingMod), "VRBinding", "1.0.2", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 
 namespace VRBinding
 {

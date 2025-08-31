@@ -12,7 +12,7 @@ using RefFlags = System.Reflection.BindingFlags;
 using VisualMods = ABI_RC.Systems.Camera.VisualMods;
 
 [assembly:MelonGame(null, "ChilloutVR")]
-[assembly:MelonInfo(typeof(CameraRemote.CameraRemoteMod), "CameraRemote", "1.1.1", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(CameraRemote.CameraRemoteMod), "CameraRemote", "1.1.2", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 
 namespace CameraRemote
 {
