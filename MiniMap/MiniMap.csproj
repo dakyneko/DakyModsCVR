@@ -3,5 +3,10 @@
 	<ItemGroup>
       <ProjectReference Include="..\ActionMenu\ActionMenu.csproj" />
       <EmbeddedResource Include="Resources\stereo_shader.bundle" />
+      <Compile Include="../CommonBTKUI/*.cs" />
+      <Reference Include="BTKUILib">
+        <HintPath>..\ModLibs\BTKUILib.dll</HintPath>
+        <Private>false</Private>
+      </Reference>
 	</ItemGroup>
 </Project>

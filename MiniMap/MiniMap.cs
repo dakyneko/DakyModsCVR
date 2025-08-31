@@ -6,10 +6,11 @@ using System.Runtime.CompilerServices;
 using UnityEngine;
 using ActionMenu;
 using System.Collections.Generic;
+using System.Linq;
 
 [assembly:MelonGame(null, "ChilloutVR")]
 [assembly:MelonInfo(typeof(MiniMap.MiniMapMod), "MiniMap", "1.0.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
-[assembly:MelonAdditionalDependencies("ActionMenu")]
+[assembly:MelonOptionalDependencies("ActionMenu", "BTKUILib")]
 
 namespace MiniMap;
 using static Daky.Dakytils;
@@ -40,6 +41,9 @@ public class MiniMapMod : MelonMod
 
         var ns = typeof(MiniMapMod).Namespace;
         var category = MelonPreferences.CreateCategory(ns, ns);
+        var enabled = category.CreateEntry("enabled", false, "Enabled", "Show the mini map");
+        enabled.Value = false; // don't want it persisted
+        enabled.OnEntryValueChanged.Subscribe((_, v) => ToggleView(v));
         iconsEnabled = category.CreateEntry("icons", true, "Icons", "Display player icons above their head");
         iconWidth = category.CreateEntry("iconWidth", 0.1f, "Icons size", "Width");
         iconAbove = category.CreateEntry("iconAbove", 1f, "Icons offset", "Height offset above player");
@@ -55,6 +59,10 @@ public class MiniMapMod : MelonMod
 
         // Action menu
         new SettingsMenu();
+
+        // Check for BTKUILib and add settings UI
+        if (RegisteredMelons.Any(m => m.Info.Name == "BTKUILib"))
+            Daky.DakyBTKUI.AutoGenerateCategory(category);
     }
 
     private bool inStereo => MetaPort.Instance.isUsingVr;
