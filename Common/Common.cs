@@ -42,9 +42,9 @@ namespace Daky
             PortableCameraSettingType type, Type origin, object initialValue)
         {
             var s = pcam.@interface.AddAndGetSetting(type);
-            s.SettingName = name;
+            s.SettingIdentifier = name;
             s.DisplayName = display;
-            s.OriginType = origin;
+            s.OriginType = origin.ToString();
             s.DefaultValue = initialValue;
             return s;
         }
