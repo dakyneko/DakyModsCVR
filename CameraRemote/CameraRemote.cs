@@ -12,7 +12,7 @@ using RefFlags = System.Reflection.BindingFlags;
 using VisualMods = ABI_RC.Systems.Camera.VisualMods;
 
 [assembly:MelonGame(null, "ChilloutVR")]
-[assembly:MelonInfo(typeof(CameraRemote.CameraRemoteMod), "CameraRemote", "1.1.2", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(CameraRemote.CameraRemoteMod), "CameraRemote", "1.1.3", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 
 namespace CameraRemote
 {
@@ -72,7 +72,7 @@ namespace CameraRemote
 
         public void Enable()
         {
-            _portable.EnableModByType(typeof(VisualMods.CameraAttachment));
+            _portable.EnableModByType(typeof(VisualMods.AttachToPlayer));
             if (_remote != null)
             {
                 _remote.SetActive(true);
@@ -155,5 +155,8 @@ namespace CameraRemote
             t2.localPosition += t2.localRotation * (Time.deltaTime * 0.5f * t.localPosition);
             t2.localRotation *= Quaternion.Slerp(Quaternion.identity, t.localRotation, Time.deltaTime * 1.5f);
         }
+
+        public PortableCamera.CaptureMode GetSupportedCaptureModes() => PortableCamera.CaptureMode.All;
+        public bool SupportsCaptureMode(PortableCamera.CaptureMode captureMode) => true;
     }
 }
