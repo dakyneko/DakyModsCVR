@@ -26,8 +26,9 @@ using PortableCamera = ABI_RC.Systems.Camera.PortableCamera;
 using RefFlags = System.Reflection.BindingFlags;
 using Events = ABI_RC.Systems.Camera.Events;
 using AudioEffects = ABI_RC.Core.AudioEffects;
+using ABI_RC.Core.Networking.IO.Instancing;
 
-[assembly:MelonInfo(typeof(LagFreeScreenshotsMod), "Lag Free Screenshots", "2.2.5", "Daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(LagFreeScreenshotsMod), "Lag Free Screenshots", "2.2.6", "Daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly:MelonGame(null, "ChilloutVR")]
 [assembly:MelonOptionalDependencies("libwebpwrapper", "BTKUILib")]
 
@@ -409,9 +410,9 @@ namespace LagFreeScreenshots
                     },
                     new API.CurrentInstanceInfo
                     {
-                        InstanceId = metaport.CurrentInstanceId,
-                        InstanceName = metaport.CurrentInstanceName,
-                        WorldId = metaport.CurrentWorldId != "" ? metaport.CurrentWorldId : metaport.homeWorldGuid,
+                        InstanceId = Instances.CurrentInstanceId,
+                        InstanceName = Instances.CurrentInstanceName,
+                        WorldId = Instances.CurrentWorldId != "" ? Instances.CurrentWorldId : metaport.homeWorldGuid,
                     },
                     API.MetadataV2.GetPlayerList(camera)
                 );
