@@ -37,6 +37,21 @@ namespace Daky
             return Sprite.Create(texture, new Rect(0, 0, width, height), new Vector2(0, 0));
         }
 
+        public static PortableCameraSettingsHeader PortableCameraAddHeader(PortableCamera cam)
+        {
+            var i = cam.@interface;
+            // adapted from PortableCameraInterface.AddAndGetHeader
+            GameObject spacerObject = UnityEngine.Object.Instantiate(cam.spacerPrefab, i.settingsContentRow);
+            GameObject gameObject = UnityEngine.Object.Instantiate(cam.settingsHeadingPrefab, i.settingsContentRow);
+            var component = gameObject.GetComponent<PortableCameraSettingsHeader>();
+            component.OriginType = "CameraStar";
+            component.HeaderText.text = "Camera*";
+            component.headerObject = gameObject;
+            component.spacerObject = spacerObject;
+            i.headers.Add(component);
+            return component;
+        }
+
         // boiler plate woooh
         private static PortableCameraSetting NewCameraSetting(PortableCamera pcam, string name, string display,
             PortableCameraSettingType type, Type origin, object initialValue)

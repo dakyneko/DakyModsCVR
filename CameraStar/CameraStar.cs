@@ -6,7 +6,7 @@ using MelonLoader;
 using UnityEngine;
 
 [assembly: MelonGame(null, "ChilloutVR")]
-[assembly: MelonInfo(typeof(CameraStar.CameraStarMod), "CameraStar", "1.1.2", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly: MelonInfo(typeof(CameraStar.CameraStarMod), "CameraStar", "1.1.3", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 
 namespace CameraStar
 {
@@ -40,7 +40,7 @@ namespace CameraStar
             __instance.RegisterMod(new AlphaTransparency());
             __instance.RegisterMod(new CameraLocker());
 
-            __instance.@interface.AddAndGetHeader(null, typeof(CameraStarMod), "Camera*");
+            PortableCameraAddHeader(__instance);
             NewCameraSetting(__instance, "hideworld", "Hide world", typeof(CameraStarMod), false, v =>
             {
                 if (v) __instance._camera.cullingMask &=
@@ -54,8 +54,8 @@ namespace CameraStar
                 v => disableCameraFadeout = !v);
 
             NewCameraSetting(__instance, "fov", "FOV (Field Of View)", typeof(CameraStarMod),
-                __instance.cameraComponent.fieldOfView, minValue: 3f, maxValue: 180f,
-                onChange: v => __instance.cameraComponent.fieldOfView = v);
+                __instance._camera.fieldOfView, minValue: 3f, maxValue: 180f,
+                onChange: v => __instance._camera.fieldOfView = v);
 
             NewCameraSetting(__instance, "clipnear", "Near Clipping", typeof(CameraStarMod), 0f, minValue: 0f, maxValue: 1f,
                 onChange: v => __instance._camera.nearClipPlane = 0.01f + Mathf.Exp(5 * v) - 1);
@@ -64,8 +64,8 @@ namespace CameraStar
                 onChange: v => __instance._camera.farClipPlane = 0.01f + Mathf.Exp(8 * v) - 1);
 
             NewCameraSetting(__instance, "orthographic", "Orthographic", typeof(CameraStarMod),
-                __instance.cameraComponent.orthographic,
-                v => __instance.cameraComponent.orthographic = v);
+                __instance._camera.orthographic,
+                v => __instance._camera.orthographic = v);
         }
     }
 
@@ -112,6 +112,9 @@ namespace CameraStar
 
         public void Enable() => SetState(true);
         public void Disable() => SetState(false);
+
+        public PortableCamera.CaptureMode GetSupportedCaptureModes() => PortableCamera.CaptureMode.All;
+        public bool SupportsCaptureMode(PortableCamera.CaptureMode captureMode) => true;
     }
 
     public class AlphaTransparency : ICameraVisualMod
@@ -142,5 +145,7 @@ namespace CameraStar
         {
             _portable.RestoreLayerMask();
         }
+        public PortableCamera.CaptureMode GetSupportedCaptureModes() => PortableCamera.CaptureMode.All;
+        public bool SupportsCaptureMode(PortableCamera.CaptureMode captureMode) => true;
     }
 }
