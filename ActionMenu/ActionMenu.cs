@@ -20,9 +20,10 @@ using ABI_RC.Core.UI.UIRework.Managers;
 using PlayerSetup = ABI_RC.Core.Player.PlayerSetup;
 using SettingsType = ABI.CCK.Scripts.CVRAdvancedSettingsEntry.SettingsType;
 using MovementSystem = ABI_RC.Systems.Movement.BetterBetterCharacterController;
+using ABI_RC.Systems.Camera;
 
 [assembly:MelonGame(null, "ChilloutVR")]
-[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.13", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly:MelonInfo(typeof(ActionMenu.ActionMenuMod), "Action Menu", "1.1.14", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly:MelonAdditionalDependencies("VRBinding")]
 
 namespace ActionMenu
@@ -814,7 +815,7 @@ namespace ActionMenu
 
             // monitor game changes to update menu items state
             HarmonyInstance.Patch(
-                SymbolExtensions.GetMethodInfo(() => default(CVRCamController).Toggle()),
+                SymbolExtensions.GetMethodInfo(() => default(PortableCameraController).Toggle()),
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(ActionMenuMod), nameof(OnCVRCameraToggle))));
             HarmonyInstance.Patch(
                 SymbolExtensions.GetMethodInfo(() => default(PlayerSetup).SwitchSeatedPlay(default)),
@@ -947,7 +948,7 @@ namespace ActionMenu
             cohtmlView?.View?.TriggerEvent<string>("GameValueUpdate", JsonSerialize(u));
         }
 
-        private static void OnCVRCameraToggle(CVRCamController __instance)
+        private static void OnCVRCameraToggle(PortableCameraController __instance)
         {
             if (cohtmlReadyState < 2) return; // not ready for events
 #if DEBUG
@@ -957,7 +958,7 @@ namespace ActionMenu
             {
                 type = "system call",
                 event_ = "AppToggleCamera",
-                value = __instance?.cvrCamera?.activeSelf ?? false
+                value = __instance?._portableCamera?._camera?.isActiveAndEnabled ?? false
             };
             instance.SendItemUpdate(action);
         }
@@ -1017,7 +1018,7 @@ namespace ActionMenu
         private void ToggleMenu(bool show, bool handleDesktopInputs = true, bool leftSide = true)
         {
 #if DEBUG
-            logger.Msg($"ToggleMenu show={show} , cohtmlView.enabled={cohtmlView.enabled} collider={menuCollider?.enabled} vr={MetaPort.Instance.isUsingVr}");
+            logger.Msg($"ToggleMenu show={show} , cohtmlView.enabled={cohtmlView?.enabled} collider={menuCollider?.enabled} vr={MetaPort.Instance.isUsingVr}");
 #endif
             if (cohtmlView == null || cohtmlView.View == null) return;
 
