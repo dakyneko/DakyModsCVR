@@ -17,7 +17,7 @@ using LfsApi = LagFreeScreenshots.API.LfsApi;
 using PortableCamera = ABI_RC.Systems.Camera.PortableCamera;
 
 [assembly: MelonGame(null, "ChilloutVR")]
-[assembly: MelonInfo(typeof(CameraInstants.CameraInstantsMod), "CameraInstants", "2.0.6", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly: MelonInfo(typeof(CameraInstants.CameraInstantsMod), "CameraInstants", "2.0.7", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly:MelonAdditionalDependencies("LagFreeScreenshots")]
 [assembly:MelonOptionalDependencies("libwebpwrapper",
     // just to silent MelonLoader warnings, those are dependencies of AssetsTools, it works anyway
@@ -32,7 +32,6 @@ public class CameraInstantsMod : MelonMod
     private MelonPreferences_Entry<float> autoSpawnPropSize;
     private MelonPreferences_Entry<string> uploadUsername, uploadKey;
     private MelonPreferences_Entry<int> uploadMaxSize;
-    private Queue<string> autoSpawnPropsGids = new();
     private static bool isWebPInstalled = false;
     private static FileDragDropListener? FileDragDropListener;
 
@@ -242,22 +241,19 @@ public class CameraInstantsMod : MelonMod
         File.Delete(upload.thumbnail);
 
         if (autoSpawnProp.Value)
-            autoSpawnPropsGids.Enqueue(upload.gid); // queue prop for spawning
+            MelonCoroutines.Start(SpawnPropIdCoroutine(upload.gid)); // queue prop for spawning
         logger.Msg($"Done upload in {watch.ElapsedMilliseconds} msec");
+    }
+
+    private System.Collections.IEnumerator SpawnPropIdCoroutine(string gid)
+    {
+        yield return null; // wait one frame
+        logger.Msg($"Spawning auto-uploaded image prop: {gid}");
+        PlayerSetup.Instance.DropProp(gid);
     }
 
     // WebPWrapper may not be installed, so we need to isolate it
     private static Bitmap LoadWebP(string imagePath) => new WebPWrapper.WebP().Load(imagePath);
-
-    public override void OnUpdate()
-    {
-        if (!autoSpawnProp.Value) return;
-        if (autoSpawnPropsGids.Count == 0) return;
-
-        var gid = autoSpawnPropsGids.Dequeue();
-        logger.Msg($"Spawning auto-uploaded image prop: {gid}");
-        PlayerSetup.Instance.DropProp(gid);
-    }
 }
 
 public class OnApplicationFocusCallback : MonoBehaviour
