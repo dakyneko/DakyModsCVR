@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Events;
@@ -17,7 +18,7 @@ using LfsApi = LagFreeScreenshots.API.LfsApi;
 using PortableCamera = ABI_RC.Systems.Camera.PortableCamera;
 
 [assembly: MelonGame(null, "ChilloutVR")]
-[assembly: MelonInfo(typeof(CameraInstants.CameraInstantsMod), "CameraInstants", "2.0.7", "daky", "https://github.com/dakyneko/DakyModsCVR")]
+[assembly: MelonInfo(typeof(CameraInstants.CameraInstantsMod), "CameraInstants", "2.1.0", "daky", "https://github.com/dakyneko/DakyModsCVR")]
 [assembly:MelonAdditionalDependencies("LagFreeScreenshots")]
 [assembly:MelonOptionalDependencies("libwebpwrapper",
     // just to silent MelonLoader warnings, those are dependencies of AssetsTools, it works anyway
@@ -31,7 +32,10 @@ public class CameraInstantsMod : MelonMod
     private MelonPreferences_Entry<bool> myInstantsEnabled, captureAutoPropUpload, autoSpawnProp;
     private MelonPreferences_Entry<float> autoSpawnPropSize;
     private MelonPreferences_Entry<string> uploadUsername, uploadKey;
-    private MelonPreferences_Entry<int> uploadMaxSize;
+    private MelonPreferences_Entry<int> uploadMaxSize, maxInstantProps;
+    // props with this in their description may be replaced by newer instants, users remove it to keep a prop
+    private const string ManagedPropMarker = "Managed by CameraInstants";
+    private static readonly SemaphoreSlim uploadLock = new(1, 1); // so concurrent uploads don't pick the same prop to replace
     private static bool isWebPInstalled = false;
     private static FileDragDropListener? FileDragDropListener;
 
@@ -47,6 +51,7 @@ public class CameraInstantsMod : MelonMod
         uploadUsername = category.CreateEntry("UploadUserName", "", "CCK Username", "Necessary for instants props");
         uploadKey = category.CreateEntry("UploadKey", "", "CCK Key", "Necessary for instants props");
         uploadMaxSize = category.CreateEntry("UploadMaxSize", -1, "Max upload size", "Resize the largest dimension of the image before upload (0 or negative means disabled)");
+        maxInstantProps = category.CreateEntry("MaxInstantProps", 0, "Max instant props", "Once this many instant props are uploaded, replace the oldest one instead of uploading a new prop (0 or negative means only when your account prop limit is reached)");
         // TODO: should listen to events on myInstantsEnabled change and add/rem listener instead
         LfsApi.OnScreenshotTexture += OnScreenshotTexture;
         LfsApi.OnScreenshotSavedV2 += OnScreenshotSaved;
@@ -91,7 +96,7 @@ public class CameraInstantsMod : MelonMod
         return new UploadTask()
         {
             propName = propName ?? ("Picture " + DateTime.Now.ToString("dd MMM, HH:mm:ss")),
-            propDesc = "unattended instants upload",
+            propDesc = $"unattended instants upload\n{ManagedPropMarker}: it may be replaced by newer pictures, remove this line to keep it.",
             username = uploadUsername.Value,
             key = uploadKey.Value,
         };
@@ -201,8 +206,30 @@ public class CameraInstantsMod : MelonMod
 
     private async Task AutoPropTask(string imagePath, string? propName = null)
     {
+        await uploadLock.WaitAsync();
         try { await AutoPropTask_(imagePath, propName); }
         catch (Exception e) { logger.Error($"Error in AutoPropTask: {e}"); }
+        finally { uploadLock.Release(); }
+    }
+
+    // new prop if there is room, otherwise reuse the least recently updated prop we manage
+    private async Task<string> PickPropGid(UploadTask upload)
+    {
+        var (used, limit) = await InstantsPropUploader.GetPropUsage(upload);
+        var max = maxInstantProps.Value;
+        if (used < limit && max <= 0)
+            return await InstantsPropUploader.NewPropGid(upload);
+
+        var managed = (await InstantsPropUploader.ListMyProps(upload))
+            .Where(p => p.description.Contains(ManagedPropMarker))
+            .ToList();
+        if (used < limit && managed.Count < max)
+            return await InstantsPropUploader.NewPropGid(upload);
+
+        if (managed.Count == 0)
+            throw new Exception($"Your account has no free prop slot ({used}/{limit}) and no prop managed by CameraInstants to replace");
+        logger.Msg($"Replacing oldest instant prop {managed[0].gid} ({managed.Count} managed, {used}/{limit} props on account)");
+        return managed[0].gid;
     }
 
     private async Task AutoPropTask_(string imagePath, string? propName = null)
@@ -211,7 +238,7 @@ public class CameraInstantsMod : MelonMod
         watch.Start();
         logger.Msg($"AutoPropTask starting");
         var upload = CreateUploadTask(propName);
-        upload.gid = await InstantsPropUploader.NewPropGid(upload);
+        upload.gid = await PickPropGid(upload);
         logger.Msg($"Requested gid in {watch.ElapsedMilliseconds} msec"); watch.Restart();
 
         var ns = this.GetType().Namespace + ".Resources";
