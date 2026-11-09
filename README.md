@@ -37,6 +37,8 @@ Allows you to control the camera with one hand. It will fly smoothly like a virt
 
 Spawn your photo in-game just after you take it. Mimicking old polaroid cameras which printed the picture instantly.
 
+When uploading instants as props, once your account prop limit (or the "Max instant props" setting) is reached, the oldest instant prop is replaced by the new picture. To keep a prop, remove the "Managed by CameraInstants" line from its description.
+
 ## Camera★
 
 Add new buttons and settings for the camera. So far:

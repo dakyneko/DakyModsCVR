@@ -2,7 +2,9 @@ using MelonLoader;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -39,6 +41,48 @@ public class InstantsPropUploader
         if (gid == null) throw new Exception($"API didn't provide a gid");
 
         return gid;
+    }
+
+    private static async Task<JObject> GetCckData(UploadTask upload, string path)
+    {
+        var client = GetClient(upload);
+        var req = await client.GetAsync($"https://api.abinteractive.net/2/cck/{path}");
+        if (req.StatusCode != HttpStatusCode.OK) throw new Exception($"API error on cck/{path}: {req}");
+        var j = JsonConvert.DeserializeObject(await req.Content.ReadAsStringAsync()) as JObject;
+        return j?.GetValue("Data", StringComparison.OrdinalIgnoreCase) as JObject
+            ?? throw new Exception($"API didn't provide data for cck/{path}");
+    }
+
+    // how many props are uploaded on the account and how many are allowed
+    public static async Task<(int used, int limit)> GetPropUsage(UploadTask upload)
+    {
+        var data = await GetCckData(upload, "userinfo");
+        int Spawnables(string field) =>
+            (data.GetValue(field, StringComparison.OrdinalIgnoreCase) as JObject)
+            ?.GetValue("Spawnables", StringComparison.OrdinalIgnoreCase)?.Value<int>()
+            ?? throw new Exception($"API didn't provide {field}.Spawnables");
+        return (Spawnables("ContentStats"), Spawnables("Limits"));
+    }
+
+    // all props of the account, least recently updated first
+    public static async Task<List<(string gid, string description)>> ListMyProps(UploadTask upload)
+    {
+        var props = new List<(string, string)>();
+        // same paging as the CCK: pages start at 0, stop on empty page
+        for (int page = 0, totalPages = 0; page <= totalPages; ++page)
+        {
+            var data = await GetCckData(upload, $"my/spawnables?page={page}&sortAscending=true&order=LastUpdated");
+            totalPages = data.GetValue("totalPages", StringComparison.OrdinalIgnoreCase)?.Value<int>() ?? 0;
+            var entries = data.GetValue("entries", StringComparison.OrdinalIgnoreCase) as JArray;
+            if (entries == null || entries.Count == 0) break;
+            foreach (var e in entries.OfType<JObject>())
+            {
+                var gid = e.GetValue("id", StringComparison.OrdinalIgnoreCase)?.ToString();
+                if (gid != null)
+                    props.Add((gid, e.GetValue("description", StringComparison.OrdinalIgnoreCase)?.ToString() ?? ""));
+            }
+        }
+        return props;
     }
 
     public static async Task UploadPropBundle(UploadTask upload)
